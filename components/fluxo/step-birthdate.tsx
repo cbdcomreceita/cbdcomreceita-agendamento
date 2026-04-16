@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useRef, useCallback } from "react";
 import { StepNav } from "./step-nav";
 
 function calculateAge(birthDate: string): number | null {
@@ -41,36 +41,47 @@ export function StepBirthDate({ value, onSelect, onNext, onBack }: Props) {
   const [day, setDay] = useState(existing ? String(existing.getDate()).padStart(2, "0") : "");
   const [month, setMonth] = useState(existing ? String(existing.getMonth() + 1).padStart(2, "0") : "");
   const [year, setYear] = useState(existing ? String(existing.getFullYear()) : "");
-  const [age, setAge] = useState<number | null>(null);
-  const [valid, setValid] = useState(false);
+  const [age, setAge] = useState<number | null>(
+    value ? calculateAge(value) : null
+  );
+  const [valid, setValid] = useState(!!value);
+  const onSelectRef = useRef(onSelect);
+  onSelectRef.current = onSelect;
 
-  useEffect(() => {
-    const iso = formatInputDate(day, month, year);
+  const recalc = useCallback((d: string, m: string, y: string) => {
+    const iso = formatInputDate(d, m, y);
     if (iso) {
       const a = calculateAge(iso);
       setAge(a);
-      setValid(a !== null && a >= 0 && a < 130);
-      if (a !== null) {
-        onSelect(iso, a < 18, a > 65);
+      const isValid = a !== null && a >= 0 && a < 130;
+      setValid(isValid);
+      if (a !== null && isValid) {
+        onSelectRef.current(iso, a < 18, a > 65);
       }
     } else {
       setAge(null);
       setValid(false);
     }
-  }, [day, month, year, onSelect]);
+  }, []);
 
-  function handleInput(
-    setter: (v: string) => void,
-    maxLen: number,
-    nextId?: string
-  ) {
-    return (e: React.ChangeEvent<HTMLInputElement>) => {
-      const v = e.target.value.replace(/\D/g, "").slice(0, maxLen);
-      setter(v);
-      if (v.length === maxLen && nextId) {
-        document.getElementById(nextId)?.focus();
-      }
-    };
+  function handleDay(e: React.ChangeEvent<HTMLInputElement>) {
+    const v = e.target.value.replace(/\D/g, "").slice(0, 2);
+    setDay(v);
+    recalc(v, month, year);
+    if (v.length === 2) document.getElementById("birth-month")?.focus();
+  }
+
+  function handleMonth(e: React.ChangeEvent<HTMLInputElement>) {
+    const v = e.target.value.replace(/\D/g, "").slice(0, 2);
+    setMonth(v);
+    recalc(day, v, year);
+    if (v.length === 2) document.getElementById("birth-year")?.focus();
+  }
+
+  function handleYear(e: React.ChangeEvent<HTMLInputElement>) {
+    const v = e.target.value.replace(/\D/g, "").slice(0, 4);
+    setYear(v);
+    recalc(day, month, v);
   }
 
   return (
@@ -93,7 +104,7 @@ export function StepBirthDate({ value, onSelect, onNext, onBack }: Props) {
             inputMode="numeric"
             placeholder="DD"
             value={day}
-            onChange={handleInput(setDay, 2, "birth-month")}
+            onChange={handleDay}
             className="h-14 w-20 rounded-xl border-2 border-brand-sand/60 bg-white text-center text-lg font-semibold text-brand-forest-dark transition-colors focus:border-brand-forest focus:outline-none"
           />
         </div>
@@ -108,7 +119,7 @@ export function StepBirthDate({ value, onSelect, onNext, onBack }: Props) {
             inputMode="numeric"
             placeholder="MM"
             value={month}
-            onChange={handleInput(setMonth, 2, "birth-year")}
+            onChange={handleMonth}
             className="h-14 w-20 rounded-xl border-2 border-brand-sand/60 bg-white text-center text-lg font-semibold text-brand-forest-dark transition-colors focus:border-brand-forest focus:outline-none"
           />
         </div>
@@ -123,7 +134,7 @@ export function StepBirthDate({ value, onSelect, onNext, onBack }: Props) {
             inputMode="numeric"
             placeholder="AAAA"
             value={year}
-            onChange={handleInput(setYear, 4)}
+            onChange={handleYear}
             className="h-14 w-28 rounded-xl border-2 border-brand-sand/60 bg-white text-center text-lg font-semibold text-brand-forest-dark transition-colors focus:border-brand-forest focus:outline-none"
           />
         </div>

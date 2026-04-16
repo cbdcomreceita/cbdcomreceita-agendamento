@@ -27,7 +27,7 @@ export function SlotPicker({ eventTypeSlug, onConfirm }: SlotPickerProps) {
   const fetchSlots = useCallback(async () => {
     setState("loading");
     const start = new Date().toISOString();
-    const end = addDays(new Date(), 7).toISOString();
+    const end = addDays(new Date(), 30).toISOString();
 
     const result = await getAvailableSlots(eventTypeSlug, start, end);
     if (result.length === 0) {
