@@ -56,8 +56,11 @@ export default function AgendaPage() {
         Escolha o melhor horário
       </h1>
 
-      <div className="mt-4">
+      <div className="mt-4 space-y-3">
         <DoctorSummary doctor={doctor} />
+        <p className="text-sm text-brand-text-muted">
+          Duração: 25 minutos&ensp;•&ensp;Valor: <span className="font-semibold text-brand-forest">R$&nbsp;49,90</span>
+        </p>
       </div>
 
       {hasCalcom ? (

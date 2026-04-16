@@ -21,50 +21,84 @@ export async function simulatePaymentApproved(input: SimulateInput) {
   const supabase = createServiceClient();
 
   const doctor = medicos.find((d) => d.id === booking.doctorId);
+  const cpfClean = patient.cpf.replace(/\D/g, "");
+  const phoneClean = patient.phone.replace(/\D/g, "");
+  const cepClean = patient.cep.replace(/\D/g, "");
+
+  // Extract date portion from ISO birthDate
+  const birthDate = patient.birthDate?.slice(0, 10) || null;
+
+  const patientPayload = {
+    full_name: patient.fullName,
+    email: patient.email,
+    phone: phoneClean,
+    cpf: cpfClean,
+    rg: patient.rg,
+    birth_date: birthDate,
+    address_street: patient.street,
+    address_number: patient.number,
+    address_complement: patient.complement || null,
+    address_district: patient.district,
+    address_city: patient.city,
+    address_state: patient.state,
+    address_zipcode: cepClean,
+    selected_symptoms: triage.selectedSymptoms || [],
+    has_current_medication: patient.hasCurrentMedication || false,
+    current_medications: patient.currentMedications || null,
+    prior_cbd_use: triage.priorCbdUse || null,
+    lgpd_consent_at: patient.lgpdConsentAt || new Date().toISOString(),
+    terms_consent_at: patient.termsConsentAt || new Date().toISOString(),
+  };
 
   try {
-    // 1. Upsert patient
-    const cpfClean = patient.cpf.replace(/\D/g, "");
-    const { data: dbPatient, error: patientError } = await supabase
-      .from("patients")
-      .upsert(
-        {
-          full_name: patient.fullName,
-          email: patient.email,
-          phone: patient.phone.replace(/\D/g, ""),
-          cpf: cpfClean,
-          rg: patient.rg,
-          birth_date: patient.birthDate,
-          address_street: patient.street,
-          address_number: patient.number,
-          address_complement: patient.complement || null,
-          address_district: patient.district,
-          address_city: patient.city,
-          address_state: patient.state,
-          address_zipcode: patient.cep.replace(/\D/g, ""),
-          selected_symptoms: triage.selectedSymptoms || [],
-          has_current_medication: patient.hasCurrentMedication,
-          current_medications: patient.currentMedications || null,
-          prior_cbd_use: triage.priorCbdUse || null,
-          lgpd_consent_at: patient.lgpdConsentAt || new Date().toISOString(),
-          terms_consent_at: patient.termsConsentAt || new Date().toISOString(),
-        },
-        { onConflict: "cpf" }
-      )
-      .select()
-      .single();
+    console.log("[Simulate] Patient payload:", JSON.stringify(patientPayload, null, 2));
 
-    if (patientError) {
-      console.error("[Simulate] Patient upsert error:", patientError);
-      return { success: false, error: "Erro ao salvar dados do paciente" };
+    // Try insert first, if CPF exists update
+    let dbPatient;
+    const { data: existing } = await supabase
+      .from("patients")
+      .select("id")
+      .eq("cpf", cpfClean)
+      .maybeSingle();
+
+    if (existing) {
+      const { data, error } = await supabase
+        .from("patients")
+        .update(patientPayload)
+        .eq("id", existing.id)
+        .select()
+        .single();
+      if (error) {
+        console.error("[Simulate] Patient update error:", JSON.stringify(error));
+        return { success: false, error: `Erro ao atualizar paciente: ${error.message}` };
+      }
+      dbPatient = data;
+    } else {
+      const { data, error } = await supabase
+        .from("patients")
+        .insert(patientPayload)
+        .select()
+        .single();
+      if (error) {
+        console.error("[Simulate] Patient insert error:", JSON.stringify(error));
+        return { success: false, error: `Erro ao criar paciente: ${error.message}` };
+      }
+      dbPatient = data;
     }
 
-    // 2. Create booking
+    // 2. Find doctor UUID from Supabase
+    const { data: dbDoctor } = await supabase
+      .from("doctors")
+      .select("id")
+      .eq("name", doctor?.name || "")
+      .maybeSingle();
+
+    // 3. Create booking
     const { data: dbBooking, error: bookingError } = await supabase
       .from("bookings")
       .insert({
         patient_id: dbPatient.id,
-        doctor_id: doctor?.id || null,
+        doctor_id: dbDoctor?.id || null,
         status: "confirmed",
         scheduled_at: booking.scheduledAt,
         scheduled_end_at: booking.scheduledEndAt,
@@ -80,11 +114,11 @@ export async function simulatePaymentApproved(input: SimulateInput) {
       .single();
 
     if (bookingError) {
-      console.error("[Simulate] Booking insert error:", bookingError);
-      return { success: false, error: "Erro ao criar agendamento" };
+      console.error("[Simulate] Booking error:", JSON.stringify(bookingError));
+      return { success: false, error: `Erro ao criar agendamento: ${bookingError.message}` };
     }
 
-    // 3. Create payment
+    // 4. Create payment
     await supabase.from("payments").insert({
       booking_id: dbBooking.id,
       amount_cents: 4990,
@@ -94,7 +128,7 @@ export async function simulatePaymentApproved(input: SimulateInput) {
       external_reference: `sim-${dbBooking.id}`,
     });
 
-    // 4. Try Cal.com booking
+    // 5. Try Cal.com booking
     let meetLink: string | undefined;
     if (doctor?.calcomEventTypeId) {
       const calResult = await createCalcomBooking({
@@ -116,12 +150,10 @@ export async function simulatePaymentApproved(input: SimulateInput) {
             meet_link: calResult.meetLink,
           })
           .eq("id", dbBooking.id);
-      } else {
-        console.warn("[Simulate] Cal.com booking failed:", calResult.error);
       }
     }
 
-    // 5. Try email
+    // 6. Try email
     const dateFormatted = format(
       parseISO(booking.scheduledAt),
       "EEEE, d 'de' MMMM 'de' yyyy 'às' HH:mm",
@@ -138,7 +170,7 @@ export async function simulatePaymentApproved(input: SimulateInput) {
       meetLink,
     });
 
-    // 6. Audit
+    // 7. Audit
     await supabase.from("audit_events").insert({
       event_type: "payment_simulated",
       entity_type: "booking",
@@ -148,7 +180,7 @@ export async function simulatePaymentApproved(input: SimulateInput) {
 
     return { success: true };
   } catch (err) {
-    console.error("[Simulate] Error:", err);
+    console.error("[Simulate] Unhandled error:", err);
     return { success: false, error: String(err) };
   }
 }

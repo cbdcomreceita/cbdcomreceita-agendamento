@@ -1,6 +1,9 @@
 "use client";
 
-import { UserCheck, Scale, FileBox, Eye } from "lucide-react";
+import Link from "next/link";
+import { UserCheck, Scale, FileBox, Eye, ArrowRight } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Section } from "@/components/ui/section";
 import { FadeUp, StaggerContainer, StaggerItem } from "@/components/ui/motion";
 
@@ -59,6 +62,21 @@ export function AboutSection() {
             </StaggerItem>
           ))}
         </StaggerContainer>
+
+        <FadeUp delay={0.4}>
+          <div className="mt-12 text-center">
+            <Link
+              href="/quem-somos"
+              className={cn(
+                buttonVariants({ variant: "outline", size: "lg" }),
+                "border-brand-cream/30 bg-transparent text-brand-cream hover:bg-brand-cream/10 hover:text-brand-cream font-semibold px-8 py-6 transition-all duration-500"
+              )}
+            >
+              Conheça a CBD com Receita
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
+          </div>
+        </FadeUp>
       </div>
     </Section>
   );

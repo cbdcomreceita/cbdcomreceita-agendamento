@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, MessageCircle } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { FadeUp } from "@/components/ui/motion";
@@ -21,7 +21,7 @@ export function CtaSection() {
         </FadeUp>
 
         <FadeUp delay={0.15}>
-          <div className="mt-10">
+          <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Link
               href="/triagem"
               className={cn(
@@ -35,6 +35,18 @@ export function CtaSection() {
               Começar agora
               <ArrowRight className="ml-2 h-5 w-5" />
             </Link>
+            <a
+              href="https://wa.me/5584997048210?text=Ol%C3%A1!%20Gostaria%20de%20tirar%20d%C3%BAvidas%20sobre%20a%20consulta%20e%20o%20tratamento%20com%20CBD."
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(
+                buttonVariants({ variant: "outline", size: "lg" }),
+                "border-brand-cream/30 bg-transparent text-brand-cream hover:bg-brand-cream/10 hover:text-brand-cream text-base px-8 py-6 transition-all duration-500"
+              )}
+            >
+              <MessageCircle className="mr-2 h-4 w-4" />
+              Tirar dúvidas
+            </a>
           </div>
         </FadeUp>
       </div>

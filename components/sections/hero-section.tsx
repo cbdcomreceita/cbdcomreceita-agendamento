@@ -64,7 +64,7 @@ export function HeroSection() {
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
               <a
-                href="https://wa.me/5584997048210"
+                href="https://wa.me/5584997048210?text=Ol%C3%A1!%20J%C3%A1%20tenho%20prescri%C3%A7%C3%A3o%20m%C3%A9dica%20e%20gostaria%20de%20orienta%C3%A7%C3%A3o%20para%20seguir%20com%20o%20processo%20de%20tratamento%20com%20CBD."
                 target="_blank"
                 rel="noopener noreferrer"
                 className={cn(
@@ -92,7 +92,7 @@ export function HeroSection() {
             </div>
           </FadeUp>
 
-          <StaggerContainer className="mt-8 flex flex-wrap items-center justify-center gap-2.5">
+          <StaggerContainer className="mt-8 grid grid-cols-2 gap-2.5 sm:flex sm:flex-wrap sm:items-center sm:justify-center">
             {badges.map((badge) => (
               <StaggerItem key={badge}>
                 <span className="inline-flex items-center rounded-full border border-[#f2efe8]/50 bg-[#f2efe8]/90 px-4 py-2 text-xs font-medium text-brand-forest-dark backdrop-blur-sm sm:text-sm">

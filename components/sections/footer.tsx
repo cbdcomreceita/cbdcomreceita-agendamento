@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Phone, Mail } from "lucide-react";
+import { MessageCircle, Mail } from "lucide-react";
 
 const navLinks = [
   { label: "Quem Somos", href: "#quem-somos" },
@@ -97,17 +97,17 @@ export function Footer() {
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 text-sm text-brand-text-secondary transition-colors hover:text-brand-forest"
                 >
-                  <Phone className="h-4 w-4" />
+                  <MessageCircle className="h-4 w-4" />
                   (84) 99704-8210
                 </a>
               </li>
               <li>
                 <a
-                  href="mailto:cbdcomreceita@gmail.com"
+                  href="mailto:contato@cbdcomreceita.com.br"
                   className="inline-flex items-center gap-2 text-sm text-brand-text-secondary transition-colors hover:text-brand-forest"
                 >
                   <Mail className="h-4 w-4" />
-                  cbdcomreceita@gmail.com
+                  contato@cbdcomreceita.com.br
                 </a>
               </li>
             </ul>

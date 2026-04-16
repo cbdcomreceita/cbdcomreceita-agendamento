@@ -7,51 +7,31 @@ export const faqItems: FaqItem[] = [
   {
     question: "Qual o valor do atendimento médico?",
     answer:
-      "A consulta de avaliação inicial custa R\u00A049,90. O atendimento é realizado online, por videochamada, com médico prescritor.",
+      "A avaliação médica inicial tem valor de R\u00A049,90 e é realizada por profissional habilitado, mediante análise individualizada do caso.",
   },
   {
     question: "A consulta garante a emissão de receita?",
     answer:
-      "A prescrição depende da avaliação médica individualizada. O médico só prescreve quando há indicação clínica.",
+      "Não. A prescrição depende exclusivamente da avaliação clínica do médico. A indicação do tratamento ocorre apenas quando houver critério técnico e respaldo médico adequado.",
   },
   {
     question: "Existe custo para a consultoria de importação?",
     answer:
-      "A consultoria de importação e acompanhamento regulatório é um serviço à parte, com valores apresentados após a consulta quando aplicável.",
+      "Não. A consultoria de orientação para acesso ao tratamento é gratuita. Nossa equipe auxilia o paciente na organização do processo via plataforma da Anvisa e no direcionamento a fornecedores internacionais quando houver prescrição médica.",
   },
   {
     question: "De onde vêm os medicamentos?",
     answer:
-      "Os produtos são importados de fabricantes internacionais autorizados, seguindo os critérios regulatórios da Anvisa.",
+      "Os produtos são importados de fornecedores internacionais que seguem critérios técnicos e regulatórios compatíveis com as exigências aplicáveis no Brasil. A CBD com Receita organiza e conduz toda a conexão entre paciente, prescrição médica e fornecedor, oferecendo suporte ao longo do processo regulatório via plataforma da Anvisa. A aquisição do produto ocorre diretamente entre paciente e fornecedor internacional autorizado.",
   },
   {
     question: "O atendimento é online?",
     answer:
-      "Sim. A consulta é realizada por videochamada via Google Meet, de qualquer lugar do Brasil.",
+      "Sim. Todo o processo é realizado de forma online, desde a avaliação médica até a organização regulatória necessária para acesso ao tratamento. Após a prescrição, a condução da importação é realizada com suporte estruturado, e o produto é entregue diretamente no domicílio do paciente.",
   },
   {
     question: "Já tenho prescrição. Posso seguir direto?",
     answer:
-      "Sim. Entre em contato pelo nosso WhatsApp que orientamos os próximos passos para quem já possui receita médica.",
-  },
-  {
-    question: "O que é CBD?",
-    answer:
-      "O canabidiol (CBD) é um dos compostos da planta Cannabis, utilizado em tratamentos médicos para diversas condições como ansiedade, dor crônica e distúrbios do sono. Seu uso medicinal é regulamentado pela Anvisa no Brasil.",
-  },
-  {
-    question: "É legal no Brasil?",
-    answer:
-      "Sim. Desde 2015 a Anvisa autoriza o uso medicinal do CBD, mediante prescrição médica e autorização de importação.",
-  },
-  {
-    question: "E se eu não comparecer à consulta?",
-    answer:
-      "Caso não compareça ou atrase mais de 10 minutos, será necessário um novo agendamento com pagamento.",
-  },
-  {
-    question: "Como meus dados são protegidos?",
-    answer:
-      "Seguimos a Lei Geral de Proteção de Dados (LGPD). Seus dados são criptografados e utilizados exclusivamente para fins do tratamento médico.",
+      "Sim. Se você já possui prescrição válida, nossa equipe orienta sobre as etapas seguintes para condução do tratamento.",
   },
 ];

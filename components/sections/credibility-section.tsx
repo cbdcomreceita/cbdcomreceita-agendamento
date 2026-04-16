@@ -5,7 +5,7 @@ import { FadeUp } from "@/components/ui/motion";
 
 export function CredibilitySection() {
   return (
-    <section id="credibilidade" className="bg-brand-cream px-5 pb-20 pt-10 sm:px-8 sm:pb-28 sm:pt-14">
+    <section id="credibilidade" className="bg-brand-cream px-5 pb-12 pt-10 sm:px-8 sm:pb-16 sm:pt-14">
       <div className="mx-auto max-w-2xl text-center">
         <FadeUp>
           <div className="mx-auto mb-8 flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-forest/8">
