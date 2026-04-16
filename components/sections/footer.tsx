@@ -25,9 +25,9 @@ export function Footer() {
             <Image
               src="/images/logo_vertical_transparente.png"
               alt="CBD com Receita"
-              width={120}
-              height={80}
-              className="h-16 w-auto"
+              width={240}
+              height={200}
+              className="h-32 w-auto"
             />
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-brand-text-secondary">
               Plataforma médica individualizada para tratamento com CBD.

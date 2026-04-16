@@ -44,16 +44,16 @@ export function Header() {
           : "bg-transparent"
       )}
     >
-      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 sm:h-24 sm:px-8">
+      <div className="mx-auto flex h-24 max-w-7xl items-center justify-between px-5 sm:h-32 sm:px-8">
         {/* Logo */}
         <Link href="/" className="relative shrink-0">
           <Image
             src="/images/logo_horizontal_transparente.png"
             alt="CBD com Receita"
-            width={200}
-            height={80}
+            width={400}
+            height={160}
             className={cn(
-              "h-14 w-auto transition-all duration-500 sm:h-20",
+              "h-20 w-auto transition-all duration-500 sm:h-28",
               scrolled ? "" : "brightness-0 invert"
             )}
             priority
