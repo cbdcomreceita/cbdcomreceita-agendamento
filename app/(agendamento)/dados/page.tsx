@@ -43,8 +43,12 @@ function Label({ htmlFor, children, required }: { htmlFor: string; children: Rea
   );
 }
 
-const inputClass =
-  "w-full rounded-xl border-2 border-brand-sand/60 bg-white px-4 py-3 text-sm text-brand-text placeholder:text-brand-text-muted/50 transition-colors focus:border-brand-forest focus:outline-none disabled:bg-brand-sand/20 disabled:text-brand-text-muted";
+const inputBase =
+  "w-full rounded-xl border-2 bg-white px-4 py-3 text-sm text-brand-text placeholder:text-brand-text-muted/50 transition-colors focus:outline-none disabled:bg-brand-sand/20 disabled:text-brand-text-muted";
+
+function inputClass(hasError?: boolean) {
+  return cn(inputBase, hasError ? "border-brand-error focus:border-brand-error" : "border-brand-sand/60 focus:border-brand-forest");
+}
 
 export default function DadosPage() {
   const router = useRouter();
@@ -58,12 +62,15 @@ export default function DadosPage() {
   const [birthDateEditing, setBirthDateEditing] = useState(false);
   const [birthDateDisplay, setBirthDateDisplay] = useState("");
 
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
   const {
     register,
     handleSubmit,
     setValue,
     watch,
-    formState: { errors },
+    getValues,
+    formState: { errors: rhfErrors },
   } = useForm<PatientFormData>({
     defaultValues: {
       hasCurrentMedication: false,
@@ -71,6 +78,11 @@ export default function DadosPage() {
       termsConsent: false as unknown as true,
     },
   });
+
+  // Merge RHF errors with Zod errors
+  const errors = { ...rhfErrors, ...Object.fromEntries(
+    Object.entries(fieldErrors).map(([k, v]) => [k, { message: v }])
+  ) } as typeof rhfErrors;
 
   useEffect(() => {
     const triage = loadTriageData();
@@ -139,9 +151,23 @@ export default function DadosPage() {
   const termsChecked = watch("termsConsent");
 
   async function onSubmit(data: PatientFormData) {
-    // Validate with Zod
+    setFieldErrors({});
+
     const result = patientSchema.safeParse(data);
-    if (!result.success) return;
+    if (!result.success) {
+      const errs: Record<string, string> = {};
+      for (const issue of result.error.issues) {
+        const key = String(issue.path[0]);
+        if (!errs[key]) errs[key] = issue.message;
+      }
+      setFieldErrors(errs);
+
+      // Scroll to first error
+      const firstKey = Object.keys(errs)[0];
+      const el = document.getElementById(firstKey);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
 
     setSubmitting(true);
     savePatientData(result.data);
@@ -186,13 +212,13 @@ export default function DadosPage() {
           <div className="space-y-4">
             <div>
               <Label htmlFor="fullName" required>Nome completo</Label>
-              <input id="fullName" {...register("fullName")} placeholder="Nome e sobrenome" className={inputClass} />
+              <input id="fullName" {...register("fullName")} placeholder="Nome e sobrenome" className={inputClass(!!errors.fullName)} />
               <FieldError message={errors.fullName?.message} />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <Label htmlFor="email" required>E-mail</Label>
-                <input id="email" type="email" {...register("email")} placeholder="seu@email.com" className={inputClass} />
+                <input id="email" type="email" {...register("email")} placeholder="seu@email.com" className={inputClass(!!errors.email)} />
                 <FieldError message={errors.email?.message} />
               </div>
               <div>
@@ -205,7 +231,7 @@ export default function DadosPage() {
                     onChange: (e) => { e.target.value = maskPhone(e.target.value); },
                   })}
                   placeholder="(84) 99999-9999"
-                  className={inputClass}
+                  className={inputClass(!!errors.phone)}
                 />
                 <FieldError message={errors.phone?.message} />
               </div>
@@ -220,13 +246,13 @@ export default function DadosPage() {
                     onChange: (e) => { e.target.value = maskCpf(e.target.value); },
                   })}
                   placeholder="000.000.000-00"
-                  className={inputClass}
+                  className={inputClass(!!errors.cpf)}
                 />
                 <FieldError message={errors.cpf?.message} />
               </div>
               <div>
                 <Label htmlFor="rg" required>RG</Label>
-                <input id="rg" {...register("rg")} placeholder="Número do RG" className={inputClass} />
+                <input id="rg" {...register("rg")} placeholder="Número do RG" className={inputClass(!!errors.rg)} />
                 <FieldError message={errors.rg?.message} />
               </div>
             </div>
@@ -251,7 +277,7 @@ export default function DadosPage() {
                   id="birthDate"
                   type="date"
                   {...register("birthDate")}
-                  className={cn(inputClass, "max-w-xs")}
+                  className={cn(inputClass(!!errors.birthDate), "max-w-xs")}
                 />
               )}
               <FieldError message={errors.birthDate?.message} />
@@ -276,7 +302,7 @@ export default function DadosPage() {
                     onBlur: handleCepBlur,
                   })}
                   placeholder="00000-000"
-                  className={inputClass}
+                  className={inputClass(!!errors.cep)}
                 />
                 {cepLoading && (
                   <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-brand-forest-light" />
@@ -286,34 +312,34 @@ export default function DadosPage() {
             </div>
             <div>
               <Label htmlFor="street" required>Rua</Label>
-              <input id="street" {...register("street")} placeholder="Rua, avenida..." className={inputClass} />
+              <input id="street" {...register("street")} placeholder="Rua, avenida..." className={inputClass(!!errors.street)} />
               <FieldError message={errors.street?.message} />
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
               <div>
                 <Label htmlFor="number" required>Número</Label>
-                <input id="number" {...register("number")} placeholder="Nº" className={inputClass} />
+                <input id="number" {...register("number")} placeholder="Nº" className={inputClass(!!errors.number)} />
                 <FieldError message={errors.number?.message} />
               </div>
               <div className="sm:col-span-2">
                 <Label htmlFor="complement">Complemento</Label>
-                <input id="complement" {...register("complement")} placeholder="Apto, sala..." className={inputClass} />
+                <input id="complement" {...register("complement")} placeholder="Apto, sala..." className={inputClass()} />
               </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
               <div>
                 <Label htmlFor="district" required>Bairro</Label>
-                <input id="district" {...register("district")} placeholder="Bairro" className={inputClass} />
+                <input id="district" {...register("district")} placeholder="Bairro" className={inputClass(!!errors.district)} />
                 <FieldError message={errors.district?.message} />
               </div>
               <div>
                 <Label htmlFor="city" required>Cidade</Label>
-                <input id="city" {...register("city")} placeholder="Cidade" className={inputClass} />
+                <input id="city" {...register("city")} placeholder="Cidade" className={inputClass(!!errors.city)} />
                 <FieldError message={errors.city?.message} />
               </div>
               <div>
                 <Label htmlFor="state" required>Estado</Label>
-                <select id="state" {...register("state")} className={inputClass}>
+                <select id="state" {...register("state")} className={inputClass(!!errors.state)}>
                   <option value="">UF</option>
                   {UF_OPTIONS.map((uf) => (
                     <option key={uf} value={uf}>{uf}</option>
@@ -349,8 +375,9 @@ export default function DadosPage() {
                 <label className="flex items-center gap-2 text-sm text-brand-text">
                   <input
                     type="radio"
-                    value="true"
-                    {...register("hasCurrentMedication", { setValueAs: (v) => v === "true" })}
+                    name="hasMed"
+                    checked={hasMed === true}
+                    onChange={() => setValue("hasCurrentMedication", true)}
                     className="accent-brand-forest"
                   />
                   Sim
@@ -358,17 +385,21 @@ export default function DadosPage() {
                 <label className="flex items-center gap-2 text-sm text-brand-text">
                   <input
                     type="radio"
-                    value="false"
-                    {...register("hasCurrentMedication", { setValueAs: (v) => v === "true" })}
+                    name="hasMed"
+                    checked={hasMed === false}
+                    onChange={() => {
+                      setValue("hasCurrentMedication", false);
+                      setValue("currentMedications", "");
+                    }}
                     className="accent-brand-forest"
                   />
                   Não
                 </label>
               </div>
-              {hasMed && (
+              {hasMed === true && (
                 <div className="mt-3">
                   <Label htmlFor="currentMedications" required>Qual medicamento?</Label>
-                  <input id="currentMedications" {...register("currentMedications")} placeholder="Nome do medicamento" className={inputClass} />
+                  <input id="currentMedications" {...register("currentMedications")} placeholder="Nome do medicamento" className={inputClass()} />
                 </div>
               )}
             </div>
@@ -434,7 +465,7 @@ export default function DadosPage() {
         {/* Submit */}
         <Button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || !lgpdChecked || !termsChecked}
           className="w-full bg-brand-forest text-brand-cream hover:bg-brand-forest-hover font-semibold py-6 text-base shadow-lg shadow-brand-forest/20 transition-all duration-500 disabled:opacity-50"
           data-track="form_completed"
         >
