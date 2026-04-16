@@ -53,7 +53,7 @@ export function Header() {
             width={160}
             height={40}
             className={cn(
-              "h-9 w-auto transition-all duration-500",
+              "h-11 w-auto transition-all duration-500 sm:h-14",
               scrolled ? "" : "brightness-0 invert"
             )}
             priority

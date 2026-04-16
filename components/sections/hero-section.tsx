@@ -95,7 +95,7 @@ export function HeroSection() {
           <StaggerContainer className="mt-8 flex flex-wrap items-center justify-center gap-2.5">
             {badges.map((badge) => (
               <StaggerItem key={badge}>
-                <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-medium text-white backdrop-blur-sm sm:text-sm">
+                <span className="inline-flex items-center rounded-full border border-[#f2efe8]/50 bg-[#f2efe8]/90 px-4 py-2 text-xs font-medium text-brand-forest-dark backdrop-blur-sm sm:text-sm">
                   {badge}
                 </span>
               </StaggerItem>
