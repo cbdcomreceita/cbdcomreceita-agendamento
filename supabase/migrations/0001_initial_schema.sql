@@ -1,0 +1,10 @@
+-- CBD com Receita — Initial Schema
+-- ====================================
+-- Este arquivo é um PLACEHOLDER.
+-- Cole aqui o SQL real do schema antes de aplicar.
+--
+-- Como aplicar:
+-- 1. Abra o Supabase Dashboard → SQL Editor
+-- 2. Cole o conteúdo deste arquivo
+-- 3. Execute
+-- 4. Gere os tipos: npx supabase gen types typescript --project-id <id> > lib/supabase/types.ts
