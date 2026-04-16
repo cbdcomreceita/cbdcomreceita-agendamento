@@ -21,6 +21,7 @@ import {
   checkPaymentStatus,
   type PixPaymentResult,
 } from "@/lib/mercadopago/actions";
+import { simulatePaymentApproved } from "@/lib/mercadopago/simulate";
 import { medicos, type Medico } from "@/data/medicos";
 import { cn } from "@/lib/utils";
 
@@ -120,10 +121,26 @@ export default function PagamentoPage() {
     toast.success("Código PIX copiado!");
   }, [pixData]);
 
-  function handleSimulatePayment() {
-    setState("approved");
+  async function handleSimulatePayment() {
     if (pollRef.current) clearInterval(pollRef.current);
     if (countdownRef.current) clearInterval(countdownRef.current);
+
+    const triage = loadTriageData();
+    const booking = loadBookingData();
+    const patient = loadPatientData();
+
+    if (booking && patient?.fullName) {
+      const result = await simulatePaymentApproved({
+        patient: patient as Parameters<typeof simulatePaymentApproved>[0]["patient"],
+        booking,
+        triage,
+      });
+      if (!result.success) {
+        console.error("[Simulate] Failed:", result.error);
+      }
+    }
+
+    setState("approved");
     setTimeout(() => router.push("/confirmacao"), 2000);
   }
 
