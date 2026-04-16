@@ -19,7 +19,7 @@ export function HeroSection() {
     <section className="relative min-h-[600px] px-4 py-20 sm:px-6 sm:py-28 lg:py-36 overflow-hidden">
       {/* Background image */}
       <Image
-        src="https://images.unsplash.com/photo-1631217868264-e5b90bb7e133?w=1920&q=80"
+        src="/images/fundo_medico.png"
         alt=""
         fill
         priority

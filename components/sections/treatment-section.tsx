@@ -19,8 +19,8 @@ export function TreatmentSection() {
         <FadeUp>
           <div className="relative mx-auto aspect-[4/3] w-full max-w-md overflow-hidden rounded-2xl">
             <Image
-              src="https://images.unsplash.com/photo-1616671276441-2f2c277b8bf6?w=800&q=80"
-              alt="Gotejador de óleo CBD — tratamento com canabidiol"
+              src="/images/fundo_escritorio.png"
+              alt="Ambiente de consultório médico"
               fill
               className="object-cover"
               sizes="(max-width: 1024px) 100vw, 50vw"
