@@ -27,7 +27,7 @@ export function Footer() {
               alt="CBD com Receita"
               width={240}
               height={200}
-              className="h-32 w-auto"
+              className="h-40 w-auto"
             />
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-brand-text-secondary">
               Plataforma médica individualizada para tratamento com CBD.

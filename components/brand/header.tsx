@@ -44,7 +44,7 @@ export function Header() {
           : "bg-transparent"
       )}
     >
-      <div className="mx-auto flex h-24 max-w-7xl items-center justify-between px-5 sm:h-32 sm:px-8">
+      <div className="mx-auto flex h-28 max-w-7xl items-center justify-between px-5 sm:h-40 sm:px-8">
         {/* Logo */}
         <Link href="/" className="relative shrink-0">
           <Image
@@ -53,7 +53,7 @@ export function Header() {
             width={400}
             height={160}
             className={cn(
-              "h-20 w-auto transition-all duration-500 sm:h-28",
+              "h-24 w-auto transition-all duration-500 sm:h-36",
               scrolled ? "" : "brightness-0 invert"
             )}
             priority
