@@ -1,17 +1,80 @@
+import type { Metadata } from "next";
+import { HeroSection } from "@/components/sections/hero-section";
+import { CredibilitySection } from "@/components/sections/credibility-section";
+import { ConditionsSection } from "@/components/sections/conditions-section";
+import { TreatmentSection } from "@/components/sections/treatment-section";
+import { HowItWorksSection } from "@/components/sections/how-it-works-section";
+import { DoctorsSection } from "@/components/sections/doctors-section";
+import { QualitySection } from "@/components/sections/quality-section";
+import { AboutSection } from "@/components/sections/about-section";
+import { FaqSection, FaqJsonLd } from "@/components/sections/faq-section";
+import { CtaSection } from "@/components/sections/cta-section";
+import { Footer } from "@/components/sections/footer";
+
+export const metadata: Metadata = {
+  title: {
+    absolute: "CBD com Receita — Plataforma médica estruturada para tratamento com CBD",
+  },
+  description:
+    "Da avaliação clínica à entrega domiciliar, estruturamos todo o processo com critério médico e conformidade regulatória. Consulta online R$49,90.",
+  openGraph: {
+    title: "CBD com Receita — Plataforma médica para tratamento com CBD",
+    description:
+      "Conectamos você a médicos especializados em tratamentos com CBD. Consulta online com segurança e responsabilidade.",
+    type: "website",
+    locale: "pt_BR",
+    url: "/",
+  },
+};
+
+function MedicalBusinessJsonLd() {
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{
+        __html: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "MedicalBusiness",
+          name: "CBD com Receita",
+          description:
+            "Plataforma médica estruturada para acesso seguro a tratamentos com CBD. Avaliação clínica individualizada, conformidade regulatória e entrega domiciliar.",
+          url: "https://cbdcomreceita.com.br",
+          telephone: "+5584997048210",
+          email: "cbdcomreceita@gmail.com",
+          address: {
+            "@type": "PostalAddress",
+            addressCountry: "BR",
+          },
+          medicalSpecialty: "Psychiatric",
+          availableService: {
+            "@type": "MedicalTherapy",
+            name: "Avaliação médica para tratamento com CBD",
+            description:
+              "Consulta online individualizada com médico prescritor para avaliação de tratamento com canabidiol.",
+          },
+          priceRange: "R$49,90",
+        }),
+      }}
+    />
+  );
+}
+
 export default function HomePage() {
   return (
-    <main className="flex flex-1 flex-col items-center justify-center px-6 py-24 text-center">
-      <h1 className="text-4xl font-bold tracking-tight text-brand-forest-dark sm:text-5xl">
-        CBD com Receita
-      </h1>
-      <p className="mt-4 max-w-md text-lg leading-relaxed text-brand-text-secondary">
-        Plataforma médica para acesso seguro a tratamentos com CBD.
-      </p>
-      <div className="mt-8 rounded-lg border border-brand-sand bg-white/60 px-6 py-4">
-        <p className="text-sm text-brand-text-muted">
-          Em construção — em breve conectaremos você a médicos especializados.
-        </p>
-      </div>
-    </main>
+    <>
+      <MedicalBusinessJsonLd />
+      <FaqJsonLd />
+      <HeroSection />
+      <CredibilitySection />
+      <ConditionsSection />
+      <TreatmentSection />
+      <HowItWorksSection />
+      <DoctorsSection />
+      <QualitySection />
+      <AboutSection />
+      <FaqSection />
+      <CtaSection />
+      <Footer />
+    </>
   );
 }
