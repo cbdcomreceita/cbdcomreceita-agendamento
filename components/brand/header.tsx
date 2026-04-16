@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { Menu, X, ArrowRight } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
@@ -45,11 +46,18 @@ export function Header() {
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-8">
         {/* Logo */}
-        <Link
-          href="/"
-          className="text-lg font-bold text-brand-forest-dark transition-colors"
-        >
-          CBD com Receita
+        <Link href="/" className="relative shrink-0">
+          <Image
+            src="/images/logo_horizontal_transparente.png"
+            alt="CBD com Receita"
+            width={160}
+            height={40}
+            className={cn(
+              "h-9 w-auto transition-all duration-500",
+              scrolled ? "" : "brightness-0 invert"
+            )}
+            priority
+          />
         </Link>
 
         {/* Desktop nav */}
@@ -59,7 +67,12 @@ export function Header() {
               key={href}
               href={href}
               onClick={(e) => handleNavClick(e, href)}
-              className="text-sm font-medium text-brand-text-secondary transition-colors duration-300 hover:text-brand-forest"
+              className={cn(
+                "text-sm font-medium transition-colors duration-300",
+                scrolled
+                  ? "text-brand-text-secondary hover:text-brand-forest"
+                  : "text-white/80 hover:text-white"
+              )}
             >
               {label}
             </a>
@@ -71,7 +84,10 @@ export function Header() {
           href="/triagem"
           className={cn(
             buttonVariants({ size: "sm" }),
-            "hidden bg-brand-forest text-brand-cream hover:bg-brand-forest-hover font-semibold shadow-sm transition-all duration-500 md:inline-flex"
+            "hidden font-semibold shadow-sm transition-all duration-500 md:inline-flex",
+            scrolled
+              ? "bg-brand-forest text-brand-cream hover:bg-brand-forest-hover"
+              : "bg-white/15 text-white backdrop-blur-sm hover:bg-white/25 border border-white/20"
           )}
         >
           Agendar Avaliação
@@ -82,7 +98,12 @@ export function Header() {
         <button
           type="button"
           onClick={() => setMobileOpen(!mobileOpen)}
-          className="flex h-10 w-10 items-center justify-center rounded-xl text-brand-forest-dark transition-colors hover:bg-brand-forest/5 md:hidden"
+          className={cn(
+            "flex h-10 w-10 items-center justify-center rounded-xl transition-colors md:hidden",
+            scrolled
+              ? "text-brand-forest-dark hover:bg-brand-forest/5"
+              : "text-white hover:bg-white/10"
+          )}
           aria-label={mobileOpen ? "Fechar menu" : "Abrir menu"}
           aria-expanded={mobileOpen}
         >

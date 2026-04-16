@@ -28,10 +28,9 @@ export function HeroSection() {
         className="object-cover"
         sizes="100vw"
       />
-      {/* Overlay: top dark, middle transparent, bottom cream */}
-      <div className="absolute inset-0 bg-gradient-to-b from-brand-forest-dark/60 via-transparent to-transparent" />
-      <div className="absolute inset-x-0 bottom-0 h-[20%] bg-brand-cream" />
-      <div className="absolute inset-x-0 bottom-[20%] h-[25%] bg-gradient-to-b from-transparent to-brand-cream" />
+      {/* Overlay: strong dark top → mid → seamless cream bottom */}
+      <div className="absolute inset-0 bg-gradient-to-b from-brand-forest-dark/80 via-brand-forest-dark/50 to-brand-forest-dark/30" />
+      <div className="absolute inset-x-0 bottom-0 h-[30%] bg-gradient-to-b from-transparent to-[#f2efe8]" />
 
       {/* Content */}
       <div className="relative flex min-h-[85vh] flex-col justify-center px-5 pt-24 sm:px-8 sm:pt-28">

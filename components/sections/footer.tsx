@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Phone, Mail } from "lucide-react";
 
@@ -21,10 +22,14 @@ export function Footer() {
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           {/* Brand */}
           <div className="sm:col-span-2 lg:col-span-1">
-            <span className="text-xl font-bold text-brand-forest-dark">
-              CBD com Receita
-            </span>
-            <p className="mt-3 max-w-xs text-sm leading-relaxed text-brand-text-secondary">
+            <Image
+              src="/images/logo_vertical_transparente.png"
+              alt="CBD com Receita"
+              width={120}
+              height={80}
+              className="h-16 w-auto"
+            />
+            <p className="mt-4 max-w-xs text-sm leading-relaxed text-brand-text-secondary">
               Plataforma médica individualizada para tratamento com CBD.
               Atendimento online em todo o Brasil.
             </p>
