@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { saveTriageData, loadTriageData } from "@/lib/triagem/storage";
 import { matchDoctor } from "@/lib/triagem/matcher";
-import { StepBirthDate } from "@/components/fluxo/step-birthdate";
 import { StepSymptoms } from "@/components/fluxo/step-symptoms";
+import { StepBirthDate } from "@/components/fluxo/step-birthdate";
 import { StepDuration } from "@/components/fluxo/step-duration";
 import { StepTreatment } from "@/components/fluxo/step-treatment";
 import { StepCbd } from "@/components/fluxo/step-cbd";
@@ -22,16 +22,14 @@ export default function TriagemPage() {
   const [data, setData] = useState<Partial<TriageData>>({});
   const [loaded, setLoaded] = useState(false);
 
-  // Load persisted data
   useEffect(() => {
     const saved = loadTriageData();
-    if (saved.birthDate) {
+    if (saved.selectedSymptoms?.length) {
       setData(saved);
-      // Resume at furthest completed step
       if (saved.priorCbdUse) setStep(5);
       else if (saved.priorTreatment) setStep(4);
       else if (saved.duration) setStep(3);
-      else if (saved.selectedSymptoms?.length) setStep(2);
+      else if (saved.birthDate) setStep(2);
     }
     setLoaded(true);
   }, []);
@@ -49,7 +47,6 @@ export default function TriagemPage() {
       setDirection(1);
       setStep((s) => s + 1);
     } else {
-      // Final step — match doctor and navigate
       const result = matchDoctor(data.selectedSymptoms ?? [], {
         isMinor: data.isMinor,
         isElderly: data.isElderly,
@@ -84,18 +81,18 @@ export default function TriagemPage() {
             className="mt-8"
           >
             {step === 1 && (
+              <StepSymptoms
+                selected={data.selectedSymptoms ?? []}
+                onSelect={(slugs) => updateData({ selectedSymptoms: slugs })}
+                onNext={goNext}
+              />
+            )}
+            {step === 2 && (
               <StepBirthDate
                 value={data.birthDate}
                 onSelect={(birthDate, isMinor, isElderly) =>
                   updateData({ birthDate, isMinor, isElderly })
                 }
-                onNext={goNext}
-              />
-            )}
-            {step === 2 && (
-              <StepSymptoms
-                selected={data.selectedSymptoms ?? []}
-                onSelect={(slugs) => updateData({ selectedSymptoms: slugs })}
                 onNext={goNext}
                 onBack={goBack}
               />

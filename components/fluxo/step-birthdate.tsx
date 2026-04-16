@@ -33,9 +33,10 @@ interface Props {
   value?: string;
   onSelect: (birthDate: string, isMinor: boolean, isElderly: boolean) => void;
   onNext: () => void;
+  onBack?: () => void;
 }
 
-export function StepBirthDate({ value, onSelect, onNext }: Props) {
+export function StepBirthDate({ value, onSelect, onNext, onBack }: Props) {
   const existing = value ? new Date(value) : null;
   const [day, setDay] = useState(existing ? String(existing.getDate()).padStart(2, "0") : "");
   const [month, setMonth] = useState(existing ? String(existing.getMonth() + 1).padStart(2, "0") : "");
@@ -75,10 +76,10 @@ export function StepBirthDate({ value, onSelect, onNext }: Props) {
   return (
     <div>
       <h2 className="text-2xl font-bold tracking-tight text-brand-forest-dark sm:text-3xl">
-        Qual sua data de nascimento?
+        Qual a data de nascimento do paciente?
       </h2>
       <p className="mt-2 text-sm text-brand-text-secondary">
-        Precisamos dessa informação para direcionar você ao médico adequado
+        Se você está agendando para outra pessoa, informe a data de nascimento dela.
       </p>
 
       <div className="mt-8 flex items-center gap-3">
@@ -144,7 +145,7 @@ export function StepBirthDate({ value, onSelect, onNext }: Props) {
         </p>
       )}
 
-      <StepNav onNext={onNext} nextDisabled={!valid} />
+      <StepNav onNext={onNext} onBack={onBack} nextDisabled={!valid} />
     </div>
   );
 }

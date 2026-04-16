@@ -8,7 +8,7 @@ import { saveBookingData } from "@/lib/calcom/storage";
 import { medicos, type Medico } from "@/data/medicos";
 import { FlowBreadcrumb } from "@/components/fluxo/flow-breadcrumb";
 import { DoctorSummary } from "@/components/fluxo/doctor-summary";
-import { CalEmbed } from "@/components/fluxo/cal-embed";
+import { SlotPicker } from "@/components/fluxo/slot-picker";
 
 export default function AgendaPage() {
   const router = useRouter();
@@ -26,24 +26,16 @@ export default function AgendaPage() {
     setLoaded(true);
   }, [router]);
 
-  const handleBookingSuccess = useCallback(
-    (data: Record<string, unknown>) => {
+  const handleSlotConfirm = useCallback(
+    (slot: { date: string; time: string; timeEnd: string }) => {
       if (!doctor) return;
-
-      const scheduledAt =
-        (data.date as string) || new Date().toISOString();
-      const duration = (data.duration as number) || 30;
-      const endDate = new Date(
-        new Date(scheduledAt).getTime() + duration * 60 * 1000
-      ).toISOString();
 
       saveBookingData({
         doctorId: doctor.id,
         doctorName: doctor.name,
-        scheduledAt,
-        scheduledEndAt: endDate,
-        duration,
-        calcomBookingUid: (data.uid as string) || undefined,
+        scheduledAt: slot.time,
+        scheduledEndAt: slot.timeEnd,
+        duration: 30,
       });
 
       router.push("/dados");
@@ -54,14 +46,13 @@ export default function AgendaPage() {
   if (!loaded || !doctor) return null;
 
   const hasCalcom = !!doctor.calcomSlug && doctor.id === "carol";
-  const calLink = `cbdcomreceita/${doctor.calcomSlug}`;
 
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-5 py-8 sm:px-8 sm:py-12">
       <FlowBreadcrumb currentStep="agenda" />
 
       <h1 className="text-2xl font-bold tracking-tight text-brand-forest-dark sm:text-3xl">
-        Agende sua consulta
+        Escolha o melhor horário
       </h1>
 
       <div className="mt-4">
@@ -69,11 +60,13 @@ export default function AgendaPage() {
       </div>
 
       {hasCalcom ? (
-        <div className="mt-8" data-track="calendar_viewed">
-          <CalEmbed calLink={calLink} onBookingSuccess={handleBookingSuccess} />
+        <div className="mt-8">
+          <SlotPicker
+            eventTypeSlug={doctor.calcomSlug}
+            onConfirm={handleSlotConfirm}
+          />
         </div>
       ) : (
-        /* Fallback for doctors without Cal.com event type */
         <div className="mt-8 flex flex-col items-center rounded-2xl border border-brand-sand bg-white p-8 text-center shadow-sm sm:p-10">
           <p className="text-base font-medium text-brand-text">
             {doctor.name} estará disponível em breve
