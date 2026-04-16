@@ -34,7 +34,9 @@ export async function createClient() {
  * Use ONLY in Server Actions, API routes, and webhooks.
  */
 export function createServiceClient() {
-  return createJsClient<Database>(
+  // Untyped until we generate types from Supabase CLI
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return createJsClient<any>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
