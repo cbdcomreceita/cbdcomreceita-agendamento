@@ -90,9 +90,20 @@ export function SlotPicker({ eventTypeId, onConfirm }: SlotPickerProps) {
 
   if (state === "loading") {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-brand-sand bg-white p-12">
-        <Loader2 className="h-8 w-8 animate-spin text-brand-forest-light" />
-        <p className="text-sm text-brand-text-muted">Buscando horários disponíveis...</p>
+      <div className="grid gap-4 sm:grid-cols-3">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="rounded-2xl border border-brand-sand/60 bg-white p-4">
+            <div className="mb-3 space-y-2">
+              <div className="mx-auto h-4 w-20 animate-pulse rounded bg-brand-sand/60" />
+              <div className="mx-auto h-3 w-16 animate-pulse rounded bg-brand-sand/40" />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {[0, 1, 2, 3].map((j) => (
+                <div key={j} className="h-9 w-16 animate-pulse rounded-xl bg-brand-sand/40" />
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     );
   }

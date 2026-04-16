@@ -87,7 +87,7 @@ export default function ConfirmacaoPage() {
         </div>
 
         {/* Booking details */}
-        <div className="mt-8 space-y-4 rounded-2xl border border-brand-sand/60 bg-white p-6 shadow-sm sm:p-8">
+        <div className="mt-8 space-y-4 rounded-2xl border border-brand-sand/60 border-l-4 border-l-brand-forest bg-white p-6 shadow-sm sm:p-8">
           <DoctorSummary doctor={doctor} />
 
           <div className="space-y-3 text-sm">
