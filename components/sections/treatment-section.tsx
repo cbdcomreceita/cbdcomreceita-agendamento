@@ -1,6 +1,7 @@
 "use client";
 
-import { CheckCircle2, Droplets } from "lucide-react";
+import Image from "next/image";
+import { CheckCircle2 } from "lucide-react";
 import { Section } from "@/components/ui/section";
 import { FadeUp } from "@/components/ui/motion";
 
@@ -14,10 +15,16 @@ export function TreatmentSection() {
   return (
     <Section id="tratamento" bg="white">
       <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
-        {/* Imagem / placeholder */}
+        {/* Imagem */}
         <FadeUp>
-          <div className="mx-auto flex aspect-[4/3] w-full max-w-md items-center justify-center rounded-2xl bg-brand-sand/60">
-            <Droplets className="h-20 w-20 text-brand-forest-light/50" />
+          <div className="relative mx-auto aspect-[4/3] w-full max-w-md overflow-hidden rounded-2xl">
+            <Image
+              src="https://images.unsplash.com/photo-1616671276441-2f2c277b8bf6?w=800&q=80"
+              alt="Gotejador de óleo CBD — tratamento com canabidiol"
+              fill
+              className="object-cover"
+              sizes="(max-width: 1024px) 100vw, 50vw"
+            />
           </div>
         </FadeUp>
 

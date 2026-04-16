@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, MessageCircle } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
@@ -15,9 +16,20 @@ const badges = [
 
 export function HeroSection() {
   return (
-    <section className="relative bg-brand-forest px-4 py-20 sm:px-6 sm:py-28 lg:py-36 overflow-hidden">
-      {/* Gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-brand-forest-dark/40 via-transparent to-brand-forest-light/20" />
+    <section className="relative min-h-[600px] px-4 py-20 sm:px-6 sm:py-28 lg:py-36 overflow-hidden">
+      {/* Background image */}
+      <Image
+        src="https://images.unsplash.com/photo-1631217868264-e5b90bb7e133?w=1920&q=80"
+        alt=""
+        fill
+        priority
+        className="object-cover"
+        sizes="100vw"
+      />
+      {/* Dark overlay for legibility */}
+      <div className="absolute inset-0 bg-brand-forest-dark/75" />
+      {/* Subtle gradient */}
+      <div className="absolute inset-0 bg-gradient-to-br from-brand-forest-dark/30 via-transparent to-brand-forest-light/10" />
 
       <div className="relative mx-auto max-w-4xl text-center">
         <FadeUp>
@@ -27,7 +39,7 @@ export function HeroSection() {
         </FadeUp>
 
         <FadeUp delay={0.15}>
-          <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-brand-cream/85 sm:text-lg sm:leading-relaxed">
+          <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-brand-cream/90 sm:text-lg sm:leading-relaxed">
             Da avaliação clínica à entrega domiciliar, estruturamos todo o
             processo com critério médico e conformidade regulatória.
           </p>
@@ -69,7 +81,7 @@ export function HeroSection() {
         <StaggerContainer className="mt-12 flex flex-wrap items-center justify-center gap-3">
           {badges.map((badge) => (
             <StaggerItem key={badge}>
-              <span className="inline-flex items-center rounded-full border border-brand-cream/20 bg-brand-cream/10 px-4 py-2 text-xs font-semibold tracking-wide text-brand-cream sm:text-sm">
+              <span className="inline-flex items-center rounded-full border border-brand-cream/20 bg-brand-cream/10 px-4 py-2 text-xs font-semibold tracking-wide text-brand-cream backdrop-blur-sm sm:text-sm">
                 {badge}
               </span>
             </StaggerItem>

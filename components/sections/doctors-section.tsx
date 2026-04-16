@@ -17,20 +17,20 @@ function DoctorAvatar({
 }) {
   if (photoUrl) {
     return (
-      <div className="relative h-24 w-24 overflow-hidden rounded-full border-2 border-brand-sand">
+      <div className="relative h-28 w-28 overflow-hidden rounded-full border-3 border-brand-sand shadow-md">
         <Image
           src={photoUrl}
           alt={`Foto de ${name}`}
           fill
-          className="object-cover"
-          sizes="96px"
+          className="object-cover object-top"
+          sizes="112px"
         />
       </div>
     );
   }
 
   return (
-    <div className="flex h-24 w-24 items-center justify-center rounded-full bg-brand-forest-light text-2xl font-bold text-brand-cream">
+    <div className="flex h-28 w-28 items-center justify-center rounded-full bg-brand-forest-light text-2xl font-bold text-brand-cream shadow-md">
       {initials}
     </div>
   );
