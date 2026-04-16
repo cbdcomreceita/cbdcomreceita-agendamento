@@ -6,6 +6,8 @@ import { useForm } from "react-hook-form";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Loader2, ArrowRight, ExternalLink } from "lucide-react";
+import { trackEvent } from "@/lib/analytics/track";
+import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -170,6 +172,7 @@ export default function DadosPage() {
     }
 
     setSubmitting(true);
+    trackEvent(ANALYTICS_EVENTS.FORM_COMPLETED);
     savePatientData(result.data);
     router.push("/pagamento");
   }

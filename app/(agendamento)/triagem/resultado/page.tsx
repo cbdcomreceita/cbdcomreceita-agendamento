@@ -8,6 +8,8 @@ import { ArrowRight, CalendarCheck, User } from "lucide-react";
 import { motion } from "framer-motion";
 import { loadTriageData } from "@/lib/triagem/storage";
 import { matchDoctor, type MatchResult } from "@/lib/triagem/matcher";
+import { trackEvent } from "@/lib/analytics/track";
+import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -43,6 +45,7 @@ export default function ResultadoPage() {
       isElderly: data.isElderly,
     });
     setResult(match);
+    trackEvent(ANALYTICS_EVENTS.DOCTOR_MATCHED, { doctor: match.doctor.name });
     if (data.isMinor) {
       setAgeNote("Direcionamos você para a Dra. Lilian, especialista no atendimento de crianças e adolescentes.");
     } else if (data.isElderly) {

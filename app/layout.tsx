@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Source_Sans_3, Source_Serif_4 } from "next/font/google";
 import { Toaster } from "sonner";
+import { GTMProvider } from "@/components/analytics/gtm-provider";
+import { GA4Provider } from "@/components/analytics/ga4-provider";
+import { MetaPixel } from "@/components/analytics/meta-pixel";
 import "./globals.css";
 
 const sourceSans = Source_Sans_3({
@@ -42,6 +45,15 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "CBD com Receita",
   },
+  keywords: ["CBD", "canabidiol", "tratamento CBD", "consulta médica CBD", "prescrição CBD", "médico CBD"],
+  openGraph: {
+    type: "website",
+    locale: "pt_BR",
+    siteName: "CBD com Receita",
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
   robots: {
     index: true,
     follow: true,
@@ -68,6 +80,9 @@ export default function RootLayout({
         </a>
         {children}
         <Toaster richColors position="top-right" />
+        <GTMProvider />
+        <GA4Provider />
+        <MetaPixel />
       </body>
     </html>
   );

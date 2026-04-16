@@ -22,6 +22,8 @@ import {
   type PixPaymentResult,
 } from "@/lib/mercadopago/actions";
 import { simulatePaymentApproved } from "@/lib/mercadopago/simulate";
+import { trackEvent } from "@/lib/analytics/track";
+import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
 import { medicos, type Medico } from "@/data/medicos";
 import { cn } from "@/lib/utils";
 
@@ -66,6 +68,7 @@ export default function PagamentoPage() {
       .then((result) => {
         setPixData(result);
         setState("awaiting");
+        trackEvent(ANALYTICS_EVENTS.PAYMENT_INITIATED);
       })
       .catch(() => {
         setState("error");
@@ -80,6 +83,7 @@ export default function PagamentoPage() {
       const result = await checkPaymentStatus(pixData.mpPaymentId);
       if (result.status === "approved") {
         setState("approved");
+        trackEvent(ANALYTICS_EVENTS.PAYMENT_COMPLETED);
         if (pollRef.current) clearInterval(pollRef.current);
         setTimeout(() => router.push("/confirmacao"), 2000);
       }
@@ -141,6 +145,7 @@ export default function PagamentoPage() {
     }
 
     setState("approved");
+    trackEvent(ANALYTICS_EVENTS.PAYMENT_COMPLETED);
     setTimeout(() => router.push("/confirmacao"), 2000);
   }
 

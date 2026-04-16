@@ -7,6 +7,8 @@ import { Check, Loader2, MessageCircle, RefreshCw, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { getAvailableSlots, type DaySlots } from "@/lib/calcom/availability";
+import { trackEvent } from "@/lib/analytics/track";
+import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
 
 type PickerState = "loading" | "ready" | "error" | "empty";
 
@@ -33,6 +35,7 @@ export function SlotPicker({ eventTypeId, onConfirm }: SlotPickerProps) {
       } else {
         setDays(result);
         setState("ready");
+        trackEvent(ANALYTICS_EVENTS.CALENDAR_VIEWED);
       }
     } catch {
       setState("error");
@@ -71,6 +74,7 @@ export function SlotPicker({ eventTypeId, onConfirm }: SlotPickerProps) {
   function selectSlot(time: string) {
     setSelectedSlot(time);
     setReservedAt(Date.now());
+    trackEvent(ANALYTICS_EVENTS.SLOT_SELECTED, { time });
   }
 
   function handleConfirm() {
