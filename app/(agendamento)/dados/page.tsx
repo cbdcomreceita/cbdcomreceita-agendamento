@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { format, parseISO } from "date-fns";
@@ -55,6 +55,8 @@ export default function DadosPage() {
   const [cepLoading, setCepLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [birthDateEditing, setBirthDateEditing] = useState(false);
+  const [birthDateDisplay, setBirthDateDisplay] = useState("");
 
   const {
     register,
@@ -98,7 +100,10 @@ export default function DadosPage() {
 
     // Pre-fill birth date from triage
     if (triage.birthDate) {
-      setValue("birthDate", triage.birthDate);
+      const bd = triage.birthDate.slice(0, 10); // YYYY-MM-DD
+      setValue("birthDate", bd);
+      const d = parseISO(triage.birthDate);
+      setBirthDateDisplay(format(d, "dd/MM/yyyy"));
     }
 
     // Load saved patient data if any
@@ -227,12 +232,28 @@ export default function DadosPage() {
             </div>
             <div>
               <Label htmlFor="birthDate" required>Data de nascimento</Label>
-              <input
-                id="birthDate"
-                type="date"
-                {...register("birthDate")}
-                className={cn(inputClass, "max-w-xs")}
-              />
+              {birthDateDisplay && !birthDateEditing ? (
+                <div className="flex items-center gap-3">
+                  <span className="rounded-xl border-2 border-brand-sand/60 bg-brand-sand/20 px-4 py-3 text-sm font-medium text-brand-text">
+                    {birthDateDisplay}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setBirthDateEditing(true)}
+                    className="text-xs font-medium text-brand-forest underline underline-offset-2 hover:text-brand-forest-dark"
+                  >
+                    Alterar
+                  </button>
+                  <input type="hidden" {...register("birthDate")} />
+                </div>
+              ) : (
+                <input
+                  id="birthDate"
+                  type="date"
+                  {...register("birthDate")}
+                  className={cn(inputClass, "max-w-xs")}
+                />
+              )}
               <FieldError message={errors.birthDate?.message} />
             </div>
           </div>
