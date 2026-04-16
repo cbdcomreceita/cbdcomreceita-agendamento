@@ -41,7 +41,7 @@ create table config (
 
 insert into config (key, value, description) values
   ('consultation_price_cents', '4990', 'Preço da consulta em centavos (R$49,90)'),
-  ('consultation_duration_minutes', '30', 'Duração da consulta em minutos'),
+  ('consultation_duration_minutes', '25', 'Duração da consulta em minutos'),
   ('min_age', '0', 'Idade mínima permitida (0 = sem limite)'),
   ('booking_buffer_minutes', '15', 'Buffer entre consultas'),
   ('booking_min_notice_hours', '24', 'Antecedência mínima pra agendar'),

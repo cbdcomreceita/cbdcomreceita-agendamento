@@ -36,7 +36,7 @@ export default function AgendaPage() {
         doctorName: doctor.name,
         scheduledAt: slot.time,
         scheduledEndAt: slot.timeEnd,
-        duration: 30,
+        duration: 25,
       });
 
       router.push("/dados");

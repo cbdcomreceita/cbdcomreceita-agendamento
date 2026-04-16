@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CheckCircle2, CalendarCheck, Video, ArrowRight } from "lucide-react";
+import {
+  CheckCircle2, CalendarCheck, Video, Clock, User,
+  ArrowRight, MessageCircle,
+} from "lucide-react";
 import { motion } from "framer-motion";
 import { buttonVariants } from "@/components/ui/button";
 import { FlowBreadcrumb } from "@/components/fluxo/flow-breadcrumb";
@@ -43,13 +46,15 @@ export default function ConfirmacaoPage() {
     );
 
     setLoaded(true);
-
-    // Clear session data after showing confirmation
-    return () => {
-      clearTriageData();
-      clearBookingData();
-    };
   }, [router]);
+
+  function handleGoHome() {
+    clearTriageData();
+    clearBookingData();
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("patient_data_v1");
+    }
+  }
 
   if (!loaded || !doctor) return null;
 
@@ -74,10 +79,10 @@ export default function ConfirmacaoPage() {
             <CheckCircle2 className="h-10 w-10 text-brand-success" />
           </motion.div>
           <h1 className="mt-5 text-2xl font-bold tracking-tight text-brand-forest-dark sm:text-3xl">
-            Consulta confirmada!
+            Consulta agendada com sucesso!
           </h1>
           <p className="mt-2 text-sm text-brand-text-secondary sm:text-base">
-            Você receberá os detalhes por e-mail e WhatsApp.
+            Você receberá uma confirmação por e-mail e WhatsApp.
           </p>
         </div>
 
@@ -94,6 +99,20 @@ export default function ConfirmacaoPage() {
               </div>
             </div>
             <div className="flex items-start gap-3">
+              <Clock className="mt-0.5 h-4 w-4 shrink-0 text-brand-forest" />
+              <div>
+                <p className="font-medium text-brand-text">Duração</p>
+                <p className="text-brand-text-secondary">25 minutos</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <User className="mt-0.5 h-4 w-4 shrink-0 text-brand-forest" />
+              <div>
+                <p className="font-medium text-brand-text">Paciente</p>
+                <p className="text-brand-text-secondary">{patientName}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
               <Video className="mt-0.5 h-4 w-4 shrink-0 text-brand-forest" />
               <div>
                 <p className="font-medium text-brand-text">Formato</p>
@@ -102,22 +121,30 @@ export default function ConfirmacaoPage() {
                 </p>
               </div>
             </div>
-          </div>
-
-          <div className="h-px bg-brand-sand/40" />
-
-          <div className="rounded-xl bg-brand-cream/50 p-4">
-            <p className="text-sm leading-relaxed text-brand-text-secondary">
-              <strong className="text-brand-text">Importante:</strong> compareça com até 5 minutos de antecedência.
-              Atrasos superiores a 10 minutos poderão resultar em necessidade de novo agendamento.
-            </p>
+            <div className="flex items-start gap-3">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-success" />
+              <div>
+                <p className="font-semibold text-brand-success">Pagamento confirmado</p>
+              </div>
+            </div>
           </div>
         </div>
 
+        {/* Important info */}
+        <div className="mt-6 rounded-2xl bg-brand-sand/40 p-5 sm:p-6">
+          <h3 className="text-sm font-semibold text-brand-forest-dark">Informações importantes</h3>
+          <ul className="mt-3 space-y-2 text-sm leading-relaxed text-brand-text-secondary">
+            <li>• Você receberá uma confirmação por e-mail e WhatsApp</li>
+            <li>• O link do Google Meet será enviado antes da consulta</li>
+            <li>• Em caso de atraso superior a 10 minutos, será necessário novo agendamento</li>
+          </ul>
+        </div>
+
         {/* Actions */}
-        <div className="mt-8 flex flex-col items-center gap-4">
+        <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <Link
             href="/"
+            onClick={handleGoHome}
             className={cn(
               buttonVariants({ size: "lg" }),
               "bg-brand-forest text-brand-cream hover:bg-brand-forest-hover font-semibold px-8 py-6"
@@ -126,6 +153,18 @@ export default function ConfirmacaoPage() {
             Voltar para o início
             <ArrowRight className="ml-2 h-4 w-4" />
           </Link>
+          <a
+            href="https://wa.me/5584997048210"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(
+              buttonVariants({ variant: "outline", size: "lg" }),
+              "border-brand-forest/20 text-brand-forest hover:bg-brand-forest/5 px-8 py-6"
+            )}
+          >
+            <MessageCircle className="mr-2 h-4 w-4" />
+            Falar no WhatsApp
+          </a>
         </div>
       </motion.div>
     </div>

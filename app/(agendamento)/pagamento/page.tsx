@@ -166,7 +166,7 @@ export default function PagamentoPage() {
             </div>
             <div className="flex justify-between">
               <span className="text-brand-text-muted">Duração</span>
-              <span className="text-brand-text">30 minutos</span>
+              <span className="text-brand-text">25 minutos</span>
             </div>
             <div className="flex justify-between">
               <span className="text-brand-text-muted">Paciente</span>
