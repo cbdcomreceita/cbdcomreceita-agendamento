@@ -10,6 +10,7 @@ import { FlowBreadcrumb } from "@/components/fluxo/flow-breadcrumb";
 import { DoctorSummary } from "@/components/fluxo/doctor-summary";
 import { SlotPicker } from "@/components/fluxo/slot-picker";
 
+
 export default function AgendaPage() {
   const router = useRouter();
   const [doctor, setDoctor] = useState<Medico | null>(null);
@@ -45,7 +46,7 @@ export default function AgendaPage() {
 
   if (!loaded || !doctor) return null;
 
-  const hasCalcom = !!doctor.calcomSlug && doctor.id === "carol";
+  const hasCalcom = !!doctor.calcomEventTypeId;
 
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-5 py-8 sm:px-8 sm:py-12">
@@ -62,7 +63,7 @@ export default function AgendaPage() {
       {hasCalcom ? (
         <div className="mt-8">
           <SlotPicker
-            eventTypeSlug={doctor.calcomSlug}
+            eventTypeId={doctor.calcomEventTypeId!}
             onConfirm={handleSlotConfirm}
           />
         </div>

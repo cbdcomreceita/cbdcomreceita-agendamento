@@ -11,6 +11,7 @@ export interface Medico {
   handlesMinors: boolean;
   handlesElderly: boolean;
   calcomSlug: string;
+  calcomEventTypeId: number | null;
   specialties: string[];
 }
 
@@ -27,7 +28,8 @@ export const medicos: Medico[] = [
     globalPriority: 1,
     handlesMinors: false,
     handlesElderly: false,
-    calcomSlug: "consulta",
+    calcomSlug: "30min",
+    calcomEventTypeId: 5362724,
     specialties: [
       "Ansiedade",
       "Insônia",
@@ -56,6 +58,7 @@ export const medicos: Medico[] = [
     handlesMinors: true,
     handlesElderly: true,
     calcomSlug: "consulta-lilian",
+    calcomEventTypeId: null,
     specialties: [
       "Dor crônica",
       "Fibromialgia",
@@ -77,6 +80,7 @@ export const medicos: Medico[] = [
     handlesMinors: false,
     handlesElderly: false,
     calcomSlug: "consulta-magno",
+    calcomEventTypeId: null,
     specialties: [
       "Alcoolismo",
       "Obesidade",

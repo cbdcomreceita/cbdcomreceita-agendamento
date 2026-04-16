@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { format, addDays, parseISO } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Check, Loader2, MessageCircle, RefreshCw, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,11 +13,11 @@ type PickerState = "loading" | "ready" | "error" | "empty";
 const RESERVATION_MINUTES = 15;
 
 interface SlotPickerProps {
-  eventTypeSlug: string;
+  eventTypeId: number;
   onConfirm: (slot: { date: string; time: string; timeEnd: string }) => void;
 }
 
-export function SlotPicker({ eventTypeSlug, onConfirm }: SlotPickerProps) {
+export function SlotPicker({ eventTypeId, onConfirm }: SlotPickerProps) {
   const [state, setState] = useState<PickerState>("loading");
   const [days, setDays] = useState<DaySlots[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
@@ -26,18 +26,18 @@ export function SlotPicker({ eventTypeSlug, onConfirm }: SlotPickerProps) {
 
   const fetchSlots = useCallback(async () => {
     setState("loading");
-    const start = new Date().toISOString();
-    const end = addDays(new Date(), 30).toISOString();
-
-    const result = await getAvailableSlots(eventTypeSlug, start, end);
-    if (result.length === 0) {
-      setState("empty");
-    } else {
-      // Show only first 3 days with slots
-      setDays(result.slice(0, 3));
-      setState("ready");
+    try {
+      const result = await getAvailableSlots(eventTypeId);
+      if (result.length === 0) {
+        setState("empty");
+      } else {
+        setDays(result);
+        setState("ready");
+      }
+    } catch {
+      setState("error");
     }
-  }, [eventTypeSlug]);
+  }, [eventTypeId]);
 
   useEffect(() => {
     fetchSlots();

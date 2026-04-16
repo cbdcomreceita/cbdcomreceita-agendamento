@@ -1,5 +1,7 @@
 "use server";
 
+import { addDays } from "date-fns";
+
 export interface TimeSlot {
   time: string; // ISO string
 }
@@ -10,42 +12,40 @@ export interface DaySlots {
 }
 
 /**
- * Fetch available slots from Cal.com API.
- * Returns slots for the given date range.
+ * Fetch available slots from Cal.com API v2.
+ * Searches next 30 days, returns only days with slots, max 3 days.
  */
 export async function getAvailableSlots(
-  eventTypeSlug: string,
-  startDate: string,
-  endDate: string
+  eventTypeId: number
 ): Promise<DaySlots[]> {
   const apiKey = process.env.CALCOM_API_KEY;
   if (!apiKey) {
-    console.error("CALCOM_API_KEY not set");
+    console.error("[Cal.com] CALCOM_API_KEY not set");
     return [];
   }
 
-  const username = "cbdcomreceita";
-  const url = new URL("https://api.cal.com/v1/slots/available");
-  url.searchParams.set("apiKey", apiKey);
-  url.searchParams.set("eventTypeSlug", eventTypeSlug);
-  url.searchParams.set("username", username);
-  url.searchParams.set("startTime", startDate);
-  url.searchParams.set("endTime", endDate);
+  const startTime = new Date().toISOString();
+  const endTime = addDays(new Date(), 30).toISOString();
+
+  const url = new URL("https://api.cal.com/v2/slots/available");
+  url.searchParams.set("eventTypeId", String(eventTypeId));
+  url.searchParams.set("startTime", startTime);
+  url.searchParams.set("endTime", endTime);
 
   try {
     const res = await fetch(url.toString(), {
-      next: { revalidate: 60 }, // cache for 1 min
+      headers: { Authorization: `Bearer ${apiKey}` },
+      cache: "no-store",
     });
 
     if (!res.ok) {
-      console.error("Cal.com API error:", res.status, await res.text());
+      const body = await res.text();
+      console.error("[Cal.com] API error:", res.status, body);
       return [];
     }
 
-    const data = await res.json();
-
-    // Cal.com returns { slots: { "YYYY-MM-DD": [{ time: "..." }] } }
-    const slotsMap = data.slots as Record<string, TimeSlot[]> | undefined;
+    const json = await res.json();
+    const slotsMap = json?.data?.slots as Record<string, TimeSlot[]> | undefined;
     if (!slotsMap) return [];
 
     const result: DaySlots[] = [];
@@ -55,12 +55,10 @@ export async function getAvailableSlots(
       }
     }
 
-    // Sort by date
     result.sort((a, b) => a.date.localeCompare(b.date));
-
-    return result;
+    return result.slice(0, 3);
   } catch (err) {
-    console.error("Failed to fetch Cal.com slots:", err);
+    console.error("[Cal.com] Failed to fetch slots:", err);
     return [];
   }
 }
