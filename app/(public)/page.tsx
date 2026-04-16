@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
+import { Header } from "@/components/brand/header";
+import { WhatsAppButton } from "@/components/brand/whatsapp-button";
+import { CookieBanner } from "@/components/brand/cookie-banner";
 import { HeroSection } from "@/components/sections/hero-section";
 import { CredibilitySection } from "@/components/sections/credibility-section";
 import { ConditionsSection } from "@/components/sections/conditions-section";
 import { TreatmentSection } from "@/components/sections/treatment-section";
 import { HowItWorksSection } from "@/components/sections/how-it-works-section";
+import { SocialProofSection } from "@/components/sections/social-proof-section";
 import { DoctorsSection } from "@/components/sections/doctors-section";
 import { QualitySection } from "@/components/sections/quality-section";
 import { AboutSection } from "@/components/sections/about-section";
@@ -16,7 +20,7 @@ export const metadata: Metadata = {
     absolute: "CBD com Receita — Plataforma médica estruturada para tratamento com CBD",
   },
   description:
-    "Da avaliação clínica à entrega domiciliar, estruturamos todo o processo com critério médico e conformidade regulatória. Consulta online R$49,90.",
+    "Plataforma médica para tratamento com CBD. Avaliação clínica, conformidade regulatória e entrega domiciliar. Consulta online R$49,90.",
   openGraph: {
     title: "CBD com Receita — Plataforma médica para tratamento com CBD",
     description:
@@ -64,17 +68,23 @@ export default function HomePage() {
     <>
       <MedicalBusinessJsonLd />
       <FaqJsonLd />
-      <HeroSection />
-      <CredibilitySection />
-      <ConditionsSection />
-      <TreatmentSection />
-      <HowItWorksSection />
-      <DoctorsSection />
-      <QualitySection />
-      <AboutSection />
-      <FaqSection />
-      <CtaSection />
+      <Header />
+      <main id="conteudo-principal">
+        <HeroSection />
+        <CredibilitySection />
+        <ConditionsSection />
+        <TreatmentSection />
+        <HowItWorksSection />
+        <SocialProofSection />
+        <DoctorsSection />
+        <QualitySection />
+        <AboutSection />
+        <FaqSection />
+        <CtaSection />
+      </main>
       <Footer />
+      <WhatsAppButton />
+      <CookieBanner />
     </>
   );
 }

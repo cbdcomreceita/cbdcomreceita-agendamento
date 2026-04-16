@@ -71,7 +71,7 @@ export function HowItWorksSection() {
             data-track-section="como-funciona"
             data-track-label="agendar_avaliacao"
           >
-            Agendar Avaliação com Prescritor
+            Agendar minha consulta
             <ArrowRight className="ml-2 h-4 w-4" />
           </Link>
         </div>

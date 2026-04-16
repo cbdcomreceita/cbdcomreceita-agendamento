@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, MessageCircle } from "lucide-react";
+import { ArrowRight, MessageCircle, ChevronDown } from "lucide-react";
+import { motion } from "framer-motion";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { FadeUp, StaggerContainer, StaggerItem } from "@/components/ui/motion";
@@ -16,7 +17,7 @@ const badges = [
 
 export function HeroSection() {
   return (
-    <section className="bg-brand-cream px-5 sm:px-8">
+    <section id="hero" className="relative bg-brand-cream px-5 pt-24 sm:px-8 sm:pt-28">
       <div className="mx-auto max-w-7xl py-10 sm:py-16 lg:py-20">
         <div className="grid items-center gap-10 lg:grid-cols-[1fr_1.15fr] lg:gap-16 xl:gap-20">
           {/* Text column */}
@@ -67,6 +68,18 @@ export function HeroSection() {
               </div>
             </FadeUp>
 
+            {/* Price + trust microcopy */}
+            <FadeUp delay={0.4}>
+              <div className="mt-6">
+                <p className="text-sm font-semibold text-brand-forest">
+                  Consulta online por R$&nbsp;49,90
+                </p>
+                <p className="mt-1.5 text-xs text-brand-text-muted">
+                  Pagamento seguro via PIX&ensp;•&ensp;Atendimento online&ensp;•&ensp;Sigilo garantido
+                </p>
+              </div>
+            </FadeUp>
+
             <StaggerContainer className="mt-8 flex flex-wrap gap-2.5">
               {badges.map((badge) => (
                 <StaggerItem key={badge}>
@@ -84,19 +97,30 @@ export function HeroSection() {
               <div className="relative aspect-[4/5] sm:aspect-[3/4] lg:aspect-[4/5]">
                 <Image
                   src="/images/fundo_medico.png"
-                  alt="Médica em ambiente de consultório"
+                  alt="Profissional de saúde em consultório médico estruturado para atendimento com CBD"
                   fill
                   priority
+                  fetchPriority="high"
                   className="object-cover"
                   sizes="(max-width: 1024px) 100vw, 55vw"
                 />
-                {/* Gradient overlay — bottom-left to integrate with bg */}
                 <div className="absolute inset-0 bg-gradient-to-t from-brand-forest-dark/30 via-transparent to-transparent" />
                 <div className="absolute inset-0 bg-gradient-to-r from-brand-forest-dark/15 via-transparent to-transparent" />
               </div>
             </div>
           </FadeUp>
         </div>
+      </div>
+
+      {/* Scroll indicator */}
+      <div className="flex justify-center pb-6">
+        <motion.div
+          animate={{ y: [0, 8, 0] }}
+          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+          className="text-brand-forest-light/40"
+        >
+          <ChevronDown className="h-6 w-6" />
+        </motion.div>
       </div>
     </section>
   );

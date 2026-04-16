@@ -32,7 +32,7 @@ export function CtaSection() {
               data-track-section="cta-final"
               data-track-label="agendar_avaliacao"
             >
-              Agendar Avaliação com Prescritor
+              Começar agora
               <ArrowRight className="ml-2 h-5 w-5" />
             </Link>
           </div>

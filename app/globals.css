@@ -124,4 +124,10 @@
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-source-sans), system-ui, sans-serif;
   }
+  /* Focus ring — accessibility */
+  :focus-visible {
+    outline: 2px solid var(--brand-forest);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
 }
