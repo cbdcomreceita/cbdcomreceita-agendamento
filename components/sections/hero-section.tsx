@@ -17,110 +17,103 @@ const badges = [
 
 export function HeroSection() {
   return (
-    <section id="hero" className="relative bg-brand-cream px-5 pt-24 sm:px-8 sm:pt-28">
-      <div className="mx-auto max-w-7xl py-10 sm:py-16 lg:py-20">
-        <div className="grid items-center gap-10 lg:grid-cols-[1fr_1.15fr] lg:gap-16 xl:gap-20">
-          {/* Text column */}
-          <div className="order-2 lg:order-1">
-            <FadeUp>
-              <h1 className="text-4xl font-bold leading-[1.1] tracking-tight text-brand-forest-dark sm:text-5xl lg:text-[56px] xl:text-[64px]">
-                Plataforma médica estruturada para tratamento com CBD
-              </h1>
-            </FadeUp>
+    <section id="hero" className="relative min-h-[85vh] overflow-hidden">
+      {/* Background image */}
+      <Image
+        src="/images/fundo_medico.png"
+        alt="Profissional de saúde em consultório médico estruturado para atendimento com CBD"
+        fill
+        priority
+        fetchPriority="high"
+        className="object-cover"
+        sizes="100vw"
+      />
+      {/* Overlay: top dark, middle transparent, bottom cream */}
+      <div className="absolute inset-0 bg-gradient-to-b from-brand-forest-dark/60 via-transparent to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 h-[20%] bg-brand-cream" />
+      <div className="absolute inset-x-0 bottom-[20%] h-[25%] bg-gradient-to-b from-transparent to-brand-cream" />
 
-            <FadeUp delay={0.15}>
-              <p className="mt-6 max-w-lg text-base leading-relaxed text-brand-text-secondary sm:text-lg sm:leading-[1.8] lg:mt-8">
-                Da avaliação clínica à entrega domiciliar, estruturamos todo o
-                processo com critério médico e conformidade regulatória.
-              </p>
-            </FadeUp>
+      {/* Content */}
+      <div className="relative flex min-h-[85vh] flex-col justify-center px-5 pt-24 sm:px-8 sm:pt-28">
+        <div className="mx-auto w-full max-w-4xl text-center">
+          <FadeUp>
+            <h1 className="text-4xl font-bold leading-[1.1] tracking-tight text-white drop-shadow-sm sm:text-5xl lg:text-[56px] xl:text-[64px]">
+              Plataforma médica estruturada para tratamento com CBD
+            </h1>
+          </FadeUp>
 
-            <FadeUp delay={0.3}>
-              <div className="mt-10 flex flex-col gap-4 sm:flex-row">
-                <Link
-                  href="/triagem"
-                  className={cn(
-                    buttonVariants({ size: "lg" }),
-                    "bg-brand-forest text-brand-cream hover:bg-brand-forest-hover font-semibold text-base px-8 py-6 shadow-lg shadow-brand-forest/20 transition-all duration-500"
-                  )}
-                  data-track="cta_clicked"
-                  data-track-section="hero"
-                  data-track-label="agendar_avaliacao"
-                >
-                  Agendar Avaliação com Prescritor
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-                <a
-                  href="https://wa.me/5584997048210"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={cn(
-                    buttonVariants({ variant: "outline", size: "lg" }),
-                    "border-brand-forest/20 bg-transparent text-brand-forest hover:bg-brand-forest/5 text-base px-8 py-6 transition-all duration-500"
-                  )}
-                  data-track="cta_clicked"
-                  data-track-section="hero"
-                  data-track-label="ja_tenho_prescricao"
-                >
-                  <MessageCircle className="mr-2 h-4 w-4" />
-                  Já tenho prescrição
-                </a>
-              </div>
-            </FadeUp>
+          <FadeUp delay={0.15}>
+            <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-white/90 sm:text-lg sm:leading-[1.8] lg:mt-8">
+              Da avaliação clínica à entrega domiciliar, estruturamos todo o
+              processo com critério médico e conformidade regulatória.
+            </p>
+          </FadeUp>
 
-            {/* Price + trust microcopy */}
-            <FadeUp delay={0.4}>
-              <div className="mt-6">
-                <p className="text-sm font-semibold text-brand-forest">
-                  Consulta online por R$&nbsp;49,90
-                </p>
-                <p className="mt-1.5 text-xs text-brand-text-muted">
-                  Pagamento seguro via PIX&ensp;•&ensp;Atendimento online&ensp;•&ensp;Sigilo garantido
-                </p>
-              </div>
-            </FadeUp>
-
-            <StaggerContainer className="mt-8 flex flex-wrap gap-2.5">
-              {badges.map((badge) => (
-                <StaggerItem key={badge}>
-                  <span className="inline-flex items-center rounded-full border border-brand-forest/10 bg-brand-forest/5 px-4 py-2 text-xs font-medium text-brand-forest sm:text-sm">
-                    {badge}
-                  </span>
-                </StaggerItem>
-              ))}
-            </StaggerContainer>
-          </div>
-
-          {/* Image column */}
-          <FadeUp delay={0.1} className="order-1 lg:order-2">
-            <div className="relative overflow-hidden rounded-3xl">
-              <div className="relative aspect-[4/5] sm:aspect-[3/4] lg:aspect-[4/5]">
-                <Image
-                  src="/images/fundo_medico.png"
-                  alt="Profissional de saúde em consultório médico estruturado para atendimento com CBD"
-                  fill
-                  priority
-                  fetchPriority="high"
-                  className="object-cover"
-                  sizes="(max-width: 1024px) 100vw, 55vw"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-brand-forest-dark/30 via-transparent to-transparent" />
-                <div className="absolute inset-0 bg-gradient-to-r from-brand-forest-dark/15 via-transparent to-transparent" />
-              </div>
+          <FadeUp delay={0.3}>
+            <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+              <Link
+                href="/triagem"
+                className={cn(
+                  buttonVariants({ size: "lg" }),
+                  "bg-brand-cream text-brand-forest-dark hover:bg-white font-semibold text-base px-8 py-6 shadow-lg shadow-black/15 transition-all duration-500"
+                )}
+                data-track="cta_clicked"
+                data-track-section="hero"
+                data-track-label="agendar_avaliacao"
+              >
+                Agendar Avaliação com Prescritor
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+              <a
+                href="https://wa.me/5584997048210"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(
+                  buttonVariants({ variant: "outline", size: "lg" }),
+                  "border-white/30 bg-transparent text-white hover:bg-white/10 hover:text-white text-base px-8 py-6 transition-all duration-500"
+                )}
+                data-track="cta_clicked"
+                data-track-section="hero"
+                data-track-label="ja_tenho_prescricao"
+              >
+                <MessageCircle className="mr-2 h-4 w-4" />
+                Já tenho prescrição
+              </a>
             </div>
           </FadeUp>
-        </div>
-      </div>
 
-      {/* Scroll indicator */}
-      <div className="flex justify-center pb-6">
-        <motion.div
-          animate={{ y: [0, 8, 0] }}
-          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-          className="text-brand-forest-light/40"
-        >
-          <ChevronDown className="h-6 w-6" />
-        </motion.div>
+          <FadeUp delay={0.4}>
+            <div className="mt-6">
+              <p className="text-sm font-semibold text-white/95">
+                Consulta online por R$&nbsp;49,90
+              </p>
+              <p className="mt-1.5 text-xs text-white/70">
+                Pagamento seguro via PIX&ensp;•&ensp;Atendimento online&ensp;•&ensp;Sigilo garantido
+              </p>
+            </div>
+          </FadeUp>
+
+          <StaggerContainer className="mt-8 flex flex-wrap items-center justify-center gap-2.5">
+            {badges.map((badge) => (
+              <StaggerItem key={badge}>
+                <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-medium text-white backdrop-blur-sm sm:text-sm">
+                  {badge}
+                </span>
+              </StaggerItem>
+            ))}
+          </StaggerContainer>
+        </div>
+
+        {/* Scroll indicator */}
+        <div className="mt-auto flex justify-center pb-8">
+          <motion.div
+            animate={{ y: [0, 8, 0] }}
+            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+            className="text-brand-forest-dark/40"
+          >
+            <ChevronDown className="h-6 w-6" />
+          </motion.div>
+        </div>
       </div>
     </section>
   );

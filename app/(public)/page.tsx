@@ -7,8 +7,6 @@ import { CredibilitySection } from "@/components/sections/credibility-section";
 import { ConditionsSection } from "@/components/sections/conditions-section";
 import { TreatmentSection } from "@/components/sections/treatment-section";
 import { HowItWorksSection } from "@/components/sections/how-it-works-section";
-import { SocialProofSection } from "@/components/sections/social-proof-section";
-import { DoctorsSection } from "@/components/sections/doctors-section";
 import { QualitySection } from "@/components/sections/quality-section";
 import { AboutSection } from "@/components/sections/about-section";
 import { FaqSection, FaqJsonLd } from "@/components/sections/faq-section";
@@ -75,8 +73,6 @@ export default function HomePage() {
         <ConditionsSection />
         <TreatmentSection />
         <HowItWorksSection />
-        <SocialProofSection />
-        <DoctorsSection />
         <QualitySection />
         <AboutSection />
         <FaqSection />
