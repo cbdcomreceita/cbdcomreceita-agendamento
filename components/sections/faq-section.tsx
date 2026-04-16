@@ -14,24 +14,24 @@ export function FaqSection() {
   return (
     <Section id="duvidas" bg="cream" narrow>
       <FadeUp>
-        <h2 className="text-center text-2xl font-bold tracking-tight text-brand-forest-dark sm:text-3xl">
+        <h2 className="text-center text-2xl font-bold tracking-tight text-brand-forest-dark sm:text-3xl lg:text-4xl">
           Perguntas frequentes
         </h2>
       </FadeUp>
 
       <FadeUp delay={0.15}>
-        <Accordion className="mt-10">
+        <Accordion className="mt-12">
           {faqItems.map((item, i) => (
             <AccordionItem
               key={i}
-              className="border-brand-sand"
+              className="border-brand-sand/80"
               data-track="faq_item_clicked"
               data-track-label={item.question}
             >
-              <AccordionTrigger className="text-left text-base font-semibold text-brand-forest-dark hover:text-brand-forest hover:no-underline">
+              <AccordionTrigger className="text-left text-base font-semibold text-brand-forest-dark hover:text-brand-forest hover:no-underline py-5 [&[data-state=open]]:text-brand-forest">
                 {item.question}
               </AccordionTrigger>
-              <AccordionContent className="text-sm leading-relaxed text-brand-text-secondary sm:text-base">
+              <AccordionContent className="text-sm leading-[1.8] text-brand-text-secondary sm:text-base">
                 {item.answer}
               </AccordionContent>
             </AccordionItem>

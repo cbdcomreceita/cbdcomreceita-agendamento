@@ -16,77 +16,87 @@ const badges = [
 
 export function HeroSection() {
   return (
-    <section className="relative min-h-[600px] px-4 py-20 sm:px-6 sm:py-28 lg:py-36 overflow-hidden">
-      {/* Background image */}
-      <Image
-        src="/images/fundo_medico.png"
-        alt=""
-        fill
-        priority
-        className="object-cover"
-        sizes="100vw"
-      />
-      {/* Dark overlay for legibility */}
-      <div className="absolute inset-0 bg-brand-forest-dark/75" />
-      {/* Subtle gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-brand-forest-dark/30 via-transparent to-brand-forest-light/10" />
+    <section className="bg-brand-cream px-5 sm:px-8">
+      <div className="mx-auto max-w-7xl py-10 sm:py-16 lg:py-20">
+        <div className="grid items-center gap-10 lg:grid-cols-[1fr_1.15fr] lg:gap-16 xl:gap-20">
+          {/* Text column */}
+          <div className="order-2 lg:order-1">
+            <FadeUp>
+              <h1 className="text-4xl font-bold leading-[1.1] tracking-tight text-brand-forest-dark sm:text-5xl lg:text-[56px] xl:text-[64px]">
+                Plataforma médica estruturada para tratamento com CBD
+              </h1>
+            </FadeUp>
 
-      <div className="relative mx-auto max-w-4xl text-center">
-        <FadeUp>
-          <h1 className="text-3xl font-bold tracking-tight text-brand-cream sm:text-4xl lg:text-5xl xl:text-6xl">
-            Plataforma médica estruturada para tratamento com CBD
-          </h1>
-        </FadeUp>
+            <FadeUp delay={0.15}>
+              <p className="mt-6 max-w-lg text-base leading-relaxed text-brand-text-secondary sm:text-lg sm:leading-[1.8] lg:mt-8">
+                Da avaliação clínica à entrega domiciliar, estruturamos todo o
+                processo com critério médico e conformidade regulatória.
+              </p>
+            </FadeUp>
 
-        <FadeUp delay={0.15}>
-          <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-brand-cream/90 sm:text-lg sm:leading-relaxed">
-            Da avaliação clínica à entrega domiciliar, estruturamos todo o
-            processo com critério médico e conformidade regulatória.
-          </p>
-        </FadeUp>
+            <FadeUp delay={0.3}>
+              <div className="mt-10 flex flex-col gap-4 sm:flex-row">
+                <Link
+                  href="/triagem"
+                  className={cn(
+                    buttonVariants({ size: "lg" }),
+                    "bg-brand-forest text-brand-cream hover:bg-brand-forest-hover font-semibold text-base px-8 py-6 shadow-lg shadow-brand-forest/20 transition-all duration-500"
+                  )}
+                  data-track="cta_clicked"
+                  data-track-section="hero"
+                  data-track-label="agendar_avaliacao"
+                >
+                  Agendar Avaliação com Prescritor
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+                <a
+                  href="https://wa.me/5584997048210"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(
+                    buttonVariants({ variant: "outline", size: "lg" }),
+                    "border-brand-forest/20 bg-transparent text-brand-forest hover:bg-brand-forest/5 text-base px-8 py-6 transition-all duration-500"
+                  )}
+                  data-track="cta_clicked"
+                  data-track-section="hero"
+                  data-track-label="ja_tenho_prescricao"
+                >
+                  <MessageCircle className="mr-2 h-4 w-4" />
+                  Já tenho prescrição
+                </a>
+              </div>
+            </FadeUp>
 
-        <FadeUp delay={0.3}>
-          <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-            <Link
-              href="/triagem"
-              className={cn(
-                buttonVariants({ size: "lg" }),
-                "w-full bg-brand-cream text-brand-forest-dark hover:bg-white font-semibold text-base px-8 py-6 sm:w-auto"
-              )}
-              data-track="cta_clicked"
-              data-track-section="hero"
-              data-track-label="agendar_avaliacao"
-            >
-              Agendar Avaliação com Prescritor
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
-            <a
-              href="https://wa.me/5584997048210"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={cn(
-                buttonVariants({ variant: "outline", size: "lg" }),
-                "w-full border-brand-cream/40 bg-transparent text-brand-cream hover:bg-brand-cream/10 hover:text-brand-cream text-base px-8 py-6 sm:w-auto"
-              )}
-              data-track="cta_clicked"
-              data-track-section="hero"
-              data-track-label="ja_tenho_prescricao"
-            >
-              <MessageCircle className="mr-2 h-4 w-4" />
-              Já tenho prescrição
-            </a>
+            <StaggerContainer className="mt-8 flex flex-wrap gap-2.5">
+              {badges.map((badge) => (
+                <StaggerItem key={badge}>
+                  <span className="inline-flex items-center rounded-full border border-brand-forest/10 bg-brand-forest/5 px-4 py-2 text-xs font-medium text-brand-forest sm:text-sm">
+                    {badge}
+                  </span>
+                </StaggerItem>
+              ))}
+            </StaggerContainer>
           </div>
-        </FadeUp>
 
-        <StaggerContainer className="mt-12 flex flex-wrap items-center justify-center gap-3">
-          {badges.map((badge) => (
-            <StaggerItem key={badge}>
-              <span className="inline-flex items-center rounded-full border border-brand-cream/20 bg-brand-cream/10 px-4 py-2 text-xs font-semibold tracking-wide text-brand-cream backdrop-blur-sm sm:text-sm">
-                {badge}
-              </span>
-            </StaggerItem>
-          ))}
-        </StaggerContainer>
+          {/* Image column */}
+          <FadeUp delay={0.1} className="order-1 lg:order-2">
+            <div className="relative overflow-hidden rounded-3xl">
+              <div className="relative aspect-[4/5] sm:aspect-[3/4] lg:aspect-[4/5]">
+                <Image
+                  src="/images/fundo_medico.png"
+                  alt="Médica em ambiente de consultório"
+                  fill
+                  priority
+                  className="object-cover"
+                  sizes="(max-width: 1024px) 100vw, 55vw"
+                />
+                {/* Gradient overlay — bottom-left to integrate with bg */}
+                <div className="absolute inset-0 bg-gradient-to-t from-brand-forest-dark/30 via-transparent to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-r from-brand-forest-dark/15 via-transparent to-transparent" />
+              </div>
+            </div>
+          </FadeUp>
+        </div>
       </div>
     </section>
   );

@@ -29,7 +29,7 @@ export function Section({
   return (
     <section
       id={id}
-      className={cn(bgMap[bg], "px-4 py-16 sm:px-6 sm:py-20 lg:py-24", className)}
+      className={cn(bgMap[bg], "px-5 py-20 sm:px-8 sm:py-28 lg:py-32", className)}
     >
       <div
         className={cn(

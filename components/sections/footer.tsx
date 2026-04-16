@@ -16,7 +16,7 @@ const legalLinks = [
 
 export function Footer() {
   return (
-    <footer className="border-t border-brand-sand bg-white px-4 py-12 sm:px-6">
+    <footer className="border-t border-brand-sand bg-white px-5 py-16 sm:px-8">
       <div className="mx-auto max-w-6xl">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           {/* Brand */}
@@ -110,7 +110,7 @@ export function Footer() {
         </div>
 
         {/* Disclaimer + Copyright */}
-        <div className="mt-10 border-t border-brand-sand pt-6">
+        <div className="mt-14 border-t border-brand-sand pt-8">
           <p className="text-center text-xs leading-relaxed text-brand-text-muted">
             Esta plataforma não substitui atendimento de urgência. Em crises,
             ligue 192 (SAMU) ou 188 (CVV).
