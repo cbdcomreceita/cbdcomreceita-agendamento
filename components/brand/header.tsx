@@ -44,7 +44,10 @@ export function Header() {
           : "bg-transparent"
       )}
     >
-      <div className="mx-auto flex h-28 max-w-7xl items-center justify-between px-5 sm:h-40 sm:px-8">
+      <div className={cn(
+            "mx-auto flex max-w-7xl items-center justify-between px-5 transition-all duration-500 sm:px-8",
+            scrolled ? "py-2 sm:py-2" : "py-3 sm:py-4"
+          )}>
         {/* Logo */}
         <Link href="/" className="relative shrink-0">
           <Image
@@ -53,8 +56,8 @@ export function Header() {
             width={400}
             height={160}
             className={cn(
-              "h-24 w-auto transition-all duration-500 sm:h-36",
-              scrolled ? "" : "brightness-0 invert"
+              "w-auto transition-all duration-500",
+              scrolled ? "h-14 sm:h-20" : "h-20 sm:h-36 brightness-0 invert"
             )}
             priority
           />
