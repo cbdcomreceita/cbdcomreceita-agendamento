@@ -20,12 +20,25 @@ export interface MatchResult {
  *    (Carol=1 > Lilian=2 > Magno=3)
  * 5. Return matched doctor + alternative (next best)
  */
+export interface MatchOptions {
+  age?: number;
+  isMinor?: boolean;
+  isElderly?: boolean;
+}
+
 export function matchDoctor(
   selectedSlugs: string[],
-  age?: number
+  options: MatchOptions = {}
 ): MatchResult {
-  // Rule 1: age override
-  if (age !== undefined && (age < 18 || age > 65)) {
+  const { age, isMinor, isElderly } = options;
+
+  // Rule 1: age/flag override → Lilian
+  const forceAge =
+    isMinor ||
+    isElderly ||
+    (age !== undefined && (age < 18 || age > 65));
+
+  if (forceAge) {
     const lilian = medicos.find((d) => d.id === "lilian")!;
     const matched = sintomas.filter((s) => selectedSlugs.includes(s.slug));
     const altDoctor = findDoctorBySymptoms(selectedSlugs).filter(

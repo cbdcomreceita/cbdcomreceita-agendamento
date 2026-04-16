@@ -36,9 +36,10 @@ interface Props {
   selected: string[];
   onSelect: (slugs: string[]) => void;
   onNext: () => void;
+  onBack?: () => void;
 }
 
-export function StepSymptoms({ selected, onSelect, onNext }: Props) {
+export function StepSymptoms({ selected, onSelect, onNext, onBack }: Props) {
   const [emergencyDismissed, setEmergencyDismissed] = useState(false);
 
   const regular = sintomas.filter((s) => !s.isEmergency).sort((a, b) => a.displayOrder - b.displayOrder);
@@ -121,6 +122,7 @@ export function StepSymptoms({ selected, onSelect, onNext }: Props) {
 
       <StepNav
         onNext={onNext}
+        onBack={onBack}
         nextDisabled={selected.length === 0 || (selectedEmergency.length > 0 && !emergencyDismissed)}
       />
     </div>

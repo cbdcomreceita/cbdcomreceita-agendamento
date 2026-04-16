@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { saveTriageData, loadTriageData } from "@/lib/triagem/storage";
 import { matchDoctor } from "@/lib/triagem/matcher";
+import { StepBirthDate } from "@/components/fluxo/step-birthdate";
 import { StepSymptoms } from "@/components/fluxo/step-symptoms";
 import { StepDuration } from "@/components/fluxo/step-duration";
 import { StepTreatment } from "@/components/fluxo/step-treatment";
@@ -12,7 +13,7 @@ import { StepCbd } from "@/components/fluxo/step-cbd";
 import { ProgressBar } from "@/components/fluxo/progress-bar";
 import type { TriageData } from "@/lib/triagem/schemas";
 
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 5;
 
 export default function TriagemPage() {
   const router = useRouter();
@@ -24,12 +25,13 @@ export default function TriagemPage() {
   // Load persisted data
   useEffect(() => {
     const saved = loadTriageData();
-    if (saved.selectedSymptoms?.length) {
+    if (saved.birthDate) {
       setData(saved);
-      // Resume at furthest step
-      if (saved.priorCbdUse) setStep(4);
-      else if (saved.priorTreatment) setStep(3);
-      else if (saved.duration) setStep(2);
+      // Resume at furthest completed step
+      if (saved.priorCbdUse) setStep(5);
+      else if (saved.priorTreatment) setStep(4);
+      else if (saved.duration) setStep(3);
+      else if (saved.selectedSymptoms?.length) setStep(2);
     }
     setLoaded(true);
   }, []);
@@ -48,7 +50,10 @@ export default function TriagemPage() {
       setStep((s) => s + 1);
     } else {
       // Final step — match doctor and navigate
-      const result = matchDoctor(data.selectedSymptoms ?? []);
+      const result = matchDoctor(data.selectedSymptoms ?? [], {
+        isMinor: data.isMinor,
+        isElderly: data.isElderly,
+      });
       updateData({ matchedDoctorId: result.doctor.id });
       router.push("/triagem/resultado");
     }
@@ -79,13 +84,23 @@ export default function TriagemPage() {
             className="mt-8"
           >
             {step === 1 && (
-              <StepSymptoms
-                selected={data.selectedSymptoms ?? []}
-                onSelect={(slugs) => updateData({ selectedSymptoms: slugs })}
+              <StepBirthDate
+                value={data.birthDate}
+                onSelect={(birthDate, isMinor, isElderly) =>
+                  updateData({ birthDate, isMinor, isElderly })
+                }
                 onNext={goNext}
               />
             )}
             {step === 2 && (
+              <StepSymptoms
+                selected={data.selectedSymptoms ?? []}
+                onSelect={(slugs) => updateData({ selectedSymptoms: slugs })}
+                onNext={goNext}
+                onBack={goBack}
+              />
+            )}
+            {step === 3 && (
               <StepDuration
                 value={data.duration}
                 onSelect={(v) => updateData({ duration: v })}
@@ -93,7 +108,7 @@ export default function TriagemPage() {
                 onBack={goBack}
               />
             )}
-            {step === 3 && (
+            {step === 4 && (
               <StepTreatment
                 value={data.priorTreatment}
                 details={data.priorTreatmentDetails}
@@ -104,7 +119,7 @@ export default function TriagemPage() {
                 onBack={goBack}
               />
             )}
-            {step === 4 && (
+            {step === 5 && (
               <StepCbd
                 value={data.priorCbdUse}
                 onSelect={(v) => updateData({ priorCbdUse: v })}

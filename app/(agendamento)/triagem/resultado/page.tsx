@@ -30,6 +30,7 @@ function DoctorAvatar({ photoUrl, initials, name }: { photoUrl: string | null; i
 export default function ResultadoPage() {
   const router = useRouter();
   const [result, setResult] = useState<MatchResult | null>(null);
+  const [ageNote, setAgeNote] = useState<string | null>(null);
 
   useEffect(() => {
     const data = loadTriageData();
@@ -37,8 +38,16 @@ export default function ResultadoPage() {
       router.replace("/triagem");
       return;
     }
-    const match = matchDoctor(data.selectedSymptoms);
+    const match = matchDoctor(data.selectedSymptoms, {
+      isMinor: data.isMinor,
+      isElderly: data.isElderly,
+    });
     setResult(match);
+    if (data.isMinor) {
+      setAgeNote("Direcionamos você para a Dra. Lilian, especialista no atendimento de crianças e adolescentes.");
+    } else if (data.isElderly) {
+      setAgeNote("Direcionamos você para a Dra. Lilian, especialista no atendimento de pacientes acima de 65 anos.");
+    }
   }, [router]);
 
   if (!result) return null;
@@ -75,7 +84,7 @@ export default function ResultadoPage() {
           )}
 
           <p className="mt-3 text-sm text-brand-text-secondary">
-            Especialista nas condições que você indicou
+            {ageNote || "Especialista nas condições que você indicou"}
           </p>
 
           <div className="mt-5 flex flex-wrap justify-center gap-1.5">

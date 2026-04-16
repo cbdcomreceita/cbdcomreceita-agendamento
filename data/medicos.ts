@@ -27,7 +27,7 @@ export const medicos: Medico[] = [
     globalPriority: 1,
     handlesMinors: false,
     handlesElderly: false,
-    calcomSlug: "consulta-cbd",
+    calcomSlug: "consulta",
     specialties: [
       "Ansiedade",
       "Insônia",
