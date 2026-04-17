@@ -135,7 +135,7 @@ export default function ConfirmacaoPage() {
           <h3 className="text-sm font-semibold text-brand-forest-dark">Informações importantes</h3>
           <ul className="mt-3 space-y-2 text-sm leading-relaxed text-brand-text-secondary">
             <li>• Você receberá o link do Google Meet por e-mail e WhatsApp em instantes</li>
-            <li>• Compareça com até 5 minutos de antecedência</li>
+            <li>• Compareça com até 1 minuto de antecedência, tendo em mãos seu peso e altura para caso de prescrição</li>
             <li>• Em caso de atraso superior a 10 minutos, será necessário novo agendamento</li>
           </ul>
         </div>

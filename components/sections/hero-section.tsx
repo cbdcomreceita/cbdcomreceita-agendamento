@@ -82,14 +82,9 @@ export function HeroSection() {
           </FadeUp>
 
           <FadeUp delay={0.4}>
-            <div className="mt-6">
-              <p className="text-sm font-semibold text-white/95">
-                Consulta online por R$&nbsp;49,90
-              </p>
-              <p className="mt-1.5 text-xs text-white/70">
-                Pagamento seguro via PIX&ensp;•&ensp;Atendimento online em todo o Brasil&ensp;•&ensp;Sigilo garantido
-              </p>
-            </div>
+            <p className="mt-6 text-sm font-semibold text-white/95">
+              Consulta online em todo o Brasil por R$&nbsp;49,90
+            </p>
           </FadeUp>
 
           <StaggerContainer className="mx-auto mt-8 grid max-w-xl grid-cols-2 gap-2.5 sm:gap-3">

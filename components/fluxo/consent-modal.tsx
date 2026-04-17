@@ -146,7 +146,7 @@ export function PrivacyModal() {
 
           <div>
             <p className="font-semibold text-brand-text">1. Quem Somos</p>
-            <p className="mt-1">A CBD com Receita é uma plataforma médica estruturada que conecta pacientes a médicos prescritores para avaliação individualizada de tratamentos com canabidiol (CBD). Não comercializamos medicamentos.</p>
+            <p className="mt-1">A CBD com Receita é uma plataforma médica estruturada que conecta pacientes a médicos prescritores para avaliação individualizada de tratamentos com canabidiol (CBD).</p>
             <p className="mt-1">Controlador dos dados: CBD com Receita</p>
             <p>E-mail para contato: contato@cbdcomreceita.com.br</p>
           </div>
