@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Loader2, ArrowRight, ExternalLink } from "lucide-react";
+import { Loader2, ArrowRight } from "lucide-react";
 import { trackEvent } from "@/lib/analytics/track";
 import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { TermsModal, PrivacyModal } from "@/components/fluxo/consent-modal";
 import { FlowBreadcrumb } from "@/components/fluxo/flow-breadcrumb";
 import { DoctorSummary } from "@/components/fluxo/doctor-summary";
 import { loadTriageData } from "@/lib/triagem/storage";
@@ -436,20 +436,7 @@ export default function DadosPage() {
                 <label htmlFor="termsConsent" className="text-sm text-brand-text">
                   Li e aceito o Termo de Consentimento Livre e Esclarecido <span className="text-brand-error/60">*</span>
                 </label>
-                <Dialog>
-                  <DialogTrigger className="mt-0.5 flex items-center gap-1 text-xs text-brand-forest underline underline-offset-2 hover:text-brand-forest-dark">
-                      <ExternalLink className="h-3 w-3" /> Ler termo completo
-                  </DialogTrigger>
-                  <DialogContent className="max-h-[80vh] overflow-y-auto">
-                    <DialogHeader>
-                      <DialogTitle>Termo de Consentimento Livre e Esclarecido</DialogTitle>
-                    </DialogHeader>
-                    <div className="text-sm leading-relaxed text-brand-text-secondary">
-                      <p>Texto do termo de consentimento será inserido pelo departamento jurídico.</p>
-                      <p className="mt-4">Este termo estabelece as condições do atendimento médico e consentimento do paciente para avaliação e eventual prescrição de tratamento com canabidiol (CBD).</p>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                <TermsModal />
               </div>
             </div>
             <FieldError message={errors.termsConsent?.message} />
@@ -468,20 +455,7 @@ export default function DadosPage() {
                 <label htmlFor="lgpdConsent" className="text-sm text-brand-text">
                   Autorizo o tratamento dos meus dados pessoais conforme a Política de Privacidade, nos termos da LGPD <span className="text-brand-error/60">*</span>
                 </label>
-                <Dialog>
-                  <DialogTrigger className="mt-0.5 flex items-center gap-1 text-xs text-brand-forest underline underline-offset-2 hover:text-brand-forest-dark">
-                      <ExternalLink className="h-3 w-3" /> Ler Política de Privacidade
-                  </DialogTrigger>
-                  <DialogContent className="max-h-[80vh] overflow-y-auto">
-                    <DialogHeader>
-                      <DialogTitle>Política de Privacidade</DialogTitle>
-                    </DialogHeader>
-                    <div className="text-sm leading-relaxed text-brand-text-secondary">
-                      <p>Texto da política de privacidade será inserido pelo departamento jurídico.</p>
-                      <p className="mt-4">A CBD com Receita segue a Lei Geral de Proteção de Dados (LGPD) para tratamento de dados pessoais e sensíveis dos pacientes.</p>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                <PrivacyModal />
               </div>
             </div>
             <FieldError message={errors.lgpdConsent?.message} />

@@ -117,7 +117,7 @@ export default function ConfirmacaoPage() {
               <div>
                 <p className="font-medium text-brand-text">Formato</p>
                 <p className="text-brand-text-secondary">
-                  Videochamada via Google Meet — o link será enviado antes da consulta
+                  Videochamada via Google Meet — o link será enviado por e-mail e WhatsApp após a confirmação do pagamento
                 </p>
               </div>
             </div>
@@ -134,8 +134,8 @@ export default function ConfirmacaoPage() {
         <div className="mt-6 rounded-2xl bg-brand-sand/40 p-5 sm:p-6">
           <h3 className="text-sm font-semibold text-brand-forest-dark">Informações importantes</h3>
           <ul className="mt-3 space-y-2 text-sm leading-relaxed text-brand-text-secondary">
-            <li>• Você receberá uma confirmação por e-mail e WhatsApp</li>
-            <li>• O link do Google Meet será enviado antes da consulta</li>
+            <li>• Você receberá o link do Google Meet por e-mail e WhatsApp em instantes</li>
+            <li>• Compareça com até 5 minutos de antecedência</li>
             <li>• Em caso de atraso superior a 10 minutos, será necessário novo agendamento</li>
           </ul>
         </div>

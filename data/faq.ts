@@ -7,7 +7,7 @@ export const faqItems: FaqItem[] = [
   {
     question: "Qual o valor do atendimento médico?",
     answer:
-      "A avaliação médica inicial tem valor de R\u00A049,90 e é realizada por profissional habilitado, mediante análise individualizada do caso.",
+      "A avaliação médica inicial tem valor de R$\u00A049,90 e é realizada por profissional habilitado, mediante análise individualizada do caso.",
   },
   {
     question: "A consulta garante a emissão de receita?",

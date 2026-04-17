@@ -87,12 +87,12 @@ export function HeroSection() {
                 Consulta online por R$&nbsp;49,90
               </p>
               <p className="mt-1.5 text-xs text-white/70">
-                Pagamento seguro via PIX&ensp;•&ensp;Atendimento online&ensp;•&ensp;Sigilo garantido
+                Pagamento seguro via PIX&ensp;•&ensp;Atendimento online em todo o Brasil&ensp;•&ensp;Sigilo garantido
               </p>
             </div>
           </FadeUp>
 
-          <StaggerContainer className="mt-8 grid grid-cols-2 gap-2.5 sm:flex sm:flex-wrap sm:items-center sm:justify-center">
+          <StaggerContainer className="mx-auto mt-8 grid max-w-xl grid-cols-2 gap-2.5 sm:gap-3">
             {badges.map((badge) => (
               <StaggerItem key={badge}>
                 <span className="inline-flex items-center rounded-full border border-[#f2efe8]/50 bg-[#f2efe8]/90 px-4 py-2 text-xs font-medium text-brand-forest-dark backdrop-blur-sm sm:text-sm">
