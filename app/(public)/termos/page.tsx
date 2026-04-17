@@ -4,7 +4,7 @@ import { Footer } from "@/components/sections/footer";
 
 export const metadata: Metadata = {
   title: "Termos de Uso",
-  description: "Termos de uso e consentimento da plataforma CBD com Receita.",
+  description: "Termos de uso da plataforma CBD com Receita.",
 };
 
 export default function TermosPage() {
@@ -14,120 +14,77 @@ export default function TermosPage() {
       <main id="conteudo-principal" className="bg-brand-cream px-5 pb-20 pt-32 sm:px-8 sm:pb-28 sm:pt-40">
         <article className="mx-auto max-w-3xl rounded-2xl border border-brand-sand/60 bg-white p-6 shadow-sm sm:p-10">
           <h1 className="text-2xl font-bold tracking-tight text-brand-forest-dark sm:text-3xl">
-            Termo de Consentimento Livre e Esclarecido
+            Termos de Uso
           </h1>
-          <p className="mt-2 text-xs uppercase tracking-widest text-brand-text-muted">
-            Para tratamento com canabinoides em telemedicina
-          </p>
+          <p className="mt-2 text-xs text-brand-text-muted">Última atualização: Abril de 2026</p>
 
           <div className="mt-8 space-y-6 text-sm leading-[1.8] text-brand-text-secondary">
+            <p>Ao acessar e utilizar esta plataforma, você declara que leu, compreendeu e concorda com os presentes Termos de Uso.</p>
+
             <section>
-              <h2 className="font-semibold text-brand-text">1. Objeto</h2>
-              <p className="mt-1">O presente Termo de Consentimento Livre e Esclarecido tem por finalidade registrar que o(a) paciente foi devidamente informado(a), em ambiente de telemedicina, sobre avaliação clínica, eventual prescrição e possível utilização de produtos à base de canabinoides, incluindo seus potenciais benefícios, riscos, limitações e alternativas terapêuticas.</p>
+              <h2 className="font-semibold text-brand-text">1. Sobre a Plataforma</h2>
+              <p className="mt-1">A CBD com Receita é uma plataforma de saúde que conecta pacientes a médicos prescritores para avaliação individualizada e, quando indicado, viabiliza o acesso ao tratamento com CBD, incluindo consultoria de importação e entrega domiciliar.</p>
+              <p className="mt-1">A Plataforma não substitui atendimento de urgência ou emergência. Em situações de risco, procure o SAMU (192) ou CVV (188).</p>
             </section>
 
             <section>
-              <h2 className="font-semibold text-brand-text">2. Atendimento em Telemedicina</h2>
-              <p className="mt-1">Declaro estar ciente e de acordo que:</p>
+              <h2 className="font-semibold text-brand-text">2. Cadastro</h2>
+              <p className="mt-1">O Usuário deve fornecer informações pessoais verdadeiras, completas e atualizadas. Informações incorretas ou incompletas podem comprometer o atendimento e isentam a CBD com Receita de responsabilidade.</p>
+              <p className="mt-1">O tratamento dos dados pessoais segue nossa Política de Privacidade, em conformidade com a LGPD (Lei nº 13.709/2018).</p>
+            </section>
+
+            <section>
+              <h2 className="font-semibold text-brand-text">3. Consulta, Pagamento e Cancelamento</h2>
+              <p className="mt-1">A consulta é confirmada mediante pagamento antecipado de R$&nbsp;49,90 via PIX. Atraso superior a 10 minutos ou não comparecimento implica novo agendamento com pagamento integral. Reagendamentos devem ser solicitados com pelo menos 24 horas de antecedência. A CBD com Receita pode cancelar consultas por motivos operacionais, oferecendo reagendamento ou reembolso.</p>
+            </section>
+
+            <section>
+              <h2 className="font-semibold text-brand-text">4. Prescrição</h2>
+              <p className="mt-1">A consulta não garante emissão de prescrição. A decisão de prescrever é de responsabilidade exclusiva do médico, com base em avaliação clínica individualizada e em conformidade com as normas da Anvisa e do CFM.</p>
+            </section>
+
+            <section>
+              <h2 className="font-semibold text-brand-text">5. Acesso ao Tratamento</h2>
+              <p className="mt-1">Quando houver prescrição, a CBD com Receita realiza a consultoria necessária para viabilizar o acesso ao tratamento, incluindo a condução do processo de importação e entrega no domicílio do paciente. Este processo depende de requisitos regulatórios e de terceiros, não havendo garantia de prazos ou disponibilidade.</p>
+            </section>
+
+            <section>
+              <h2 className="font-semibold text-brand-text">6. Limitação de Responsabilidade</h2>
+              <p className="mt-1">A CBD com Receita não se responsabiliza por:</p>
               <ul className="mt-2 list-disc space-y-1 pl-5">
-                <li>O atendimento ocorrerá de forma remota, sem exame físico direto;</li>
-                <li>Existem limitações diagnósticas inerentes à telemedicina;</li>
-                <li>A qualidade do atendimento depende das condições técnicas disponíveis;</li>
-                <li>Comprometo-me a fornecer informações completas, verdadeiras e atualizadas.</li>
+                <li>Condutas médicas e resultados terapêuticos;</li>
+                <li>Atrasos decorrentes de processos regulatórios ou logísticos de terceiros;</li>
+                <li>Indisponibilidade temporária da Plataforma por motivos técnicos ou de força maior;</li>
+                <li>Danos decorrentes de informações incorretas fornecidas pelo Usuário;</li>
+                <li>Falhas de conexão e equipamentos do Usuário.</li>
               </ul>
+              <p className="mt-2">A responsabilidade da CBD com Receita limita-se ao valor pago pela consulta em questão.</p>
             </section>
 
             <section>
-              <h2 className="font-semibold text-brand-text">3. Fluxo do Serviço</h2>
-              <p className="mt-1">Declaro estar ciente de que:</p>
-              <ul className="mt-2 list-disc space-y-1 pl-5">
-                <li>A consulta não implica obrigatoriamente em prescrição;</li>
-                <li>A eventual prescrição médica decorre de avaliação clínica individual;</li>
-                <li>A importação de produtos, quando aplicável, depende de requisitos regulatórios e poderá ser intermediada por empresa especializada;</li>
-                <li>O envio de produtos depende de terceiros, não havendo garantia de prazos ou disponibilidade contínua.</li>
-              </ul>
+              <h2 className="font-semibold text-brand-text">7. Propriedade Intelectual</h2>
+              <p className="mt-1">Todo o conteúdo da Plataforma é de propriedade da CBD com Receita, protegido pelas leis vigentes. É vedada a reprodução ou utilização sem autorização prévia.</p>
             </section>
 
             <section>
-              <h2 className="font-semibold text-brand-text">4. Uso Off-Label</h2>
-              <p className="mt-1">Declaro estar ciente de que o tratamento pode envolver uso off-label, caracterizado pela utilização fora das indicações aprovadas em bula ou por autoridades regulatórias. Reconheço que tal prática pode ser adotada com base em evidências científicas e julgamento clínico, os resultados são incertos e individualizados, e podem existir riscos não completamente conhecidos.</p>
+              <h2 className="font-semibold text-brand-text">8. Comunicações</h2>
+              <p className="mt-1">Ao utilizar a Plataforma, o Usuário autoriza o recebimento de comunicações relacionadas ao serviço (confirmações, lembretes, orientações) por e-mail e/ou WhatsApp.</p>
             </section>
 
             <section>
-              <h2 className="font-semibold text-brand-text">5. Ausência de Garantia de Resultados</h2>
-              <p className="mt-1">Estou ciente de que não há garantia de eficácia terapêutica, podendo não haver melhora ou ocorrer agravamento do quadro clínico.</p>
+              <h2 className="font-semibold text-brand-text">9. Modificações</h2>
+              <p className="mt-1">Estes Termos podem ser atualizados a qualquer momento. Alterações relevantes serão comunicadas por e-mail ou aviso na Plataforma.</p>
             </section>
 
             <section>
-              <h2 className="font-semibold text-brand-text">6. Riscos e Efeitos Adversos</h2>
-              <p className="mt-1">Fui informado(a) sobre possíveis efeitos adversos, incluindo:</p>
-              <ul className="mt-2 list-disc space-y-1 pl-5">
-                <li>Sonolência, tontura, confusão mental;</li>
-                <li>Alterações gastrointestinais;</li>
-                <li>Alterações de humor ou comportamento;</li>
-                <li>Interações medicamentosas;</li>
-                <li>Reações individuais imprevisíveis.</li>
-              </ul>
+              <h2 className="font-semibold text-brand-text">10. Legislação e Foro</h2>
+              <p className="mt-1">Estes Termos são regidos pela legislação brasileira. Fica eleito o foro da comarca de Indaiatuba/SP para dirimir quaisquer controvérsias.</p>
             </section>
 
             <section>
-              <h2 className="font-semibold text-brand-text">7. Responsabilidade pelas Informações</h2>
-              <p className="mt-1">Declaro que forneci informações completas e verídicas sobre histórico médico, medicamentos, suplementos e substâncias, hábitos de vida e condições alimentares. Reconheço que omissões ou informações incorretas afastam a responsabilidade dos profissionais e da empresa.</p>
-            </section>
-
-            <section>
-              <h2 className="font-semibold text-brand-text">8. Interações Medicamentosas</h2>
-              <p className="mt-1">Declaro estar ciente de que interações podem ocorrer e que a responsabilidade pela atualização contínua dessas informações é exclusivamente minha.</p>
-            </section>
-
-            <section>
-              <h2 className="font-semibold text-brand-text">9. Adesão ao Tratamento</h2>
-              <p className="mt-1">Comprometo-me a seguir rigorosamente as orientações médicas. O uso em desacordo com as orientações exclui a responsabilidade dos profissionais e da empresa.</p>
-            </section>
-
-            <section>
-              <h2 className="font-semibold text-brand-text">10. Cancelamento ou Ausência</h2>
-              <p className="mt-1">Ciente de que meu atendimento terá tolerância de 10 minutos do horário agendado, meu não comparecimento sem justificativa formal desobriga a empresa ao reagendamento e/ou estorno de valores.</p>
-            </section>
-
-            <section>
-              <h2 className="font-semibold text-brand-text">11. Limitações da Telemedicina</h2>
-              <p className="mt-1">Reconheço que posso ser orientado(a) a buscar atendimento presencial sempre que necessário, sendo minha responsabilidade fazê-lo.</p>
-            </section>
-
-            <section>
-              <h2 className="font-semibold text-brand-text">12. Origem e Importação dos Produtos</h2>
-              <p className="mt-1">Declaro estar ciente de que os produtos podem ser importados e não possuir registro definitivo no Brasil; a liberação depende de órgãos reguladores e pode sofrer atrasos; o transporte é realizado por terceiros, podendo haver intercorrências fora do controle da empresa.</p>
-            </section>
-
-            <section>
-              <h2 className="font-semibold text-brand-text">13. Limitação de Responsabilidade</h2>
-              <p className="mt-1">Declaro compreender que o tratamento envolve riscos inerentes, as decisões clínicas são baseadas nas informações fornecidas remotamente, e não haverá responsabilização por ausência de resultado, efeitos adversos imprevisíveis ou fatores externos.</p>
-            </section>
-
-            <section>
-              <h2 className="font-semibold text-brand-text">14. Autonomia do Paciente</h2>
-              <p className="mt-1">Declaro que recebi informações suficientes, claras e adequadas, tive oportunidade de esclarecer dúvidas, estou tomando a decisão de forma livre, consciente e voluntária, e assumo integralmente os riscos inerentes à escolha terapêutica.</p>
-            </section>
-
-            <section>
-              <h2 className="font-semibold text-brand-text">15. Gravação do Atendimento</h2>
-              <p className="mt-1">Autorizo expressamente a gravação das consultas realizadas por telemedicina, para fins de registro clínico, segurança jurídica, auditoria e qualidade.</p>
-            </section>
-
-            <section>
-              <h2 className="font-semibold text-brand-text">16. Privacidade e Dados</h2>
-              <p className="mt-1">Estou ciente de que meus dados serão tratados conforme a legislação vigente (LGPD), reconhecendo os riscos inerentes ao ambiente digital.</p>
-            </section>
-
-            <section>
-              <h2 className="font-semibold text-brand-text">17. Eleição de Foro</h2>
-              <p className="mt-1">Fica eleito o foro da comarca de Indaiatuba/SP para dirimir quaisquer controvérsias oriundas deste termo.</p>
-            </section>
-
-            <section>
-              <h2 className="font-semibold text-brand-text">18. Revogação do Consentimento</h2>
-              <p className="mt-1">Posso revogar este consentimento a qualquer momento, mediante comunicação formal. Declaro que li, compreendi integralmente este termo e concordo livremente com seus termos.</p>
+              <h2 className="font-semibold text-brand-text">11. Contato</h2>
+              <p className="mt-1">E-mail: contato@cbdcomreceita.com.br</p>
+              <p>WhatsApp: (84) 99704-8210</p>
             </section>
           </div>
         </article>
