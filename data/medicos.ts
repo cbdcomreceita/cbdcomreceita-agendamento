@@ -82,7 +82,7 @@ export const medicos: Medico[] = [
     globalPriority: 2,
     handlesMinors: true,
     handlesElderly: true,
-    calcomSlug: "consulta-magno",
+    calcomSlug: "consulta-dr-magno-cruz-cbd-com-receita",
     calcomEventTypeId: null,
     specialties: [
       "Dores no corpo",

@@ -30,7 +30,7 @@ update doctors
        crm_uf = 'SC',
        email = 'drmagnocruz@gmail.com',
        bio_short = 'Clínico Geral',
-       calcom_event_type_slug = 'consulta-magno',
+       calcom_event_type_slug = 'consulta-dr-magno-cruz-cbd-com-receita',
        global_priority = 2,
        handles_minors = true,
        handles_elderly = true,
