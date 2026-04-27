@@ -3,6 +3,7 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { createCalcomBooking } from "@/lib/calcom/bookings";
 import { sendBookingConfirmation } from "@/lib/resend/send-confirmation";
+import { dispatchPostPaymentSideEffects } from "@/lib/post-payment/dispatch";
 import { medicos } from "@/data/medicos";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -188,7 +189,37 @@ export async function simulatePaymentApproved(input: SimulateInput) {
       console.error("[Simulate] Email failed (non-fatal):", emailResult.error);
     }
 
-    // 7. Audit
+    // 7. Post-payment side effects: doctor intake email, team intake
+    //    email, and Google Sheets row. All non-blocking — failures are
+    //    logged inside dispatch.
+    if (doctor) {
+      await dispatchPostPaymentSideEffects({
+        patient: {
+          ...patientPayload,
+          birth_date: birthDate ?? "",
+          duration: triage.duration ?? null,
+          prior_treatment: triage.priorTreatment ?? null,
+          prior_treatment_details: triage.priorTreatmentDetails ?? null,
+        },
+        doctor: {
+          name: doctor.name,
+          email: doctor.email,
+          crm: doctor.crm,
+          crmUf: doctor.crmUf,
+        },
+        booking: {
+          scheduled_at: booking.scheduledAt,
+          meet_link: meetLink ?? null,
+        },
+        payment: {
+          amount_cents: 4990,
+          status: "approved",
+          paid_at: new Date().toISOString(),
+        },
+      });
+    }
+
+    // 8. Audit
     await supabase.from("audit_events").insert({
       event_type: "payment_simulated",
       entity_type: "booking",

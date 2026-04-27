@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getMpPayment } from "@/lib/mercadopago/client";
 import { createCalcomBooking } from "@/lib/calcom/bookings";
 import { sendBookingConfirmation } from "@/lib/resend/send-confirmation";
+import { dispatchPostPaymentSideEffects } from "@/lib/post-payment/dispatch";
 import { createServiceClient } from "@/lib/supabase/server";
 import { medicos } from "@/data/medicos";
 import { format, parseISO } from "date-fns";
@@ -81,10 +82,22 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ received: true });
       }
 
-      // 4. Find doctor
-      const doctor = medicos.find(
-        (d) => d.calcomEventTypeId !== null
-      );
+      // 4. Find doctor — lookup by booking.doctor_id, then map to medicos
+      //    array by name (which has the calcomEventTypeId, email, etc.)
+      let doctor: (typeof medicos)[number] | undefined;
+      if (booking.doctor_id) {
+        const { data: dbDoctor } = await supabase
+          .from("doctors")
+          .select("name")
+          .eq("id", booking.doctor_id)
+          .maybeSingle();
+        if (dbDoctor?.name) {
+          doctor = medicos.find((d) => d.name === dbDoctor.name);
+        }
+      }
+      if (!doctor) {
+        console.error("[Webhook MP] Doctor not resolved for booking:", booking.id);
+      }
 
       // 5. Create Cal.com booking
       let meetLink: string | undefined;
@@ -154,7 +167,52 @@ export async function POST(req: NextRequest) {
         error_message: emailResult.error,
       });
 
-      // 8. Audit log
+      // 8. Post-payment side effects: doctor intake, team intake, Sheets
+      if (doctor) {
+        await dispatchPostPaymentSideEffects({
+          patient: {
+            full_name: patient.full_name,
+            email: patient.email,
+            phone: patient.phone,
+            cpf: patient.cpf,
+            rg: patient.rg,
+            birth_date: patient.birth_date,
+            address_street: patient.address_street,
+            address_number: patient.address_number,
+            address_complement: patient.address_complement,
+            address_district: patient.address_district,
+            address_city: patient.address_city,
+            address_state: patient.address_state,
+            address_zipcode: patient.address_zipcode,
+            selected_symptoms: patient.selected_symptoms ?? [],
+            has_current_medication: patient.has_current_medication ?? false,
+            current_medications: patient.current_medications,
+            prior_cbd_use: patient.prior_cbd_use,
+            duration: booking.triage_data?.duration ?? null,
+            prior_treatment: booking.triage_data?.priorTreatment ?? null,
+            prior_treatment_details: booking.triage_data?.priorTreatmentDetails ?? null,
+            lgpd_consent_at: patient.lgpd_consent_at,
+            terms_consent_at: patient.terms_consent_at,
+          },
+          doctor: {
+            name: doctor.name,
+            email: doctor.email,
+            crm: doctor.crm,
+            crmUf: doctor.crmUf,
+          },
+          booking: {
+            scheduled_at: booking.scheduled_at,
+            meet_link: meetLink ?? null,
+          },
+          payment: {
+            amount_cents: payment.amount_cents,
+            status: "approved",
+            paid_at: new Date().toISOString(),
+          },
+        });
+      }
+
+      // 9. Audit log
       await supabase.from("audit_events").insert({
         event_type: "payment_confirmed",
         entity_type: "payment",
