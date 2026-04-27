@@ -31,6 +31,7 @@ update doctors
        email = 'drmagnocruz@gmail.com',
        bio_short = 'Clínico Geral',
        calcom_event_type_slug = 'consulta-dr-magno-cruz',
+       calcom_event_type_id = 5506254,
        global_priority = 2,
        handles_minors = true,
        handles_elderly = true,

@@ -83,7 +83,7 @@ export const medicos: Medico[] = [
     handlesMinors: true,
     handlesElderly: true,
     calcomSlug: "consulta-dr-magno-cruz",
-    calcomEventTypeId: null,
+    calcomEventTypeId: 5506254,
     specialties: [
       "Dores no corpo",
       "Fibromialgia",
