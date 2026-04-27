@@ -5,8 +5,7 @@ import { createCalcomBooking } from "@/lib/calcom/bookings";
 import { sendBookingConfirmation } from "@/lib/resend/send-confirmation";
 import { dispatchPostPaymentSideEffects } from "@/lib/post-payment/dispatch";
 import { medicos } from "@/data/medicos";
-import { format, parseISO } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { formatDateLong } from "@/lib/utils/datetime";
 import type { PatientFormData } from "@/lib/validation/patient";
 import type { BookingData } from "@/lib/calcom/storage";
 import type { TriageData } from "@/lib/triagem/schemas";
@@ -170,11 +169,7 @@ export async function simulatePaymentApproved(input: SimulateInput) {
     }
 
     // 6. Try email
-    const dateFormatted = format(
-      parseISO(booking.scheduledAt),
-      "EEEE, d 'de' MMMM 'de' yyyy 'às' HH:mm",
-      { locale: ptBR }
-    );
+    const dateFormatted = formatDateLong(booking.scheduledAt);
 
     const emailResult = await sendBookingConfirmation({
       patientName: patient.fullName,

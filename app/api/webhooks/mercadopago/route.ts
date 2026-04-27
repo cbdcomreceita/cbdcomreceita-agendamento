@@ -5,8 +5,7 @@ import { sendBookingConfirmation } from "@/lib/resend/send-confirmation";
 import { dispatchPostPaymentSideEffects } from "@/lib/post-payment/dispatch";
 import { createServiceClient } from "@/lib/supabase/server";
 import { medicos } from "@/data/medicos";
-import { format, parseISO } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { formatDateLong } from "@/lib/utils/datetime";
 
 export async function POST(req: NextRequest) {
   try {
@@ -139,11 +138,7 @@ export async function POST(req: NextRequest) {
       }
 
       // 6. Send confirmation email
-      const dateFormatted = format(
-        parseISO(booking.scheduled_at),
-        "EEEE, d 'de' MMMM 'de' yyyy 'às' HH:mm",
-        { locale: ptBR }
-      );
+      const dateFormatted = formatDateLong(booking.scheduled_at);
 
       const emailResult = await sendBookingConfirmation({
         patientName: patient.full_name,

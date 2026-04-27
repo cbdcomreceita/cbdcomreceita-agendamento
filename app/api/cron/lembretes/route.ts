@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { sendBookingReminder } from "@/lib/resend/send-reminder";
 import { medicos } from "@/data/medicos";
-import { format, parseISO } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import { ptBR } from "date-fns/locale";
+import { TIMEZONE } from "@/lib/utils/datetime";
 
 async function sendReminders(
   type: "reminder_24h" | "reminder_1h",
@@ -42,8 +43,8 @@ async function sendReminders(
 
     const dateFormatted =
       reminderType === "24h"
-        ? format(parseISO(booking.scheduled_at), "EEEE, d 'de' MMMM 'às' HH:mm", { locale: ptBR })
-        : format(parseISO(booking.scheduled_at), "'Hoje às' HH:mm", { locale: ptBR });
+        ? formatInTimeZone(booking.scheduled_at, TIMEZONE, "EEEE, d 'de' MMMM 'às' HH:mm", { locale: ptBR })
+        : formatInTimeZone(booking.scheduled_at, TIMEZONE, "'Hoje às' HH:mm", { locale: ptBR });
 
     const result = await sendBookingReminder({
       patientName: patient.full_name,

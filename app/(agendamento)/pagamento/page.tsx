@@ -3,8 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { format, parseISO } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { formatDateLong } from "@/lib/utils/datetime";
 import {
   Clock, Copy, CheckCircle2, Loader2, RefreshCw, AlertTriangle,
 } from "lucide-react";
@@ -57,11 +56,7 @@ export default function PagamentoPage() {
     const matched = medicos.find((d) => d.id === triage.matchedDoctorId);
     setDoctor(matched ?? null);
     setPatientName(patient.fullName);
-    setBookingDateStr(
-      format(parseISO(booking.scheduledAt), "EEEE, d 'de' MMMM 'às' HH:mm", {
-        locale: ptBR,
-      })
-    );
+    setBookingDateStr(formatDateLong(booking.scheduledAt));
 
     // Create payment
     createPixPayment(patient as Parameters<typeof createPixPayment>[0], booking)

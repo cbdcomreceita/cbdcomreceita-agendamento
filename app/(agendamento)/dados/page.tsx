@@ -3,8 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
-import { format, parseISO } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { formatDateBR, formatDateLong } from "@/lib/utils/datetime";
 import { Loader2, ArrowRight } from "lucide-react";
 import { trackEvent } from "@/lib/analytics/track";
 import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
@@ -117,8 +116,8 @@ export default function DadosPage() {
     if (triage.birthDate) {
       const bd = triage.birthDate.slice(0, 10); // YYYY-MM-DD
       setValue("birthDate", bd);
-      const d = parseISO(triage.birthDate);
-      setBirthDateDisplay(format(d, "dd/MM/yyyy"));
+      // Anchor at noon BRT so timezone shifts can't cross day boundaries
+      setBirthDateDisplay(formatDateBR(`${bd}T12:00:00`));
     }
 
     // Load saved patient data if any
@@ -180,9 +179,7 @@ export default function DadosPage() {
 
   if (!loaded || !doctor) return null;
 
-  const formattedDate = bookingDate
-    ? format(parseISO(bookingDate), "EEEE, d 'de' MMMM 'às' HH:mm", { locale: ptBR })
-    : "";
+  const formattedDate = bookingDate ? formatDateLong(bookingDate) : "";
 
   return (
     <div className="mx-auto w-full max-w-2xl flex-1 px-5 py-8 sm:px-8 sm:py-12">

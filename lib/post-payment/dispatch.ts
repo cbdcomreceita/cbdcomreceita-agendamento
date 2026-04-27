@@ -1,11 +1,17 @@
 "use server";
 
-import { format, parseISO } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { parseISO } from "date-fns";
 import { sendDoctorIntake, sendTeamIntake } from "@/lib/resend/send-intake";
 import { appendToGoogleSheet } from "@/lib/google-sheets/append-row";
 import { calculateAge } from "@/lib/utils/age";
 import { maskCpf, maskPhone, maskCep } from "@/lib/utils/masks";
+import {
+  formatDateBR,
+  formatDateBRShort,
+  formatDateLongNoTime,
+  formatDateTimeBR,
+  formatTime,
+} from "@/lib/utils/datetime";
 import {
   DURATION_LABELS,
   PRIOR_CBD_LABELS,
@@ -60,15 +66,16 @@ export async function dispatchPostPaymentSideEffects(
 ): Promise<void> {
   const { patient, doctor, booking, payment } = input;
 
-  const scheduledAt = parseISO(booking.scheduled_at);
-  const dateFormatted = format(scheduledAt, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR });
-  const timeFormatted = format(scheduledAt, "HH:mm");
-  const dateBR = format(scheduledAt, "dd/MM/yyyy");
-  const dateBRShort = format(scheduledAt, "dd/MM");
+  const dateFormatted = formatDateLongNoTime(booking.scheduled_at);
+  const timeFormatted = formatTime(booking.scheduled_at);
+  const dateBR = formatDateBR(booking.scheduled_at);
+  const dateBRShort = formatDateBRShort(booking.scheduled_at);
 
-  const birthDate = parseISO(patient.birth_date);
-  const birthBR = format(birthDate, "dd/MM/yyyy");
-  const age = calculateAge(birthDate);
+  // Birth date is a date-only string (YYYY-MM-DD) — append T12:00:00 to
+  // anchor it at noon so timezone shifts can't cross day boundaries.
+  const birthAnchored = `${patient.birth_date}T12:00:00`;
+  const birthBR = formatDateBR(birthAnchored);
+  const age = calculateAge(parseISO(birthAnchored));
 
   const symptomsLabels = getSymptomLabels(patient.selected_symptoms);
   const symptomsJoined = symptomsLabels.join(", ") || "—";
@@ -100,9 +107,9 @@ export async function dispatchPostPaymentSideEffects(
       : `Tratamento anterior: ${tLabel}`;
   }
 
-  const lgpdAtBR = format(parseISO(patient.lgpd_consent_at), "dd/MM/yyyy HH:mm");
-  const termsAtBR = format(parseISO(patient.terms_consent_at), "dd/MM/yyyy HH:mm");
-  const paidAtBR = format(parseISO(payment.paid_at), "dd/MM/yyyy HH:mm");
+  const lgpdAtBR = formatDateTimeBR(patient.lgpd_consent_at);
+  const termsAtBR = formatDateTimeBR(patient.terms_consent_at);
+  const paidAtBR = formatDateTimeBR(payment.paid_at);
 
   const amountFormatted = `R$ ${(payment.amount_cents / 100)
     .toFixed(2)

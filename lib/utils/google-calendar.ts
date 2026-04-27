@@ -36,7 +36,10 @@ export function buildGoogleCalendarUrl(params: GoogleCalendarParams): string {
     ? `Consulta ${params.patientName} : ${params.doctorName}`
     : `Consulta CBD com Receita — ${params.doctorName}`;
   url.searchParams.set("text", title);
+  // dates= uses UTC with Z suffix; ctz tells Google to render the form
+  // in São Paulo time so what the user sees matches the consultation time.
   url.searchParams.set("dates", `${start}/${end}`);
+  url.searchParams.set("ctz", "America/Sao_Paulo");
   url.searchParams.set("details", detailsLines.join("\n"));
   url.searchParams.set("location", params.meetLink || "Google Meet");
 

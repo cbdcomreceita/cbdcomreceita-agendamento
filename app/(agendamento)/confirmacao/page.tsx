@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { format, parseISO } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { formatDateLong } from "@/lib/utils/datetime";
 import {
   CheckCircle2, CalendarCheck, Video, Clock, User,
   ArrowRight, MessageCircle, CalendarPlus,
@@ -46,11 +45,7 @@ export default function ConfirmacaoPage() {
     setDoctor(matched ?? null);
     setPatientName(patient.fullName);
     setBookingData(booking);
-    setBookingDateStr(
-      format(parseISO(booking.scheduledAt), "EEEE, d 'de' MMMM 'às' HH:mm", {
-        locale: ptBR,
-      })
-    );
+    setBookingDateStr(formatDateLong(booking.scheduledAt));
 
     setLoaded(true);
   }, [router]);

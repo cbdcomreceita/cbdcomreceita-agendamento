@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { format, parseISO } from "date-fns";
+import { parseISO } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import { ptBR } from "date-fns/locale";
 import { Check, Loader2, MessageCircle, RefreshCw, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { getAvailableSlots, type DaySlots } from "@/lib/calcom/availability";
+import { TIMEZONE, formatDateLong, formatTime } from "@/lib/utils/datetime";
 import { trackEvent } from "@/lib/analytics/track";
 import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
 
@@ -154,9 +156,10 @@ export function SlotPicker({ eventTypeId, onConfirm }: SlotPickerProps) {
       {/* Days grid */}
       <div className="grid gap-4 sm:grid-cols-3" data-track="calendar_viewed">
         {days.map((day) => {
-          const dateObj = parseISO(day.date);
-          const dayLabel = format(dateObj, "EEEE", { locale: ptBR });
-          const dateLabel = format(dateObj, "d 'de' MMM", { locale: ptBR });
+          // day.date is "YYYY-MM-DD" — anchor at noon BRT to avoid TZ drift
+          const dateObj = parseISO(`${day.date}T12:00:00`);
+          const dayLabel = formatInTimeZone(dateObj, TIMEZONE, "EEEE", { locale: ptBR });
+          const dateLabel = formatInTimeZone(dateObj, TIMEZONE, "d 'de' MMM", { locale: ptBR });
 
           return (
             <div
@@ -171,8 +174,7 @@ export function SlotPicker({ eventTypeId, onConfirm }: SlotPickerProps) {
               </div>
               <div className="flex flex-wrap gap-2">
                 {day.slots.map((slot) => {
-                  const t = parseISO(slot.time);
-                  const timeStr = format(t, "HH:mm");
+                  const timeStr = formatTime(slot.time);
                   const isSelected = selectedSlot === slot.time;
 
                   return (
@@ -206,9 +208,7 @@ export function SlotPicker({ eventTypeId, onConfirm }: SlotPickerProps) {
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-sm font-semibold text-brand-forest-dark">
-                {format(parseISO(selectedSlot), "EEEE, d 'de' MMMM 'às' HH:mm", {
-                  locale: ptBR,
-                })}
+                {formatDateLong(selectedSlot)}
               </p>
               {countdown && (
                 <p className="mt-1 flex items-center gap-1.5 text-xs text-brand-text-muted">
