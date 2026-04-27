@@ -1,6 +1,7 @@
 interface GoogleCalendarParams {
   doctorName: string;
   doctorCrm?: string;
+  patientName?: string;
   startISO: string;
   endISO: string;
   durationLabel?: string;
@@ -31,7 +32,10 @@ export function buildGoogleCalendarUrl(params: GoogleCalendarParams): string {
 
   const url = new URL("https://calendar.google.com/calendar/render");
   url.searchParams.set("action", "TEMPLATE");
-  url.searchParams.set("text", `Consulta CBD com Receita - ${params.doctorName}`);
+  const title = params.patientName
+    ? `Consulta ${params.patientName} : ${params.doctorName}`
+    : `Consulta CBD com Receita — ${params.doctorName}`;
+  url.searchParams.set("text", title);
   url.searchParams.set("dates", `${start}/${end}`);
   url.searchParams.set("details", detailsLines.join("\n"));
   url.searchParams.set("location", params.meetLink || "Google Meet");

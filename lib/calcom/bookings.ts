@@ -38,6 +38,25 @@ export async function createCalcomBooking(
     };
   }
 
+  // Note: do NOT send `title` or `lengthInMinutes` here — API v2
+  // (cal-api-version 2024-08-13) rejects unknown top-level fields with 400.
+  // The event title comes from the event type's `customName` template
+  // configured in Cal.com (e.g. "Consulta {Scheduler} : Dra. Carolina Lopes").
+  const requestBody = {
+    eventTypeId: input.eventTypeId,
+    start: input.scheduledAt,
+    attendee: {
+      name: input.patientName,
+      email: input.patientEmail,
+      timeZone: "America/Sao_Paulo",
+      language: "pt-BR",
+    },
+    guests: [input.doctorEmail],
+    metadata: input.metadata ?? {},
+  };
+
+  console.log("[Cal.com] Booking POST body:", JSON.stringify(requestBody));
+
   try {
     const res = await fetch("https://api.cal.com/v2/bookings", {
       method: "POST",
@@ -46,37 +65,38 @@ export async function createCalcomBooking(
         "Content-Type": "application/json",
         "cal-api-version": "2024-08-13",
       },
-      body: JSON.stringify({
-        eventTypeId: input.eventTypeId,
-        start: input.scheduledAt,
-        title: `Consulta ${input.patientName} : ${input.doctorName}`,
-        lengthInMinutes: 25,
-        attendee: {
-          name: input.patientName,
-          email: input.patientEmail,
-          timeZone: "America/Sao_Paulo",
-          language: "pt-BR",
-        },
-        guests: [input.doctorEmail],
-        metadata: input.metadata ?? {},
-      }),
+      body: JSON.stringify(requestBody),
     });
 
+    const responseText = await res.text();
+    console.log("[Cal.com] Booking response status:", res.status);
+    console.log("[Cal.com] Booking response body:", responseText.slice(0, 1500));
+
     if (!res.ok) {
-      const body = await res.text();
-      console.error("[Cal.com] Booking creation failed:", res.status, body);
-      return { success: false, error: `Cal.com error ${res.status}: ${body}` };
+      return { success: false, error: `Cal.com error ${res.status}: ${responseText}` };
     }
 
-    const data = await res.json();
+    const data = JSON.parse(responseText);
     const booking = data.data;
 
-    return {
+    const result: CalcomBookingResult = {
       success: true,
       bookingId: booking?.id,
       bookingUid: booking?.uid,
-      meetLink: booking?.meetingUrl || booking?.metadata?.videoCallUrl,
+      meetLink:
+        booking?.meetingUrl ||
+        booking?.location ||
+        booking?.metadata?.videoCallUrl,
     };
+    console.log(
+      "[Cal.com] Booking parsed:",
+      JSON.stringify({
+        bookingId: result.bookingId,
+        bookingUid: result.bookingUid,
+        meetLink: result.meetLink,
+      })
+    );
+    return result;
   } catch (err) {
     console.error("[Cal.com] Booking creation error:", err);
     return { success: false, error: String(err) };

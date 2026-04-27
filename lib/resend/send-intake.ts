@@ -25,13 +25,14 @@ export interface DoctorIntakeParams {
 export async function sendDoctorIntake(
   params: DoctorIntakeParams
 ): Promise<{ success: boolean; error?: string }> {
+  console.log(`[Resend] Sending doctor intake to: ${params.doctorEmail}`);
   if (!isResendConfigured()) {
     console.warn("[Resend] API key not set — skipping doctor intake (mock mode)");
     return { success: true };
   }
 
   try {
-    const { error } = await resend!.emails.send({
+    const { data, error } = await resend!.emails.send({
       from: `CBD com Receita <${FROM_EMAIL}>`,
       to: params.doctorEmail,
       subject: `Consulta ${params.subjectDate} ${params.subjectTime} — ${params.patientName}`,
@@ -50,9 +51,10 @@ export async function sendDoctorIntake(
     });
 
     if (error) {
-      console.error("[Resend] Doctor intake send error:", error);
+      console.error("[Resend] Doctor intake send error:", JSON.stringify(error));
       return { success: false, error: error.message };
     }
+    console.log("[Resend] Doctor intake sent. id:", data?.id);
     return { success: true };
   } catch (err) {
     console.error("[Resend] Doctor intake failed:", err);
@@ -103,13 +105,14 @@ export interface TeamIntakeParams {
 export async function sendTeamIntake(
   params: TeamIntakeParams
 ): Promise<{ success: boolean; error?: string }> {
+  console.log(`[Resend] Sending team intake to: ${TEAM_EMAIL}`);
   if (!isResendConfigured()) {
     console.warn("[Resend] API key not set — skipping team intake (mock mode)");
     return { success: true };
   }
 
   try {
-    const { error } = await resend!.emails.send({
+    const { data, error } = await resend!.emails.send({
       from: `CBD com Receita <${FROM_EMAIL}>`,
       to: TEAM_EMAIL,
       subject: `Nova consulta: ${params.patientName} — ${params.subjectDate} — ${params.doctorName}`,
@@ -147,9 +150,10 @@ export async function sendTeamIntake(
     });
 
     if (error) {
-      console.error("[Resend] Team intake send error:", error);
+      console.error("[Resend] Team intake send error:", JSON.stringify(error));
       return { success: false, error: error.message };
     }
+    console.log("[Resend] Team intake sent. id:", data?.id);
     return { success: true };
   } catch (err) {
     console.error("[Resend] Team intake failed:", err);

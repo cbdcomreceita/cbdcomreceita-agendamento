@@ -69,6 +69,7 @@ export default function ConfirmacaoPage() {
   const gcalUrl = buildGoogleCalendarUrl({
     doctorName: doctor.name,
     doctorCrm: doctor.crm ? `CRM ${doctor.crm}/${doctor.crmUf}` : undefined,
+    patientName,
     startISO: bookingData.scheduledAt,
     endISO: bookingData.scheduledEndAt,
     durationLabel: "25 minutos",
