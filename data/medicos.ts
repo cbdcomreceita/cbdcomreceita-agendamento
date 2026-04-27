@@ -1,6 +1,7 @@
 export interface Medico {
   id: string;
   name: string;
+  email: string;
   crm: string;
   crmUf: string;
   specialty: string;
@@ -20,6 +21,7 @@ export const medicos: Medico[] = [
   {
     id: "carol",
     name: "Dra. Carolina Lopes",
+    email: "carol.lopes411@hotmail.com",
     crm: "215691",
     crmUf: "SP",
     specialty: "Psiquiatria",
@@ -49,6 +51,7 @@ export const medicos: Medico[] = [
   {
     id: "lilian",
     name: "Dra. Lilian",
+    email: "lilian@cbdcomreceita.com.br",
     crm: "",
     crmUf: "",
     specialty: "Dor crônica e neurologia",
@@ -72,6 +75,7 @@ export const medicos: Medico[] = [
   {
     id: "magno",
     name: "Dr. Magno Cruz",
+    email: "drmagnocruz@gmail.com",
     crm: "28892",
     crmUf: "SC",
     specialty: "Clínico Geral",

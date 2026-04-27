@@ -16,6 +16,7 @@ interface BookingInput {
   patientName: string;
   patientEmail: string;
   doctorName: string;
+  doctorEmail: string;
   notes: string;
   metadata?: Record<string, string>;
 }
@@ -56,6 +57,7 @@ export async function createCalcomBooking(
           timeZone: "America/Sao_Paulo",
           language: "pt-BR",
         },
+        guests: [input.doctorEmail],
         metadata: input.metadata ?? {},
       }),
     });

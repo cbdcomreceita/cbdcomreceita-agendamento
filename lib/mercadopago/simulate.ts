@@ -150,6 +150,7 @@ export async function simulatePaymentApproved(input: SimulateInput) {
         patientName: patient.fullName,
         patientEmail: patient.email,
         doctorName: doctor.name,
+        doctorEmail: doctor.email,
         notes: `Sintomas: ${(triage.selectedSymptoms || []).join(", ")}`,
         metadata: { bookingId: dbBooking.id, source: "cbdcomreceita-sim" },
       });
