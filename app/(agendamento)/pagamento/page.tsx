@@ -233,7 +233,7 @@ export default function PagamentoPage() {
                 Pagamento via PIX
               </h2>
               <p className="mt-1 text-center text-sm text-brand-text-secondary">
-                Escaneie o QR Code ou copie o código para pagar
+                Abra o app do seu banco, selecione pagamento via PIX e escaneie o QR Code ou copie o código abaixo
               </p>
 
               {/* QR Code */}
