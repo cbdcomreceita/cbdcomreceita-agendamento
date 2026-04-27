@@ -13,14 +13,13 @@ import { Button } from "@/components/ui/button";
 import { FlowBreadcrumb } from "@/components/fluxo/flow-breadcrumb";
 import { DoctorSummary } from "@/components/fluxo/doctor-summary";
 import { loadTriageData } from "@/lib/triagem/storage";
-import { loadBookingData, saveBookingData } from "@/lib/calcom/storage";
+import { loadBookingData } from "@/lib/calcom/storage";
 import { loadPatientData } from "@/lib/validation/patient-storage";
 import {
   createPixPayment,
   checkPaymentStatus,
   type PixPaymentResult,
 } from "@/lib/mercadopago/actions";
-import { simulatePaymentApproved } from "@/lib/mercadopago/simulate";
 import { trackEvent } from "@/lib/analytics/track";
 import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
 import { medicos, type Medico } from "@/data/medicos";
@@ -119,36 +118,6 @@ export default function PagamentoPage() {
     await navigator.clipboard.writeText(pixData.qrCode);
     toast.success("Código PIX copiado!");
   }, [pixData]);
-
-  async function handleSimulatePayment() {
-    if (pollRef.current) clearInterval(pollRef.current);
-    if (countdownRef.current) clearInterval(countdownRef.current);
-
-    const triage = loadTriageData();
-    const booking = loadBookingData();
-    const patient = loadPatientData();
-
-    if (booking && patient?.fullName) {
-      const result = await simulatePaymentApproved({
-        patient: patient as Parameters<typeof simulatePaymentApproved>[0]["patient"],
-        booking,
-        triage,
-      });
-      if (!result.success) {
-        console.error("[Simulate] Failed:", result.error);
-        toast.error(result.error ?? "Erro ao processar pagamento");
-        setState("error");
-        return;
-      }
-      if (result.meetLink) {
-        saveBookingData({ ...booking, meetLink: result.meetLink });
-      }
-    }
-
-    setState("approved");
-    trackEvent(ANALYTICS_EVENTS.PAYMENT_COMPLETED);
-    setTimeout(() => router.push("/confirmacao"), 2000);
-  }
 
   async function handleRegeneratePix() {
     setState("loading");
@@ -295,20 +264,6 @@ export default function PagamentoPage() {
                 <span className="text-sm text-brand-text-secondary">
                   Aguardando pagamento...
                 </span>
-              </div>
-
-              {/* Temporary: simulate button (remove after launch) */}
-              <div className="mt-4 rounded-xl border border-dashed border-brand-text-muted/30 p-3 text-center">
-                <p className="text-[11px] uppercase tracking-wider text-brand-text-muted">
-                  Modo teste
-                </p>
-                <button
-                  type="button"
-                  onClick={handleSimulatePayment}
-                  className="mt-1 text-xs font-medium text-brand-text-muted underline underline-offset-2 transition-colors hover:text-brand-text-secondary"
-                >
-                  Simular pagamento
-                </button>
               </div>
             </motion.div>
           )}
