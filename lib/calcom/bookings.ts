@@ -15,6 +15,7 @@ interface BookingInput {
   scheduledAt: string;
   patientName: string;
   patientEmail: string;
+  doctorName: string;
   notes: string;
   metadata?: Record<string, string>;
 }
@@ -47,6 +48,8 @@ export async function createCalcomBooking(
       body: JSON.stringify({
         eventTypeId: input.eventTypeId,
         start: input.scheduledAt,
+        title: `Consulta ${input.patientName} : ${input.doctorName}`,
+        lengthInMinutes: 25,
         attendee: {
           name: input.patientName,
           email: input.patientEmail,
