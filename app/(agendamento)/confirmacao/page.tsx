@@ -20,6 +20,10 @@ import { medicos, type Medico } from "@/data/medicos";
 import { buildGoogleCalendarUrl } from "@/lib/utils/google-calendar";
 import { cn } from "@/lib/utils";
 
+const SUPPORT_WHATSAPP = `https://wa.me/5584997048210?text=${encodeURIComponent(
+  "Olá! Acabei de agendar minha consulta pelo site e gostaria de tirar uma dúvida."
+)}`;
+
 export default function ConfirmacaoPage() {
   const router = useRouter();
   const [doctor, setDoctor] = useState<Medico | null>(null);
@@ -209,7 +213,7 @@ export default function ConfirmacaoPage() {
             <ArrowRight className="ml-2 h-4 w-4" />
           </Link>
           <a
-            href="https://wa.me/5584997048210"
+            href={SUPPORT_WHATSAPP}
             target="_blank"
             rel="noopener noreferrer"
             className={cn(
