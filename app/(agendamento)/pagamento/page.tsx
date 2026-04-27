@@ -302,18 +302,19 @@ export default function PagamentoPage() {
                 </span>
               </div>
 
-              {/* Dev: simulate button */}
-              {pixData.isMock && (
-                <div className="mt-4 rounded-xl border border-dashed border-brand-info/30 bg-brand-info/5 p-4 text-center">
-                  <p className="text-xs text-brand-info">Modo desenvolvimento</p>
-                  <Button
-                    onClick={handleSimulatePayment}
-                    className="mt-2 bg-brand-info text-white hover:bg-brand-info/90"
-                  >
-                    Simular pagamento aprovado
-                  </Button>
-                </div>
-              )}
+              {/* Temporary: simulate button (remove after launch) */}
+              <div className="mt-4 rounded-xl border border-dashed border-brand-text-muted/30 p-3 text-center">
+                <p className="text-[11px] uppercase tracking-wider text-brand-text-muted">
+                  Modo teste
+                </p>
+                <button
+                  type="button"
+                  onClick={handleSimulatePayment}
+                  className="mt-1 text-xs font-medium text-brand-text-muted underline underline-offset-2 transition-colors hover:text-brand-text-secondary"
+                >
+                  Simular pagamento
+                </button>
+              </div>
             </motion.div>
           )}
 
