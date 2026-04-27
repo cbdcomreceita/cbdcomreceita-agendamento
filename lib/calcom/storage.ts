@@ -5,6 +5,7 @@ export interface BookingData {
   scheduledEndAt: string;
   duration: number;
   calcomBookingUid?: string;
+  meetLink?: string;
 }
 
 const STORAGE_KEY = "booking_data_v1";

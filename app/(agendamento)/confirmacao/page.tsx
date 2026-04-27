@@ -7,16 +7,17 @@ import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
   CheckCircle2, CalendarCheck, Video, Clock, User,
-  ArrowRight, MessageCircle,
+  ArrowRight, MessageCircle, CalendarPlus,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { buttonVariants } from "@/components/ui/button";
 import { FlowBreadcrumb } from "@/components/fluxo/flow-breadcrumb";
 import { DoctorSummary } from "@/components/fluxo/doctor-summary";
 import { loadTriageData, clearTriageData } from "@/lib/triagem/storage";
-import { loadBookingData, clearBookingData } from "@/lib/calcom/storage";
+import { loadBookingData, clearBookingData, type BookingData } from "@/lib/calcom/storage";
 import { loadPatientData } from "@/lib/validation/patient-storage";
 import { medicos, type Medico } from "@/data/medicos";
+import { buildGoogleCalendarUrl } from "@/lib/utils/google-calendar";
 import { cn } from "@/lib/utils";
 
 export default function ConfirmacaoPage() {
@@ -24,6 +25,7 @@ export default function ConfirmacaoPage() {
   const [doctor, setDoctor] = useState<Medico | null>(null);
   const [bookingDateStr, setBookingDateStr] = useState("");
   const [patientName, setPatientName] = useState("");
+  const [bookingData, setBookingData] = useState<BookingData | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -39,6 +41,7 @@ export default function ConfirmacaoPage() {
     const matched = medicos.find((d) => d.id === triage.matchedDoctorId);
     setDoctor(matched ?? null);
     setPatientName(patient.fullName);
+    setBookingData(booking);
     setBookingDateStr(
       format(parseISO(booking.scheduledAt), "EEEE, d 'de' MMMM 'às' HH:mm", {
         locale: ptBR,
@@ -56,7 +59,17 @@ export default function ConfirmacaoPage() {
     }
   }
 
-  if (!loaded || !doctor) return null;
+  if (!loaded || !doctor || !bookingData) return null;
+
+  const meetLink = bookingData.meetLink;
+  const gcalUrl = buildGoogleCalendarUrl({
+    doctorName: doctor.name,
+    doctorCrm: doctor.crm ? `CRM ${doctor.crm}/${doctor.crmUf}` : undefined,
+    startISO: bookingData.scheduledAt,
+    endISO: bookingData.scheduledEndAt,
+    durationLabel: "25 minutos",
+    meetLink,
+  });
 
   return (
     <div className="mx-auto w-full max-w-2xl flex-1 px-5 py-8 sm:px-8 sm:py-12">
@@ -82,7 +95,7 @@ export default function ConfirmacaoPage() {
             Consulta agendada com sucesso!
           </h1>
           <p className="mt-2 text-sm text-brand-text-secondary sm:text-base">
-            Você receberá uma confirmação por e-mail e WhatsApp.
+            Você receberá uma confirmação por e-mail.
           </p>
         </div>
 
@@ -117,7 +130,9 @@ export default function ConfirmacaoPage() {
               <div>
                 <p className="font-medium text-brand-text">Formato</p>
                 <p className="text-brand-text-secondary">
-                  Videochamada via Google Meet — o link será enviado por e-mail e WhatsApp após a confirmação do pagamento
+                  {meetLink
+                    ? "Videochamada via Google Meet — link disponível abaixo e no e-mail de confirmação"
+                    : "Videochamada via Google Meet — o link será enviado por e-mail antes da consulta"}
                 </p>
               </div>
             </div>
@@ -130,11 +145,51 @@ export default function ConfirmacaoPage() {
           </div>
         </div>
 
+        {/* Quick actions: Meet + Google Calendar */}
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+          {meetLink && (
+            <a
+              href={meetLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(
+                buttonVariants({ size: "lg" }),
+                "flex-1 bg-brand-forest text-brand-cream hover:bg-brand-forest-hover font-semibold"
+              )}
+              data-track="cta_clicked"
+              data-track-section="confirmacao"
+              data-track-label="acessar_meet"
+            >
+              <Video className="mr-2 h-4 w-4" />
+              Acessar consulta via Google Meet
+            </a>
+          )}
+          <a
+            href={gcalUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(
+              buttonVariants({ variant: "outline", size: "lg" }),
+              "flex-1 border-brand-forest/40 text-brand-forest hover:bg-brand-forest/8 font-semibold"
+            )}
+            data-track="cta_clicked"
+            data-track-section="confirmacao"
+            data-track-label="add_google_calendar"
+          >
+            <CalendarPlus className="mr-2 h-4 w-4" />
+            Adicionar ao Google Agenda
+          </a>
+        </div>
+
         {/* Important info */}
         <div className="mt-6 rounded-2xl bg-brand-sand/40 p-5 sm:p-6">
           <h3 className="text-sm font-semibold text-brand-forest-dark">Informações importantes</h3>
           <ul className="mt-3 space-y-2 text-sm leading-relaxed text-brand-text-secondary">
-            <li>• Você receberá o link do Google Meet por e-mail e WhatsApp em instantes</li>
+            {meetLink ? (
+              <li>• O link do Google Meet também foi enviado por e-mail</li>
+            ) : (
+              <li>• O link do Google Meet será enviado por e-mail antes da consulta</li>
+            )}
             <li>• Compareça com até 1 minuto de antecedência, tendo em mãos seu peso e altura para caso de prescrição</li>
             <li>• Em caso de atraso superior a 10 minutos, será necessário novo agendamento</li>
           </ul>

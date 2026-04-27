@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { FlowBreadcrumb } from "@/components/fluxo/flow-breadcrumb";
 import { DoctorSummary } from "@/components/fluxo/doctor-summary";
 import { loadTriageData } from "@/lib/triagem/storage";
-import { loadBookingData } from "@/lib/calcom/storage";
+import { loadBookingData, saveBookingData } from "@/lib/calcom/storage";
 import { loadPatientData } from "@/lib/validation/patient-storage";
 import {
   createPixPayment,
@@ -141,6 +141,12 @@ export default function PagamentoPage() {
       });
       if (!result.success) {
         console.error("[Simulate] Failed:", result.error);
+        toast.error(result.error ?? "Erro ao processar pagamento");
+        setState("error");
+        return;
+      }
+      if (result.meetLink) {
+        saveBookingData({ ...booking, meetLink: result.meetLink });
       }
     }
 

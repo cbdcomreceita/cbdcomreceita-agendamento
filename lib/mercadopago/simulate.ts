@@ -86,19 +86,32 @@ export async function simulatePaymentApproved(input: SimulateInput) {
       dbPatient = data;
     }
 
-    // 2. Find doctor UUID from Supabase
+    // 2. Find doctor UUID from Supabase. Be defensive: aceita o nome
+    //    atual ou variantes anteriores (caso a migration ainda não tenha
+    //    rodado em produção).
+    const candidateNames = [doctor?.name, "Dr. Magno", "Dr. Magno Cruz"]
+      .filter((n): n is string => !!n);
     const { data: dbDoctor } = await supabase
       .from("doctors")
       .select("id")
-      .eq("name", doctor?.name || "")
+      .in("name", candidateNames)
+      .limit(1)
       .maybeSingle();
+
+    if (!dbDoctor?.id) {
+      console.error("[Simulate] Doctor not found in DB. Tried:", candidateNames);
+      return {
+        success: false,
+        error: `Médico não encontrado no banco: ${doctor?.name ?? "?"}`,
+      };
+    }
 
     // 3. Create booking
     const { data: dbBooking, error: bookingError } = await supabase
       .from("bookings")
       .insert({
         patient_id: dbPatient.id,
-        doctor_id: dbDoctor?.id || null,
+        doctor_id: dbDoctor.id,
         status: "confirmed",
         scheduled_at: booking.scheduledAt,
         scheduled_end_at: booking.scheduledEndAt,
@@ -160,7 +173,7 @@ export async function simulatePaymentApproved(input: SimulateInput) {
       { locale: ptBR }
     );
 
-    await sendBookingConfirmation({
+    const emailResult = await sendBookingConfirmation({
       patientName: patient.fullName,
       patientEmail: patient.email,
       doctorName: doctor?.name ?? "Médico CBD com Receita",
@@ -169,6 +182,9 @@ export async function simulatePaymentApproved(input: SimulateInput) {
       duration: "25 minutos",
       meetLink,
     });
+    if (!emailResult.success) {
+      console.error("[Simulate] Email failed (non-fatal):", emailResult.error);
+    }
 
     // 7. Audit
     await supabase.from("audit_events").insert({
@@ -178,7 +194,7 @@ export async function simulatePaymentApproved(input: SimulateInput) {
       metadata: { doctorId: doctor?.id, patientCpf: cpfClean },
     });
 
-    return { success: true };
+    return { success: true, meetLink };
   } catch (err) {
     console.error("[Simulate] Unhandled error:", err);
     return { success: false, error: String(err) };

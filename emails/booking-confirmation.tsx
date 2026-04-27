@@ -55,11 +55,17 @@ export function BookingConfirmationEmail({
               <Text style={cardValueStyle}>Videochamada via Google Meet</Text>
             </Section>
 
-            {meetLink && (
+            {meetLink ? (
               <Section style={{ textAlign: "center" as const, marginTop: "24px" }}>
                 <Button href={meetLink} style={meetButtonStyle}>
-                  Acessar consulta
+                  Acessar consulta via Google Meet
                 </Button>
+              </Section>
+            ) : (
+              <Section style={{ marginTop: "24px" }}>
+                <Text style={meetFallbackStyle}>
+                  O link do Google Meet será enviado por e-mail antes da consulta.
+                </Text>
               </Section>
             )}
 
@@ -179,6 +185,17 @@ const meetButtonStyle = {
   fontWeight: "600" as const,
   fontFamily: "'Source Sans 3', system-ui, sans-serif",
   textDecoration: "none",
+};
+
+const meetFallbackStyle = {
+  backgroundColor: "#f2efe8",
+  border: "1px solid #e5e0d4",
+  borderRadius: "10px",
+  padding: "14px 18px",
+  color: "#5c5c5c",
+  fontSize: "13px",
+  textAlign: "center" as const,
+  margin: "0",
 };
 
 const hrStyle = {
