@@ -107,7 +107,6 @@ export async function POST(req: NextRequest) {
           patientName: patient.full_name,
           patientEmail: patient.email,
           doctorName: doctor.name,
-          doctorEmail: doctor.email,
           notes: `Sintomas: ${(patient.selected_symptoms || []).join(", ")}`,
           metadata: {
             bookingId: booking.id,

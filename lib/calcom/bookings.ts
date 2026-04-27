@@ -16,7 +16,6 @@ interface BookingInput {
   patientName: string;
   patientEmail: string;
   doctorName: string;
-  doctorEmail: string;
   notes: string;
   metadata?: Record<string, string>;
 }
@@ -42,6 +41,10 @@ export async function createCalcomBooking(
   // (cal-api-version 2024-08-13) rejects unknown top-level fields with 400.
   // The event title comes from the event type's `customName` template
   // configured in Cal.com (e.g. "Consulta {Scheduler} : Dra. Carolina Lopes").
+  // Doctor is intentionally NOT added as guest here — they're notified via
+  // sendDoctorIntake (Resend), Cal.com workflows, and the shared Google
+  // Calendar. Adding them as a guest would also surface their email in the
+  // patient's invite, which we don't want.
   const requestBody = {
     eventTypeId: input.eventTypeId,
     start: input.scheduledAt,
@@ -51,7 +54,6 @@ export async function createCalcomBooking(
       timeZone: "America/Sao_Paulo",
       language: "pt-BR",
     },
-    guests: [input.doctorEmail],
     metadata: input.metadata ?? {},
   };
 
