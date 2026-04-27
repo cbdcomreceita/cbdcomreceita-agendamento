@@ -13,6 +13,12 @@ export interface DaySlots {
 
 /**
  * Fetch available slots from Cal.com API v2.
+ *
+ * Endpoint: GET /v2/slots
+ * Version:  2024-09-04 (older /v2/slots/available endpoint was deprecated/removed)
+ * Response shape:
+ *   { status: "success", data: { "YYYY-MM-DD": [{ start: ISO }, ...], ... } }
+ *
  * Searches next 30 days, returns only days with slots, max 3 days.
  */
 export async function getAvailableSlots(
@@ -24,34 +30,43 @@ export async function getAvailableSlots(
     return [];
   }
 
-  const startTime = new Date().toISOString();
-  const endTime = addDays(new Date(), 30).toISOString();
+  const start = new Date().toISOString();
+  const end = addDays(new Date(), 30).toISOString();
 
-  const url = new URL("https://api.cal.com/v2/slots/available");
+  const url = new URL("https://api.cal.com/v2/slots");
   url.searchParams.set("eventTypeId", String(eventTypeId));
-  url.searchParams.set("startTime", startTime);
-  url.searchParams.set("endTime", endTime);
+  url.searchParams.set("start", start);
+  url.searchParams.set("end", end);
 
   try {
     const res = await fetch(url.toString(), {
-      headers: { Authorization: `Bearer ${apiKey}` },
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "cal-api-version": "2024-09-04",
+      },
       cache: "no-store",
     });
 
     if (!res.ok) {
       const body = await res.text();
-      console.error("[Cal.com] API error:", res.status, body);
+      console.error("[Cal.com] Slots API error:", res.status, body);
       return [];
     }
 
-    const json = await res.json();
-    const slotsMap = json?.data?.slots as Record<string, TimeSlot[]> | undefined;
+    const json = (await res.json()) as {
+      status?: string;
+      data?: Record<string, Array<{ start: string }>>;
+    };
+    const slotsMap = json.data;
     if (!slotsMap) return [];
 
     const result: DaySlots[] = [];
     for (const [date, slots] of Object.entries(slotsMap)) {
       if (slots.length > 0) {
-        result.push({ date, slots });
+        result.push({
+          date,
+          slots: slots.map((s) => ({ time: s.start })),
+        });
       }
     }
 

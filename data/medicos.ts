@@ -31,8 +31,8 @@ export const medicos: Medico[] = [
     globalPriority: 1,
     handlesMinors: false,
     handlesElderly: false,
-    calcomSlug: "30min",
-    calcomEventTypeId: 5362724,
+    calcomSlug: "consulta",
+    calcomEventTypeId: 5362820,
     specialties: [
       "Ansiedade",
       "Insônia",
@@ -87,7 +87,7 @@ export const medicos: Medico[] = [
     handlesMinors: true,
     handlesElderly: true,
     calcomSlug: "consulta-dr-magno-cruz",
-    calcomEventTypeId: 5506254,
+    calcomEventTypeId: 5508269,
     specialties: [
       "Dores no corpo",
       "Fibromialgia",
