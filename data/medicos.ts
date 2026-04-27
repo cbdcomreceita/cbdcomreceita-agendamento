@@ -13,6 +13,7 @@ export interface Medico {
   calcomSlug: string;
   calcomEventTypeId: number | null;
   specialties: string[];
+  isActive: boolean;
 }
 
 export const medicos: Medico[] = [
@@ -21,7 +22,7 @@ export const medicos: Medico[] = [
     name: "Dra. Carolina Lopes",
     crm: "215691",
     crmUf: "SP",
-    specialty: "Psiquiatra",
+    specialty: "Psiquiatria",
     bioShort: "Psiquiatra com foco em saúde mental e qualidade de vida.",
     photoUrl: "/images/dra-carolina-lopes.jpg",
     initials: "CL",
@@ -43,6 +44,7 @@ export const medicos: Medico[] = [
       "Tremor essencial",
       "Perda de peso",
     ],
+    isActive: true,
   },
   {
     id: "lilian",
@@ -54,7 +56,7 @@ export const medicos: Medico[] = [
       "Médica com experiência em dor crônica, neurologia e atendimento de pacientes pediátricos e geriátricos.",
     photoUrl: null,
     initials: "DL",
-    globalPriority: 2,
+    globalPriority: 99,
     handlesMinors: true,
     handlesElderly: true,
     calcomSlug: "consulta-lilian",
@@ -65,27 +67,33 @@ export const medicos: Medico[] = [
       "Epilepsia",
       "Autismo",
     ],
+    isActive: false,
   },
   {
     id: "magno",
-    name: "Dr. Magno",
-    crm: "",
-    crmUf: "",
-    specialty: "Dependência química e neurologia",
+    name: "Dr. Magno Cruz",
+    crm: "28892",
+    crmUf: "SC",
+    specialty: "Clínico Geral",
     bioShort:
-      "Médico especializado em dependência química, controle de peso e doenças neurodegenerativas.",
-    photoUrl: null,
-    initials: "DM",
-    globalPriority: 3,
-    handlesMinors: false,
-    handlesElderly: false,
+      "Clínico Geral com atuação em dependência química, dor crônica, neurologia e atendimento de pacientes pediátricos e geriátricos.",
+    photoUrl: "/images/dr-magno-cruz.jpg",
+    initials: "MC",
+    globalPriority: 2,
+    handlesMinors: true,
+    handlesElderly: true,
     calcomSlug: "consulta-magno",
     calcomEventTypeId: null,
     specialties: [
+      "Dores no corpo",
+      "Fibromialgia",
+      "Epilepsia",
+      "Autismo",
       "Alcoolismo",
       "Obesidade",
       "Tabagismo",
       "Parkinson",
     ],
+    isActive: true,
   },
 ];

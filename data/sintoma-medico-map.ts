@@ -19,13 +19,11 @@ export const sintomasMedicoMap: SintomaMedicoEntry[] = [
   { sintomaSlug: "tdah", medicoId: "carol", priority: 1 },
   { sintomaSlug: "perda-de-peso", medicoId: "carol", priority: 1 },
 
-  // Dra. Lilian (lilian) — priority 1
-  { sintomaSlug: "dores-corpo", medicoId: "lilian", priority: 1 },
-  { sintomaSlug: "fibromialgia", medicoId: "lilian", priority: 1 },
-  { sintomaSlug: "epilepsia", medicoId: "lilian", priority: 1 },
-  { sintomaSlug: "autismo", medicoId: "lilian", priority: 1 },
-
-  // Dr. Magno (magno) — priority 1
+  // Dr. Magno Cruz (magno) — priority 1
+  { sintomaSlug: "dores-corpo", medicoId: "magno", priority: 1 },
+  { sintomaSlug: "fibromialgia", medicoId: "magno", priority: 1 },
+  { sintomaSlug: "epilepsia", medicoId: "magno", priority: 1 },
+  { sintomaSlug: "autismo", medicoId: "magno", priority: 1 },
   { sintomaSlug: "alcoolismo", medicoId: "magno", priority: 1 },
   { sintomaSlug: "obesidade", medicoId: "magno", priority: 1 },
   { sintomaSlug: "tabagismo", medicoId: "magno", priority: 1 },

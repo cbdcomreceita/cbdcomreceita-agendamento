@@ -62,7 +62,7 @@ create table doctors (
   email text not null unique,
   calcom_event_type_slug text,
   calcom_event_type_id bigint,
-  global_priority int not null default 99,  -- 1=Carol, 2=Lilian, 3=Magno
+  global_priority int not null default 99,  -- 1=Carol, 2=Magno (Lilian inativa)
   handles_minors boolean not null default false,  -- < 18 anos
   handles_elderly boolean not null default false, -- > 65 anos
   is_active boolean not null default true,

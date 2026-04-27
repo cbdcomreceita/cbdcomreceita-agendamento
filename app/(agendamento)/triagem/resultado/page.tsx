@@ -47,9 +47,9 @@ export default function ResultadoPage() {
     setResult(match);
     trackEvent(ANALYTICS_EVENTS.DOCTOR_MATCHED, { doctor: match.doctor.name });
     if (data.isMinor) {
-      setAgeNote("Direcionamos você para a Dra. Lilian, especialista no atendimento de crianças e adolescentes.");
+      setAgeNote(`Direcionamos você para o ${match.doctor.name}, médico que atende crianças e adolescentes.`);
     } else if (data.isElderly) {
-      setAgeNote("Direcionamos você para a Dra. Lilian, especialista no atendimento de pacientes acima de 65 anos.");
+      setAgeNote(`Direcionamos você para o ${match.doctor.name}, médico que atende pacientes acima de 65 anos.`);
     }
   }, [router]);
 

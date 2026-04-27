@@ -210,12 +210,13 @@ cbdcomreceita/
 
 ### Prioridade de direcionamento (quando sintomas cruzam médicos):
 1. **Dra. Carolina Lopes** (prioridade máxima)
-2. **Dra. Lilian** (prioridade 2 — também cobre menores de 18 e maiores de 65)
-3. **Dr. Magno** (prioridade 3)
+2. **Dr. Magno Cruz** (prioridade 2 — também cobre menores de 18 e maiores de 65)
+
+> **Nota:** Dra. Lilian permanece no código (`is_active = false`) mas não aparece publicamente nem no matching. Pra reativar, basta setar `isActive: true` em `data/medicos.ts` e refazer o mapeamento.
 
 ### Mapeamento sintoma → médico
 
-**Dra. Carolina Lopes** (CRM 215691/SP — Psiquiatra — carol.lopes411@hotmail.com):
+**Dra. Carolina Lopes** (CRM 215691/SP — Psiquiatria — carol.lopes411@hotmail.com):
 - Ansiedade
 - Insônia
 - Estresse
@@ -228,24 +229,22 @@ cbdcomreceita/
 - TDAH
 - Perda de peso
 
-**Dra. Lilian:**
+**Dr. Magno Cruz** (CRM 28892/SC — Clínico Geral — drmagnocruz@gmail.com):
 - Dores no corpo
 - Fibromialgia
 - Epilepsia
 - Autismo
-- Pacientes menores de 18 anos (qualquer sintoma)
-- Pacientes maiores de 65 anos (qualquer sintoma)
-
-**Dr. Magno:**
 - Alcoolismo
 - Obesidade
 - Tabagismo
 - Parkinson
+- Pacientes menores de 18 anos (qualquer sintoma)
+- Pacientes maiores de 65 anos (qualquer sintoma)
 
 ### Regra de matching
 ```
-1. Se paciente < 18 anos OU > 65 anos → Dra. Lilian (independente do sintoma)
-2. Se múltiplos sintomas apontam pra médicos diferentes → priorizar Carol > Lilian > Magno
+1. Se paciente < 18 anos OU > 65 anos → médico ativo de menor priority com handles_minors/elderly = true (hoje: Dr. Magno Cruz)
+2. Se múltiplos sintomas apontam pra médicos diferentes → priorizar Carol > Magno
 3. Se sintoma tem médico único → direcionar pra ele
 4. Se empate → Carol
 ```

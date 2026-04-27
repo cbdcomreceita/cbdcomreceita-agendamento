@@ -46,7 +46,7 @@ export function DoctorsSection() {
       </FadeUp>
 
       <StaggerContainer className="mx-auto mt-14 grid max-w-4xl gap-8 sm:grid-cols-2 lg:grid-cols-3">
-        {medicos.map((doc) => (
+        {medicos.filter((d) => d.isActive).map((doc) => (
           <StaggerItem key={doc.id}>
             <div className="group flex flex-col items-center rounded-2xl border border-brand-sand/80 bg-white p-8 text-center shadow-sm transition-all duration-500 hover:-translate-y-1 hover:shadow-lg">
               <DoctorAvatar
