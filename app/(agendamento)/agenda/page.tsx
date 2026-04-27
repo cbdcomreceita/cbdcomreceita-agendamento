@@ -10,6 +10,9 @@ import { FlowBreadcrumb } from "@/components/fluxo/flow-breadcrumb";
 import { DoctorSummary } from "@/components/fluxo/doctor-summary";
 import { SlotPicker } from "@/components/fluxo/slot-picker";
 
+const ALT_SLOT_WHATSAPP = `https://wa.me/5584997048210?text=${encodeURIComponent(
+  "Olá! Vi os horários disponíveis no site mas nenhum funciona pra mim. Seria possível verificar uma agenda alternativa?"
+)}`;
 
 export default function AgendaPage() {
   const router = useRouter();
@@ -90,6 +93,24 @@ export default function AgendaPage() {
           </a>
         </div>
       )}
+
+      <div className="mt-10 border-t border-brand-sand/60 pt-8 text-center">
+        <p className="text-sm text-brand-text-secondary">
+          Nenhum horário funciona pra você?
+        </p>
+        <a
+          href={ALT_SLOT_WHATSAPP}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-4 inline-flex items-center gap-2 rounded-xl border border-brand-forest/40 bg-transparent px-5 py-2.5 text-sm font-semibold text-brand-forest transition-colors hover:bg-brand-forest/8"
+          data-track="cta_clicked"
+          data-track-section="agenda"
+          data-track-label="solicitar_horario_alternativo"
+        >
+          <MessageCircle className="h-4 w-4" />
+          Solicitar horário alternativo
+        </a>
+      </div>
     </div>
   );
 }
