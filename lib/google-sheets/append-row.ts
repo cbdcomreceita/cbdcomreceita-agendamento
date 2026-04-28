@@ -1,5 +1,7 @@
 "use server";
 
+import { logError } from "@/lib/audit/log-error";
+
 /**
  * Posts a row of data to a Google Sheets webhook (typically a Google Apps
  * Script Web App with doPost() that appends to the active sheet).
@@ -29,13 +31,21 @@ export async function appendToGoogleSheet(
 
     if (!res.ok) {
       const body = await res.text();
-      console.error("[Sheets] Webhook error:", res.status, body);
+      await logError({
+        scope: "sheets",
+        message: `Webhook returned ${res.status}`,
+        metadata: { status: res.status, body: body.slice(0, 500), payload: data },
+      });
       return { success: false, error: `${res.status}: ${body.slice(0, 200)}` };
     }
 
     return { success: true };
   } catch (err) {
-    console.error("[Sheets] Failed to post:", err);
+    await logError({
+      scope: "sheets",
+      message: "Webhook POST threw",
+      metadata: { error: String(err), payload: data },
+    });
     return { success: false, error: String(err) };
   }
 }

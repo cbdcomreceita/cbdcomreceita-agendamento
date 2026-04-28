@@ -4,6 +4,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { createCalcomBooking } from "@/lib/calcom/bookings";
 import { sendBookingConfirmation } from "@/lib/resend/send-confirmation";
 import { dispatchPostPaymentSideEffects } from "@/lib/post-payment/dispatch";
+import { logError } from "@/lib/audit/log-error";
 import { medicos } from "@/data/medicos";
 import { formatDateLong } from "@/lib/utils/datetime";
 import type { PatientFormData } from "@/lib/validation/patient";
@@ -69,7 +70,13 @@ export async function simulatePaymentApproved(input: SimulateInput) {
         .select()
         .single();
       if (error) {
-        console.error("[Simulate] Patient update error:", JSON.stringify(error));
+        await logError({
+          scope: "simulate",
+          message: "Patient update failed",
+          metadata: { error, patientId: existing.id, cpf: cpfClean },
+          entityType: "patient",
+          entityId: existing.id,
+        });
         return { success: false, error: `Erro ao atualizar paciente: ${error.message}` };
       }
       dbPatient = data;
@@ -80,7 +87,12 @@ export async function simulatePaymentApproved(input: SimulateInput) {
         .select()
         .single();
       if (error) {
-        console.error("[Simulate] Patient insert error:", JSON.stringify(error));
+        await logError({
+          scope: "simulate",
+          message: "Patient insert failed",
+          metadata: { error, cpf: cpfClean, payload: patientPayload },
+          entityType: "patient",
+        });
         return { success: false, error: `Erro ao criar paciente: ${error.message}` };
       }
       dbPatient = data;
@@ -99,7 +111,12 @@ export async function simulatePaymentApproved(input: SimulateInput) {
       .maybeSingle();
 
     if (!dbDoctor?.id) {
-      console.error("[Simulate] Doctor not found in DB. Tried:", candidateNames);
+      await logError({
+        scope: "simulate",
+        message: "Doctor not found in DB",
+        metadata: { candidateNames, expectedDoctor: doctor?.name },
+        entityType: "doctor",
+      });
       return {
         success: false,
         error: `Médico não encontrado no banco: ${doctor?.name ?? "?"}`,
@@ -127,7 +144,17 @@ export async function simulatePaymentApproved(input: SimulateInput) {
       .single();
 
     if (bookingError) {
-      console.error("[Simulate] Booking error:", JSON.stringify(bookingError));
+      await logError({
+        scope: "simulate",
+        message: "Booking insert failed",
+        metadata: {
+          error: bookingError,
+          patientId: dbPatient.id,
+          doctorId: dbDoctor.id,
+          scheduledAt: booking.scheduledAt,
+        },
+        entityType: "booking",
+      });
       return { success: false, error: `Erro ao criar agendamento: ${bookingError.message}` };
     }
 
@@ -223,7 +250,11 @@ export async function simulatePaymentApproved(input: SimulateInput) {
 
     return { success: true, meetLink };
   } catch (err) {
-    console.error("[Simulate] Unhandled error:", err);
+    await logError({
+      scope: "simulate",
+      message: "Unhandled error in simulatePaymentApproved",
+      metadata: { error: String(err), stack: err instanceof Error ? err.stack : undefined },
+    });
     return { success: false, error: String(err) };
   }
 }

@@ -3,6 +3,7 @@
 import { resend, FROM_EMAIL, isResendConfigured } from "./client";
 import { PatientIntakeDoctorEmail } from "@/emails/patient-intake-doctor";
 import { PatientIntakeTeamEmail } from "@/emails/patient-intake-team";
+import { logError } from "@/lib/audit/log-error";
 
 const TEAM_EMAIL = process.env.TEAM_EMAIL || "contato@cbdcomreceita.com.br";
 
@@ -51,13 +52,21 @@ export async function sendDoctorIntake(
     });
 
     if (error) {
-      console.error("[Resend] Doctor intake send error:", JSON.stringify(error));
+      await logError({
+        scope: "resend",
+        message: "Doctor intake send error",
+        metadata: { error, to: params.doctorEmail, template: "patient-intake-doctor" },
+      });
       return { success: false, error: error.message };
     }
     console.log("[Resend] Doctor intake sent. id:", data?.id);
     return { success: true };
   } catch (err) {
-    console.error("[Resend] Doctor intake failed:", err);
+    await logError({
+      scope: "resend",
+      message: "Doctor intake threw",
+      metadata: { error: String(err), to: params.doctorEmail, template: "patient-intake-doctor" },
+    });
     return { success: false, error: String(err) };
   }
 }
@@ -150,13 +159,21 @@ export async function sendTeamIntake(
     });
 
     if (error) {
-      console.error("[Resend] Team intake send error:", JSON.stringify(error));
+      await logError({
+        scope: "resend",
+        message: "Team intake send error",
+        metadata: { error, to: TEAM_EMAIL, template: "patient-intake-team" },
+      });
       return { success: false, error: error.message };
     }
     console.log("[Resend] Team intake sent. id:", data?.id);
     return { success: true };
   } catch (err) {
-    console.error("[Resend] Team intake failed:", err);
+    await logError({
+      scope: "resend",
+      message: "Team intake threw",
+      metadata: { error: String(err), to: TEAM_EMAIL, template: "patient-intake-team" },
+    });
     return { success: false, error: String(err) };
   }
 }

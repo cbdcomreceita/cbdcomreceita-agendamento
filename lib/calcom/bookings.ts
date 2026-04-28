@@ -1,5 +1,7 @@
 "use server";
 
+import { logError } from "@/lib/audit/log-error";
+
 const API_KEY = process.env.CALCOM_API_KEY || "";
 
 export interface CalcomBookingResult {
@@ -75,6 +77,16 @@ export async function createCalcomBooking(
     console.log("[Cal.com] Booking response body:", responseText.slice(0, 1500));
 
     if (!res.ok) {
+      await logError({
+        scope: "calcom",
+        message: `Booking creation failed (${res.status})`,
+        metadata: {
+          status: res.status,
+          responseBody: responseText.slice(0, 1500),
+          requestBody,
+        },
+        entityId: input.metadata?.bookingId,
+      });
       return { success: false, error: `Cal.com error ${res.status}: ${responseText}` };
     }
 
@@ -100,7 +112,12 @@ export async function createCalcomBooking(
     );
     return result;
   } catch (err) {
-    console.error("[Cal.com] Booking creation error:", err);
+    await logError({
+      scope: "calcom",
+      message: "Booking creation threw",
+      metadata: { error: String(err), requestBody },
+      entityId: input.metadata?.bookingId,
+    });
     return { success: false, error: String(err) };
   }
 }

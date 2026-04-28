@@ -2,6 +2,7 @@
 
 import { resend, FROM_EMAIL, isResendConfigured } from "./client";
 import { BookingConfirmationEmail } from "@/emails/booking-confirmation";
+import { logError } from "@/lib/audit/log-error";
 
 interface SendConfirmationParams {
   patientName: string;
@@ -38,13 +39,21 @@ export async function sendBookingConfirmation(
     });
 
     if (error) {
-      console.error("[Resend] Send error:", error);
+      await logError({
+        scope: "resend",
+        message: "Confirmation send error",
+        metadata: { error, to: params.patientEmail, template: "booking-confirmation" },
+      });
       return { success: false, error: error.message };
     }
 
     return { success: true };
   } catch (err) {
-    console.error("[Resend] Failed to send:", err);
+    await logError({
+      scope: "resend",
+      message: "Confirmation threw",
+      metadata: { error: String(err), to: params.patientEmail, template: "booking-confirmation" },
+    });
     return { success: false, error: String(err) };
   }
 }

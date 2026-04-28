@@ -3,6 +3,7 @@ import { getMpPayment } from "@/lib/mercadopago/client";
 import { createCalcomBooking } from "@/lib/calcom/bookings";
 import { sendBookingConfirmation } from "@/lib/resend/send-confirmation";
 import { dispatchPostPaymentSideEffects } from "@/lib/post-payment/dispatch";
+import { logError } from "@/lib/audit/log-error";
 import { createServiceClient } from "@/lib/supabase/server";
 import { medicos } from "@/data/medicos";
 import { formatDateLong } from "@/lib/utils/datetime";
@@ -18,7 +19,11 @@ export async function POST(req: NextRequest) {
 
     const mpPaymentId = body.data?.id;
     if (!mpPaymentId) {
-      console.error("[Webhook MP] No payment ID in payload");
+      await logError({
+        scope: "webhook",
+        message: "No payment ID in MP webhook payload",
+        metadata: { body },
+      });
       return NextResponse.json({ received: true });
     }
 
@@ -27,7 +32,11 @@ export async function POST(req: NextRequest) {
     try {
       mpPayment = await getMpPayment(mpPaymentId);
     } catch (err) {
-      console.error("[Webhook MP] Failed to fetch payment:", err);
+      await logError({
+        scope: "webhook",
+        message: "Failed to fetch MP payment",
+        metadata: { error: String(err), mpPaymentId },
+      });
       return NextResponse.json({ received: true });
     }
 
@@ -41,7 +50,11 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (!payment) {
-      console.warn("[Webhook MP] Payment not found for mp_payment_id:", mpPaymentId);
+      await logError({
+        scope: "webhook",
+        message: "Payment not found for mp_payment_id",
+        metadata: { mpPaymentId },
+      });
       return NextResponse.json({ received: true });
     }
 
@@ -77,7 +90,13 @@ export async function POST(req: NextRequest) {
         .single();
 
       if (!patient) {
-        console.error("[Webhook MP] Patient not found for booking:", booking.id);
+        await logError({
+          scope: "webhook",
+          message: "Patient not found for booking",
+          metadata: { bookingId: booking.id, patientId: booking.patient_id },
+          entityType: "booking",
+          entityId: booking.id,
+        });
         return NextResponse.json({ received: true });
       }
 
@@ -95,7 +114,13 @@ export async function POST(req: NextRequest) {
         }
       }
       if (!doctor) {
-        console.error("[Webhook MP] Doctor not resolved for booking:", booking.id);
+        await logError({
+          scope: "webhook",
+          message: "Doctor not resolved for booking",
+          metadata: { bookingId: booking.id, doctorId: booking.doctor_id },
+          entityType: "booking",
+          entityId: booking.id,
+        });
       }
 
       // 5. Create Cal.com booking
@@ -125,13 +150,13 @@ export async function POST(req: NextRequest) {
             })
             .eq("id", booking.id);
         } else {
-          console.error("[Webhook MP] Cal.com booking failed:", calResult.error);
           // Don't cancel payment — mark for manual review
-          await supabase.from("audit_events").insert({
-            event_type: "calcom_booking_failed",
-            entity_type: "booking",
-            entity_id: booking.id,
-            metadata: { error: calResult.error },
+          await logError({
+            scope: "webhook",
+            message: "Cal.com booking failed (post-payment)",
+            metadata: { error: calResult.error, bookingId: booking.id },
+            entityType: "booking",
+            entityId: booking.id,
           });
         }
       }
@@ -237,7 +262,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ received: true });
   } catch (err) {
-    console.error("[Webhook MP] Unhandled error:", err);
+    await logError({
+      scope: "webhook",
+      message: "Unhandled error in MP webhook",
+      metadata: { error: String(err), stack: err instanceof Error ? err.stack : undefined },
+    });
     // Always return 200 to prevent MP retries
     return NextResponse.json({ received: true, error: "internal" });
   }
