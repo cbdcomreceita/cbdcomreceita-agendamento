@@ -4,6 +4,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 
 export type ErrorScope =
   | "calcom"
+  | "confirm"
   | "resend"
   | "sheets"
   | "simulate"

@@ -50,16 +50,28 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (!payment) {
-      await logError({
-        scope: "webhook",
-        message: "Payment not found for mp_payment_id",
-        metadata: { mpPaymentId },
+      // Polling-triggered confirmPayment is now the primary path. If
+      // the polling action ran successfully, the payment row was inserted
+      // with status=approved before the webhook arrived. If it didn't run
+      // yet (or failed), we have no form data to upsert from here — log
+      // and bail.
+      await supabase.from("audit_events").insert({
+        event_type: "webhook_payment_not_found",
+        entity_type: "payment",
+        metadata: { mpPaymentId, status: mpPayment.status },
       });
       return NextResponse.json({ received: true });
     }
 
-    // Idempotency: skip if already processed
+    // Idempotency: skip if already processed (either by polling or by an
+    // earlier webhook tick).
     if (payment.status === "approved" && mpPayment.status === "approved") {
+      await supabase.from("audit_events").insert({
+        event_type: "webhook_already_processed",
+        entity_type: "payment",
+        entity_id: payment.id,
+        metadata: { mpPaymentId },
+      });
       return NextResponse.json({ received: true, already_processed: true });
     }
 
@@ -231,9 +243,10 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // 9. Audit log
+      // 9. Audit log — tagged so we can tell whether polling or webhook
+      //    finalized this booking.
       await supabase.from("audit_events").insert({
-        event_type: "payment_confirmed",
+        event_type: "payment_confirmed_via_webhook",
         entity_type: "payment",
         entity_id: payment.id,
         metadata: {

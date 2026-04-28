@@ -13,13 +13,14 @@ import { Button } from "@/components/ui/button";
 import { FlowBreadcrumb } from "@/components/fluxo/flow-breadcrumb";
 import { DoctorSummary } from "@/components/fluxo/doctor-summary";
 import { loadTriageData } from "@/lib/triagem/storage";
-import { loadBookingData } from "@/lib/calcom/storage";
+import { loadBookingData, saveBookingData } from "@/lib/calcom/storage";
 import { loadPatientData } from "@/lib/validation/patient-storage";
 import {
   createPixPayment,
   checkPaymentStatus,
   type PixPaymentResult,
 } from "@/lib/mercadopago/actions";
+import { confirmPayment } from "@/app/actions/confirm-payment";
 import { trackEvent } from "@/lib/analytics/track";
 import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
 import { medicos, type Medico } from "@/data/medicos";
@@ -69,18 +70,55 @@ export default function PagamentoPage() {
       });
   }, [router]);
 
-  // Polling for payment status
+  // Polling for payment status. Once MP reports "approved", we trigger
+  // confirmPayment (server action) ourselves rather than waiting on the
+  // MP webhook — the webhook stays as a backup, idempotency prevents
+  // duplicate processing.
   useEffect(() => {
     if (state !== "awaiting" || !pixData) return;
 
+    let processing = false;
+
     pollRef.current = setInterval(async () => {
+      if (processing) return;
       const result = await checkPaymentStatus(pixData.mpPaymentId);
-      if (result.status === "approved") {
-        setState("approved");
-        trackEvent(ANALYTICS_EVENTS.PAYMENT_COMPLETED);
-        if (pollRef.current) clearInterval(pollRef.current);
-        setTimeout(() => router.push("/confirmacao"), 2000);
+      if (result.status !== "approved") return;
+
+      processing = true;
+      if (pollRef.current) clearInterval(pollRef.current);
+      if (countdownRef.current) clearInterval(countdownRef.current);
+
+      const triage = loadTriageData();
+      const booking = loadBookingData();
+      const patient = loadPatientData();
+      if (!booking || !patient?.fullName) {
+        toast.error("Dados da sessão expiraram. Tente novamente.");
+        setState("error");
+        return;
       }
+
+      const confirm = await confirmPayment({
+        patient: patient as Parameters<typeof confirmPayment>[0]["patient"],
+        booking,
+        triage,
+        mpPaymentId: pixData.mpPaymentId,
+        externalReference: pixData.paymentId,
+        isMock: pixData.isMock,
+      });
+
+      if (!confirm.success) {
+        toast.error(confirm.error ?? "Erro ao processar pagamento");
+        setState("error");
+        return;
+      }
+
+      if (confirm.meetLink) {
+        saveBookingData({ ...booking, meetLink: confirm.meetLink });
+      }
+
+      setState("approved");
+      trackEvent(ANALYTICS_EVENTS.PAYMENT_COMPLETED);
+      setTimeout(() => router.push("/confirmacao"), 2000);
     }, POLL_INTERVAL);
 
     return () => {
