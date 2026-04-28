@@ -15,12 +15,9 @@ import { DoctorSummary } from "@/components/fluxo/doctor-summary";
 import { loadTriageData } from "@/lib/triagem/storage";
 import { loadBookingData, saveBookingData } from "@/lib/calcom/storage";
 import { loadPatientData } from "@/lib/validation/patient-storage";
-import {
-  createPixPayment,
-  checkPaymentStatus,
-  type PixPaymentResult,
-} from "@/lib/mercadopago/actions";
-import { confirmPayment } from "@/app/actions/confirm-payment";
+import { checkPaymentStatus } from "@/lib/mercadopago/actions";
+import { createBookingAndPayment } from "@/app/actions/create-booking";
+import { confirmBooking } from "@/app/actions/confirm-booking";
 import { trackEvent } from "@/lib/analytics/track";
 import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
 import { medicos, type Medico } from "@/data/medicos";
@@ -28,8 +25,17 @@ import { cn } from "@/lib/utils";
 
 type PaymentState = "loading" | "awaiting" | "approved" | "expired" | "error";
 
+interface PixData {
+  bookingId: string;
+  paymentId: string;
+  mpPaymentId: number | null;
+  qrCode: string;
+  qrCodeBase64: string;
+  expiresAt: string;
+  isMock: boolean;
+}
+
 const POLL_INTERVAL = 5000;
-const EXPIRY_MINUTES = 15;
 
 export default function PagamentoPage() {
   const router = useRouter();
@@ -37,12 +43,14 @@ export default function PagamentoPage() {
   const [doctor, setDoctor] = useState<Medico | null>(null);
   const [bookingDateStr, setBookingDateStr] = useState("");
   const [patientName, setPatientName] = useState("");
-  const [pixData, setPixData] = useState<PixPaymentResult | null>(null);
+  const [pixData, setPixData] = useState<PixData | null>(null);
   const [countdown, setCountdown] = useState("");
   const pollRef = useRef<NodeJS.Timeout | null>(null);
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Init: load data and create payment
+  // Init: persist patient/booking/payment in Supabase, generate PIX. From
+  // this point on, the booking lives in the DB — sessionStorage is only
+  // used to navigate between flow pages.
   useEffect(() => {
     const triage = loadTriageData();
     const booking = loadBookingData();
@@ -58,14 +66,44 @@ export default function PagamentoPage() {
     setPatientName(patient.fullName);
     setBookingDateStr(formatDateLong(booking.scheduledAt));
 
-    // Create payment
-    createPixPayment(patient as Parameters<typeof createPixPayment>[0], booking)
+    createBookingAndPayment({
+      patient: patient as Parameters<typeof createBookingAndPayment>[0]["patient"],
+      booking,
+      triage,
+    })
       .then((result) => {
-        setPixData(result);
+        if (
+          !result.success ||
+          !result.bookingId ||
+          !result.paymentId ||
+          !result.qrCode ||
+          !result.expiresAt
+        ) {
+          console.error("[Pagamento] createBookingAndPayment failed:", result.error);
+          toast.error(result.error ?? "Erro ao gerar pagamento");
+          setState("error");
+          return;
+        }
+
+        // Persist bookingId so /confirmacao (and a future page refresh)
+        // can fetch the booking from the DB if needed.
+        saveBookingData({ ...booking, bookingId: result.bookingId });
+
+        setPixData({
+          bookingId: result.bookingId,
+          paymentId: result.paymentId,
+          mpPaymentId: result.mpPaymentId ?? null,
+          qrCode: result.qrCode,
+          qrCodeBase64: result.qrCodeBase64 ?? "",
+          expiresAt: result.expiresAt,
+          isMock: result.isMock ?? false,
+        });
         setState("awaiting");
         trackEvent(ANALYTICS_EVENTS.PAYMENT_INITIATED);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error("[Pagamento] createBookingAndPayment threw:", err);
+        toast.error("Erro ao gerar pagamento");
         setState("error");
       });
   }, [router]);
@@ -95,46 +133,23 @@ export default function PagamentoPage() {
       if (pollRef.current) clearInterval(pollRef.current);
       if (countdownRef.current) clearInterval(countdownRef.current);
 
-      const triage = loadTriageData();
-      const booking = loadBookingData();
-      const patient = loadPatientData();
-      console.log(
-        "[Polling] Payment approved. sessionStorage:",
-        JSON.stringify({
-          hasBooking: !!booking,
-          hasPatient: !!patient?.fullName,
-          hasTriage: !!triage.selectedSymptoms?.length,
-          mpPaymentId: pixData.mpPaymentId,
-          externalReference: pixData.paymentId,
-          isMock: pixData.isMock,
-        })
-      );
+      console.log("[Polling] Payment approved. Calling confirmBooking", {
+        bookingId: pixData.bookingId,
+      });
 
-      if (!booking || !patient?.fullName) {
-        console.error("[Polling] Missing sessionStorage data — bailing");
-        toast.error("Dados da sessão expiraram. Tente novamente.");
-        setState("error");
-        return;
-      }
-
-      console.log("[Polling] Calling confirmPayment...");
       let confirm;
       try {
-        confirm = await confirmPayment({
-          patient: patient as Parameters<typeof confirmPayment>[0]["patient"],
-          booking,
-          triage,
-          mpPaymentId: pixData.mpPaymentId,
-          externalReference: pixData.paymentId,
-          isMock: pixData.isMock,
+        confirm = await confirmBooking({
+          bookingId: pixData.bookingId,
+          source: "polling",
         });
       } catch (err) {
-        console.error("[Polling] confirmPayment threw:", err);
+        console.error("[Polling] confirmBooking threw:", err);
         toast.error("Erro ao processar pagamento. Entre em contato pelo WhatsApp.");
         setState("error");
         return;
       }
-      console.log("[Polling] confirmPayment result:", JSON.stringify(confirm));
+      console.log("[Polling] confirmBooking result:", JSON.stringify(confirm));
 
       if (!confirm.success) {
         toast.error(confirm.error ?? "Erro ao processar pagamento");
@@ -142,8 +157,9 @@ export default function PagamentoPage() {
         return;
       }
 
-      if (confirm.meetLink) {
-        saveBookingData({ ...booking, meetLink: confirm.meetLink });
+      const currentBooking = loadBookingData();
+      if (currentBooking && confirm.meetLink) {
+        saveBookingData({ ...currentBooking, meetLink: confirm.meetLink });
       }
 
       setState("approved");
@@ -189,16 +205,41 @@ export default function PagamentoPage() {
 
   async function handleRegeneratePix() {
     setState("loading");
+    const triage = loadTriageData();
     const booking = loadBookingData();
     const patient = loadPatientData();
-    if (!booking || !patient?.fullName) return;
+    if (!booking || !patient?.fullName) {
+      setState("error");
+      return;
+    }
 
     try {
-      const result = await createPixPayment(
-        patient as Parameters<typeof createPixPayment>[0],
-        booking
-      );
-      setPixData(result);
+      const result = await createBookingAndPayment({
+        patient: patient as Parameters<typeof createBookingAndPayment>[0]["patient"],
+        booking,
+        triage,
+      });
+      if (
+        !result.success ||
+        !result.bookingId ||
+        !result.paymentId ||
+        !result.qrCode ||
+        !result.expiresAt
+      ) {
+        toast.error(result.error ?? "Erro ao gerar pagamento");
+        setState("error");
+        return;
+      }
+      saveBookingData({ ...booking, bookingId: result.bookingId });
+      setPixData({
+        bookingId: result.bookingId,
+        paymentId: result.paymentId,
+        mpPaymentId: result.mpPaymentId ?? null,
+        qrCode: result.qrCode,
+        qrCodeBase64: result.qrCodeBase64 ?? "",
+        expiresAt: result.expiresAt,
+        isMock: result.isMock ?? false,
+      });
       setState("awaiting");
     } catch {
       setState("error");

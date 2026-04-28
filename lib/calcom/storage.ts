@@ -6,6 +6,12 @@ export interface BookingData {
   duration: number;
   calcomBookingUid?: string;
   meetLink?: string;
+  /**
+   * Set after createBookingAndPayment writes the booking row to Supabase.
+   * Source of truth for the rest of the flow — the patient/booking/payment
+   * data lives in the database, not just sessionStorage.
+   */
+  bookingId?: string;
 }
 
 const STORAGE_KEY = "booking_data_v1";
