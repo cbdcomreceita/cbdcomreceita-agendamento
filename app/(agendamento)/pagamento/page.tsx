@@ -81,8 +81,15 @@ export default function PagamentoPage() {
 
     pollRef.current = setInterval(async () => {
       if (processing) return;
-      const result = await checkPaymentStatus(pixData.mpPaymentId);
-      if (result.status !== "approved") return;
+
+      let statusResult;
+      try {
+        statusResult = await checkPaymentStatus(pixData.mpPaymentId);
+      } catch (err) {
+        console.error("[Polling] checkPaymentStatus threw:", err);
+        return;
+      }
+      if (statusResult.status !== "approved") return;
 
       processing = true;
       if (pollRef.current) clearInterval(pollRef.current);
@@ -91,20 +98,43 @@ export default function PagamentoPage() {
       const triage = loadTriageData();
       const booking = loadBookingData();
       const patient = loadPatientData();
+      console.log(
+        "[Polling] Payment approved. sessionStorage:",
+        JSON.stringify({
+          hasBooking: !!booking,
+          hasPatient: !!patient?.fullName,
+          hasTriage: !!triage.selectedSymptoms?.length,
+          mpPaymentId: pixData.mpPaymentId,
+          externalReference: pixData.paymentId,
+          isMock: pixData.isMock,
+        })
+      );
+
       if (!booking || !patient?.fullName) {
+        console.error("[Polling] Missing sessionStorage data — bailing");
         toast.error("Dados da sessão expiraram. Tente novamente.");
         setState("error");
         return;
       }
 
-      const confirm = await confirmPayment({
-        patient: patient as Parameters<typeof confirmPayment>[0]["patient"],
-        booking,
-        triage,
-        mpPaymentId: pixData.mpPaymentId,
-        externalReference: pixData.paymentId,
-        isMock: pixData.isMock,
-      });
+      console.log("[Polling] Calling confirmPayment...");
+      let confirm;
+      try {
+        confirm = await confirmPayment({
+          patient: patient as Parameters<typeof confirmPayment>[0]["patient"],
+          booking,
+          triage,
+          mpPaymentId: pixData.mpPaymentId,
+          externalReference: pixData.paymentId,
+          isMock: pixData.isMock,
+        });
+      } catch (err) {
+        console.error("[Polling] confirmPayment threw:", err);
+        toast.error("Erro ao processar pagamento. Entre em contato pelo WhatsApp.");
+        setState("error");
+        return;
+      }
+      console.log("[Polling] confirmPayment result:", JSON.stringify(confirm));
 
       if (!confirm.success) {
         toast.error(confirm.error ?? "Erro ao processar pagamento");

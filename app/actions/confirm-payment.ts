@@ -44,6 +44,28 @@ export async function confirmPayment(
   const { patient, booking, triage, mpPaymentId, externalReference, isMock } = input;
   const supabase = createServiceClient();
 
+  console.log(
+    "[confirmPayment] invoked",
+    JSON.stringify({ mpPaymentId, externalReference, isMock, doctorId: booking.doctorId })
+  );
+
+  // Audit the invocation up front so we can prove the action ran even if
+  // it errors mid-flow before reaching the success audit at the end.
+  try {
+    await supabase.from("audit_events").insert({
+      event_type: "payment_confirm_started",
+      entity_type: "payment",
+      metadata: {
+        mpPaymentId,
+        externalReference,
+        isMock,
+        doctorId: booking.doctorId,
+      },
+    });
+  } catch (err) {
+    console.error("[confirmPayment] failed to write start audit:", err);
+  }
+
   try {
     // 1. Verify with Mercado Pago. Skip in mock mode (dev without MP keys).
     if (!isMock) {
@@ -75,6 +97,12 @@ export async function confirmPayment(
       existing?.status === "approved" &&
       existingBooking?.status === "confirmed"
     ) {
+      await supabase.from("audit_events").insert({
+        event_type: "payment_confirm_idempotent_skip",
+        entity_type: "booking",
+        entity_id: existingBooking.id,
+        metadata: { mpPaymentId, externalReference },
+      });
       return {
         success: true,
         alreadyProcessed: true,
