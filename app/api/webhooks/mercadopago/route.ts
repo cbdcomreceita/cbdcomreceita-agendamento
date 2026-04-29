@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMpPayment } from "@/lib/mercadopago/client";
+import { verifyMercadoPagoWebhook } from "@/lib/mercadopago/verify-webhook";
 import { confirmBooking } from "@/app/actions/confirm-booking";
 import { logError } from "@/lib/audit/log-error";
 import { createServiceClient } from "@/lib/supabase/server";
@@ -17,6 +18,60 @@ import { createServiceClient } from "@/lib/supabase/server";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+
+    // ── HMAC signature verification ─────────────────────────────────
+    // MP signs every webhook with x-signature (ts=<n>,v1=<hex>) using
+    // HMAC-SHA256(MERCADOPAGO_WEBHOOK_SECRET, "id:<data_id>;request-id:<x-request-id>;ts:<ts>;").
+    // Without this check, anyone with the URL could POST a fake
+    // "payment.approved" body and trigger a real booking confirmation.
+    const supabase = createServiceClient();
+
+    const signature = req.headers.get("x-signature");
+    const requestId = req.headers.get("x-request-id");
+    const queryDataId = req.nextUrl.searchParams.get("data.id");
+    const bodyDataId =
+      body?.data?.id !== undefined && body.data.id !== null
+        ? String(body.data.id)
+        : null;
+    const dataId = bodyDataId ?? queryDataId;
+    const secret = process.env.MERCADOPAGO_WEBHOOK_SECRET || null;
+
+    if (!secret) {
+      // Don't block — if the env var hasn't propagated yet, blocking
+      // would cause Mercado Pago to retry forever and miss real
+      // payments. Log loudly so we notice in audit.
+      console.error("[webhook-mp] MERCADOPAGO_WEBHOOK_SECRET not configured");
+      await supabase.from("audit_events").insert({
+        event_type: "webhook_signature_skipped_no_secret",
+        entity_type: "payment",
+        metadata: {
+          requestId,
+          dataId,
+          signaturePrefix: signature ? signature.slice(0, 20) : null,
+        },
+      });
+    } else {
+      const verify = verifyMercadoPagoWebhook({
+        signature,
+        requestId,
+        dataId,
+        secret,
+      });
+      if (!verify.valid) {
+        await supabase.from("audit_events").insert({
+          event_type: "webhook_signature_invalid",
+          entity_type: "payment",
+          metadata: {
+            reason: verify.reason,
+            requestId,
+            dataId,
+            signaturePrefix: signature ? signature.slice(0, 20) : null,
+          },
+        });
+        return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────
 
     if (body.type !== "payment" && body.action !== "payment.updated") {
       return NextResponse.json({ received: true });
@@ -43,8 +98,6 @@ export async function POST(req: NextRequest) {
       });
       return NextResponse.json({ received: true });
     }
-
-    const supabase = createServiceClient();
 
     const { data: payment } = await supabase
       .from("payments")
