@@ -1,8 +1,15 @@
 "use server";
 
+import { headers } from "next/headers";
 import { createServiceClient } from "@/lib/supabase/server";
 import { createMpPayment, isMpConfigured } from "@/lib/mercadopago/client";
 import { logError } from "@/lib/audit/log-error";
+import {
+  rateLimiters,
+  tryCheckRateLimit,
+  getClientIp,
+  maskIp,
+} from "@/lib/rate-limit";
 import { medicos } from "@/data/medicos";
 import type { PatientFormData } from "@/lib/validation/patient";
 import type { BookingData } from "@/lib/calcom/storage";
@@ -25,6 +32,8 @@ export interface CreateBookingResult {
   expiresAt?: string;
   isMock?: boolean;
   error?: string;
+  /** Seconds the caller should wait before retrying (set on 429). */
+  retryAfter?: number;
 }
 
 /**
@@ -47,6 +56,30 @@ export async function createBookingAndPayment(
     doctorId: booking.doctorId,
     scheduledAt: booking.scheduledAt,
   });
+
+  // Rate limit BEFORE any DB write or PIX generation. 5/IP/10min.
+  // Fail-open if Upstash is unreachable.
+  const reqHeaders = await headers();
+  const ip = getClientIp(reqHeaders);
+  const rl = await tryCheckRateLimit(rateLimiters.createBooking, ip);
+  if (!rl.ok) {
+    const retryAfterSec = Math.max(1, Math.ceil((rl.reset - Date.now()) / 1000));
+    await supabase.from("audit_events").insert({
+      event_type: "rate_limit_exceeded",
+      entity_type: "rate_limit",
+      metadata: {
+        endpoint: "create-booking",
+        ip: maskIp(ip),
+        limit: rl.limit,
+        retryAfter: retryAfterSec,
+      },
+    });
+    return {
+      success: false,
+      error: "rate_limit_exceeded",
+      retryAfter: retryAfterSec,
+    };
+  }
 
   try {
     const cpfClean = patient.cpf.replace(/\D/g, "");

@@ -80,7 +80,14 @@ export default function PagamentoPage() {
           !result.expiresAt
         ) {
           console.error("[Pagamento] createBookingAndPayment failed:", result.error);
-          toast.error(result.error ?? "Erro ao gerar pagamento");
+          if (result.error === "rate_limit_exceeded") {
+            const minutes = Math.max(1, Math.ceil((result.retryAfter ?? 600) / 60));
+            toast.error(
+              `Muitas tentativas. Tente novamente em ${minutes} minuto${minutes > 1 ? "s" : ""}.`
+            );
+          } else {
+            toast.error(result.error ?? "Erro ao gerar pagamento");
+          }
           setState("error");
           return;
         }
@@ -226,7 +233,14 @@ export default function PagamentoPage() {
         !result.qrCode ||
         !result.expiresAt
       ) {
-        toast.error(result.error ?? "Erro ao gerar pagamento");
+        if (result.error === "rate_limit_exceeded") {
+          const minutes = Math.max(1, Math.ceil((result.retryAfter ?? 600) / 60));
+          toast.error(
+            `Muitas tentativas. Tente novamente em ${minutes} minuto${minutes > 1 ? "s" : ""}.`
+          );
+        } else {
+          toast.error(result.error ?? "Erro ao gerar pagamento");
+        }
         setState("error");
         return;
       }

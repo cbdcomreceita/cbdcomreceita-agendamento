@@ -1,6 +1,14 @@
 "use server";
 
 import { addDays } from "date-fns";
+import { headers } from "next/headers";
+import { createServiceClient } from "@/lib/supabase/server";
+import {
+  rateLimiters,
+  tryCheckRateLimit,
+  getClientIp,
+  maskIp,
+} from "@/lib/rate-limit";
 
 export interface TimeSlot {
   time: string; // ISO string
@@ -27,6 +35,30 @@ export async function getAvailableSlots(
   const apiKey = process.env.CALCOM_API_KEY;
   if (!apiKey) {
     console.error("[Cal.com] CALCOM_API_KEY not set");
+    return [];
+  }
+
+  // Rate limit per IP (15/min) — protects Cal.com quota and blocks
+  // scrapers. On rate-limited requests we audit and return [] so the
+  // slot-picker shows the empty state. The 1-min window is short
+  // enough that legit users rarely notice.
+  const reqHeaders = await headers();
+  const ip = getClientIp(reqHeaders);
+  const rl = await tryCheckRateLimit(rateLimiters.slots, ip);
+  if (!rl.ok) {
+    const supabase = createServiceClient();
+    await supabase
+      .from("audit_events")
+      .insert({
+        event_type: "rate_limit_exceeded",
+        entity_type: "rate_limit",
+        metadata: {
+          endpoint: "slots",
+          ip: maskIp(ip),
+          eventTypeId,
+          limit: rl.limit,
+        },
+      });
     return [];
   }
 

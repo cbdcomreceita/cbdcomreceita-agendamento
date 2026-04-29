@@ -3,6 +3,13 @@ import { getMpPayment } from "@/lib/mercadopago/client";
 import { verifyMercadoPagoWebhook } from "@/lib/mercadopago/verify-webhook";
 import { confirmBooking } from "@/app/actions/confirm-booking";
 import { logError } from "@/lib/audit/log-error";
+import {
+  rateLimiters,
+  tryCheckRateLimit,
+  getClientIp,
+  maskIp,
+  buildRateLimitResponse,
+} from "@/lib/rate-limit";
 import { createServiceClient } from "@/lib/supabase/server";
 
 /**
@@ -17,6 +24,26 @@ import { createServiceClient } from "@/lib/supabase/server";
  */
 export async function POST(req: NextRequest) {
   try {
+    const supabase = createServiceClient();
+
+    // ── Rate limit FIRST (cheaper than parsing JSON or computing HMAC).
+    // 60/min/IP — gives MP retry pools room while blocking obvious
+    // probes. Fail-open if Upstash is unreachable.
+    const ip = getClientIp(req.headers);
+    const rl = await tryCheckRateLimit(rateLimiters.webhookMp, ip);
+    if (!rl.ok) {
+      await supabase.from("audit_events").insert({
+        event_type: "rate_limit_exceeded",
+        entity_type: "rate_limit",
+        metadata: {
+          endpoint: "webhook-mp",
+          ip: maskIp(ip),
+          limit: rl.limit,
+        },
+      });
+      return buildRateLimitResponse(rl);
+    }
+
     const body = await req.json();
 
     // ── HMAC signature verification ─────────────────────────────────
@@ -24,8 +51,6 @@ export async function POST(req: NextRequest) {
     // HMAC-SHA256(MERCADOPAGO_WEBHOOK_SECRET, "id:<data_id>;request-id:<x-request-id>;ts:<ts>;").
     // Without this check, anyone with the URL could POST a fake
     // "payment.approved" body and trigger a real booking confirmation.
-    const supabase = createServiceClient();
-
     const signature = req.headers.get("x-signature");
     const requestId = req.headers.get("x-request-id");
     const queryDataId = req.nextUrl.searchParams.get("data.id");
