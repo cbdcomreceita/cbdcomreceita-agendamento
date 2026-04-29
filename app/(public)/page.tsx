@@ -26,6 +26,19 @@ export const metadata: Metadata = {
     type: "website",
     locale: "pt_BR",
     url: "/",
+    // Repeated here because Next.js metadata merging replaces the
+    // openGraph object wholesale — when a page defines openGraph, the
+    // layout's openGraph (including images) is dropped, not merged.
+    // Other public pages (/quem-somos, /termos, /privacidade) don't
+    // redefine openGraph and so inherit the layout's image directly.
+    images: [
+      {
+        url: "/og/homesite.png",
+        width: 1766,
+        height: 1186,
+        alt: "CBD com Receita — Plataforma médica para tratamento com CBD",
+      },
+    ],
   },
 };
 
