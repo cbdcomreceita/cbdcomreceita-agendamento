@@ -45,29 +45,38 @@ export default function ConfirmacaoPage() {
     const matched = medicos.find((d) => d.id === triage.matchedDoctorId);
     setDoctor(matched ?? null);
     setPatientName(patient.fullName);
-    setBookingData(booking);
     setBookingDateStr(formatDateLong(booking.scheduledAt));
-    setLoaded(true);
 
-    // Refresh meet_link from the DB. The /pagamento polling tries to save
-    // it to sessionStorage before redirecting, but if the webhook beat the
-    // polling (or any other timing edge), the cached BookingData here can
-    // miss meetLink. Fetching authoritatively guarantees the GCal button
-    // and the Meet button reflect the latest state.
-    if (booking.bookingId) {
-      getBookingSummary(booking.bookingId)
-        .then((summary) => {
-          if (!summary) return;
-          if (summary.meetLink && summary.meetLink !== booking.meetLink) {
-            const updated = { ...booking, meetLink: summary.meetLink };
-            saveBookingData(updated);
-            setBookingData(updated);
-          }
-        })
-        .catch((err) => {
-          console.error("[Confirmacao] getBookingSummary failed:", err);
-        });
+    // If we have a bookingId, fetch authoritative state (especially
+    // meet_link) from the database BEFORE flipping `loaded`. Rendering
+    // immediately with sessionStorage data and updating later created a
+    // race: the page would show with meetLink=undefined, and a click on
+    // "Adicionar ao Google Agenda" between mount and the fetch resolving
+    // produced a URL with location=Google+Meet (no Meet link, no Link:
+    // line in details). Blocking render until the fetch finishes
+    // eliminates the window where the wrong href can be clicked.
+    if (!booking.bookingId) {
+      setBookingData(booking);
+      setLoaded(true);
+      return;
     }
+
+    getBookingSummary(booking.bookingId)
+      .then((summary) => {
+        const next =
+          summary?.meetLink && summary.meetLink !== booking.meetLink
+            ? { ...booking, meetLink: summary.meetLink }
+            : booking;
+        if (next !== booking) saveBookingData(next);
+        setBookingData(next);
+      })
+      .catch((err) => {
+        console.error("[Confirmacao] getBookingSummary failed:", err);
+        setBookingData(booking);
+      })
+      .finally(() => {
+        setLoaded(true);
+      });
   }, [router]);
 
   function handleGoHome() {
