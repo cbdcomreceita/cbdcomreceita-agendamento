@@ -43,5 +43,12 @@ export function buildGoogleCalendarUrl(params: GoogleCalendarParams): string {
   url.searchParams.set("details", detailsLines.join("\n"));
   url.searchParams.set("location", params.meetLink || "Google Meet");
 
-  return url.toString();
+  // URL.searchParams percent-encodes the slash separator inside `dates`
+  // as %2F. Google Calendar's /render endpoint silently fails to parse
+  // that and redirects to the workspace marketing page. Restore the
+  // literal slash only inside the dates value — every other param is
+  // fine encoded.
+  return url
+    .toString()
+    .replace(/([?&]dates=[^&]+)%2F([^&]+)/i, "$1/$2");
 }

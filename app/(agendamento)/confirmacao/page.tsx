@@ -90,7 +90,6 @@ export default function ConfirmacaoPage() {
     durationLabel: "25 minutos",
     meetLink,
   });
-  console.log("[gcalUrl]", gcalUrl);
 
   return (
     <div className="mx-auto w-full max-w-2xl flex-1 px-5 py-8 sm:px-8 sm:py-12">
