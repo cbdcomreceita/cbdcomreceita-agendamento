@@ -22,6 +22,30 @@ import { Redis } from "@upstash/redis";
  * `rl:cep` limiter here and wire it into the proxy route.
  */
 
+// Init-time diagnostics: log which env vars the runtime actually sees.
+// `Redis.fromEnv()` reads UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN
+// from process.env at the moment this module is first evaluated; if either
+// is missing, every limiter call below will fall into the fail-open catch
+// and never produce a 429.
+{
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  console.log("[ratelimit-init]", {
+    hasUrl: !!url,
+    urlHost: url ? safeHost(url) : null,
+    hasToken: !!token,
+    tokenLen: token ? token.length : 0,
+  });
+}
+
+function safeHost(u: string): string | null {
+  try {
+    return new URL(u).host;
+  } catch {
+    return null;
+  }
+}
+
 const redis = Redis.fromEnv();
 
 export const rateLimiters = {
@@ -120,10 +144,24 @@ export async function tryCheckRateLimit(
 ): Promise<RateLimitOk | RateLimitDenied> {
   try {
     const { success, limit, remaining, reset } = await limiter.limit(identifier);
+    console.log("[ratelimit-debug]", {
+      identifier,
+      success,
+      limit,
+      remaining,
+      reset,
+    });
     if (success) return { ok: true, limit, remaining, reset };
     return { ok: false, limit, remaining, reset };
   } catch (err) {
-    console.error("[ratelimit] upstash unavailable:", err);
+    console.error("[ratelimit] upstash unavailable:", {
+      identifier,
+      error: String(err),
+      stack:
+        err instanceof Error
+          ? err.stack?.split("\n").slice(0, 5).join("\n")
+          : undefined,
+    });
     return { ok: true, degraded: true };
   }
 }
