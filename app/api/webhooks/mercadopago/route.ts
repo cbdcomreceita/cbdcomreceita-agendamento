@@ -30,17 +30,7 @@ export async function POST(req: NextRequest) {
     // 60/min/IP — gives MP retry pools room while blocking obvious
     // probes. Fail-open if Upstash is unreachable.
     const ip = getClientIp(req.headers);
-    console.log("[webhook-mp] received", {
-      ip,
-      forwardedFor: req.headers.get("x-forwarded-for"),
-      realIp: req.headers.get("x-real-ip"),
-    });
     const rl = await tryCheckRateLimit(rateLimiters.webhookMp, ip);
-    console.log("[webhook-mp] rate-limit decision", {
-      rlOk: rl.ok,
-      remaining: "remaining" in rl ? rl.remaining : null,
-      degraded: "degraded" in rl ? rl.degraded : null,
-    });
     if (!rl.ok) {
       await supabase.from("audit_events").insert({
         event_type: "rate_limit_exceeded",
