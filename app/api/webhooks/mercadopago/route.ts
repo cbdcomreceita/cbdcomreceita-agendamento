@@ -36,6 +36,11 @@ export async function POST(req: NextRequest) {
       realIp: req.headers.get("x-real-ip"),
     });
     const rl = await tryCheckRateLimit(rateLimiters.webhookMp, ip);
+    console.log("[webhook-mp] rate-limit decision", {
+      rlOk: rl.ok,
+      remaining: "remaining" in rl ? rl.remaining : null,
+      degraded: "degraded" in rl ? rl.degraded : null,
+    });
     if (!rl.ok) {
       await supabase.from("audit_events").insert({
         event_type: "rate_limit_exceeded",
