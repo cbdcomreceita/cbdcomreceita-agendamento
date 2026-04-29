@@ -69,6 +69,21 @@ export function BookingConfirmationEmail({
               </Section>
             )}
 
+            {/* Política de tolerância */}
+            <Section style={policyStyle}>
+              <Text style={policyTitle}>Política de tolerância</Text>
+              <Text style={policyBody}>
+                Sua consulta foi paga e está confirmada. Pedimos a gentileza de
+                entrar na sala virtual no horário marcado.
+              </Text>
+              <Text style={policyBody}>
+                Toleramos atrasos de até 10 minutos. Após esse limite, ou em caso
+                de falta, a consulta será considerada como desistência — o valor
+                pago não é reembolsado nem reagendado, e uma nova consulta deve
+                ser agendada e paga separadamente.
+              </Text>
+            </Section>
+
             <Hr style={hrStyle} />
 
             {/* Rules */}
@@ -77,11 +92,8 @@ export function BookingConfirmationEmail({
               • Acesse o link do Google Meet no horário agendado
             </Text>
             <Text style={ruleStyle}>
-              • Em caso de atraso superior a 10 minutos, será necessário novo
-              agendamento com pagamento
-            </Text>
-            <Text style={ruleStyle}>
-              • Para remarcar, entre em contato pelo WhatsApp (84) 99704-8210
+              • Para remarcar com antecedência, entre em contato pelo WhatsApp
+              (84) 99704-8210
             </Text>
           </Section>
 
@@ -196,6 +208,31 @@ const meetFallbackStyle = {
   fontSize: "13px",
   textAlign: "center" as const,
   margin: "0",
+};
+
+const policyStyle = {
+  backgroundColor: "#f2efe8",
+  borderLeft: "3px solid #4e5f50",
+  borderRadius: "0 10px 10px 0",
+  padding: "16px 20px",
+  margin: "24px 0 0 0",
+};
+
+const policyTitle = {
+  color: "#2d3e2f",
+  fontSize: "13px",
+  fontWeight: "700" as const,
+  textTransform: "uppercase" as const,
+  letterSpacing: "0.06em",
+  fontFamily: "'Source Sans 3', system-ui, sans-serif",
+  margin: "0 0 8px 0",
+};
+
+const policyBody = {
+  color: "#2b2b2b",
+  fontSize: "13px",
+  lineHeight: "1.6",
+  margin: "0 0 8px 0",
 };
 
 const hrStyle = {

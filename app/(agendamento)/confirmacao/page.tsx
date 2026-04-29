@@ -13,10 +13,11 @@ import { buttonVariants } from "@/components/ui/button";
 import { FlowBreadcrumb } from "@/components/fluxo/flow-breadcrumb";
 import { DoctorSummary } from "@/components/fluxo/doctor-summary";
 import { loadTriageData, clearTriageData } from "@/lib/triagem/storage";
-import { loadBookingData, clearBookingData, type BookingData } from "@/lib/calcom/storage";
+import { loadBookingData, saveBookingData, clearBookingData, type BookingData } from "@/lib/calcom/storage";
 import { loadPatientData } from "@/lib/validation/patient-storage";
 import { medicos, type Medico } from "@/data/medicos";
 import { buildGoogleCalendarUrl } from "@/lib/utils/google-calendar";
+import { getBookingSummary } from "@/app/actions/get-booking";
 import { cn } from "@/lib/utils";
 
 const SUPPORT_WHATSAPP = `https://wa.me/5584997048210?text=${encodeURIComponent(
@@ -46,8 +47,27 @@ export default function ConfirmacaoPage() {
     setPatientName(patient.fullName);
     setBookingData(booking);
     setBookingDateStr(formatDateLong(booking.scheduledAt));
-
     setLoaded(true);
+
+    // Refresh meet_link from the DB. The /pagamento polling tries to save
+    // it to sessionStorage before redirecting, but if the webhook beat the
+    // polling (or any other timing edge), the cached BookingData here can
+    // miss meetLink. Fetching authoritatively guarantees the GCal button
+    // and the Meet button reflect the latest state.
+    if (booking.bookingId) {
+      getBookingSummary(booking.bookingId)
+        .then((summary) => {
+          if (!summary) return;
+          if (summary.meetLink && summary.meetLink !== booking.meetLink) {
+            const updated = { ...booking, meetLink: summary.meetLink };
+            saveBookingData(updated);
+            setBookingData(updated);
+          }
+        })
+        .catch((err) => {
+          console.error("[Confirmacao] getBookingSummary failed:", err);
+        });
+    }
   }, [router]);
 
   function handleGoHome() {
