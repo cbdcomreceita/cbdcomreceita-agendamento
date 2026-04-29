@@ -40,7 +40,7 @@ function MedicalBusinessJsonLd() {
           name: "CBD com Receita",
           description:
             "Plataforma médica estruturada para acesso seguro a tratamentos com CBD. Avaliação clínica individualizada, conformidade regulatória e entrega domiciliar.",
-          url: "https://cbdcomreceita.com.br",
+          url: "https://www.cbdcomreceita.com.br",
           telephone: "+5584997048210",
           email: "cbdcomreceita@gmail.com",
           address: {

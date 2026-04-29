@@ -34,7 +34,7 @@ export const metadata: Metadata = {
   description:
     "Plataforma médica estruturada para tratamento com CBD. Avaliação clínica individualizada, conformidade regulatória e entrega domiciliar. Consulta online R$49,90.",
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL || "https://cbdcomreceita.com.br"
+    process.env.NEXT_PUBLIC_SITE_URL || "https://www.cbdcomreceita.com.br"
   ),
   alternates: {
     canonical: "/",
@@ -50,9 +50,18 @@ export const metadata: Metadata = {
     type: "website",
     locale: "pt_BR",
     siteName: "CBD com Receita",
+    images: [
+      {
+        url: "/og/homesite.png",
+        width: 1766,
+        height: 1186,
+        alt: "CBD com Receita — Plataforma médica para tratamento com CBD",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
+    images: ["/og/homesite.png"],
   },
   robots: {
     index: true,
