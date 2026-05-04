@@ -40,6 +40,9 @@ export const metadata: Metadata = {
       },
     ],
   },
+  other: {
+    "facebook-domain-verification": "0dsowo6chx2wi794jrxpazmb64azla",
+  },
 };
 
 function MedicalBusinessJsonLd() {
