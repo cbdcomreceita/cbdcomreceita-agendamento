@@ -6,6 +6,7 @@ import { createCalcomBooking } from "@/lib/calcom/bookings";
 import { sendBookingConfirmation } from "@/lib/resend/send-confirmation";
 import { dispatchPostPaymentSideEffects } from "@/lib/post-payment/dispatch";
 import { logError } from "@/lib/audit/log-error";
+import { sendMetaConversionEvent } from "@/lib/analytics/meta-conversions-api";
 import { medicos } from "@/data/medicos";
 import { formatDateLong } from "@/lib/utils/datetime";
 
@@ -14,6 +15,8 @@ export type ConfirmSource = "polling" | "webhook" | "cron";
 export interface ConfirmBookingInput {
   bookingId: string;
   source: ConfirmSource;
+  userFbc?: string;
+  userFbp?: string;
 }
 
 export interface ConfirmBookingResult {
@@ -21,6 +24,8 @@ export interface ConfirmBookingResult {
   meetLink?: string;
   alreadyProcessed?: boolean;
   error?: string;
+  /** Client should fire this analytics event after receiving a successful response. */
+  trackEvent?: "payment_confirmed";
 }
 
 /**
@@ -268,7 +273,18 @@ export async function confirmBooking(
       },
     });
 
-    // 9. Audit
+    // 9. Meta Conversions API (server-side, fire-and-forget style — errors are caught internally)
+    await sendMetaConversionEvent({
+      eventName: "Purchase",
+      bookingId,
+      value: 49.9,
+      userEmail: patient.email,
+      userPhone: patient.phone,
+      userFbc: input.userFbc,
+      userFbp: input.userFbp,
+    });
+
+    // 10. Audit
     const eventType =
       source === "webhook"
         ? "payment_confirmed_via_webhook"
@@ -282,7 +298,7 @@ export async function confirmBooking(
       metadata: { source, meetLink, doctorId: doctor.id },
     });
 
-    return { success: true, meetLink };
+    return { success: true, meetLink, trackEvent: "payment_confirmed" as const };
   } catch (err) {
     await logError({
       scope: "confirm",

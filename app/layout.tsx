@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { Source_Sans_3, Source_Serif_4 } from "next/font/google";
 import { Toaster } from "sonner";
 import { GTMProvider } from "@/components/analytics/gtm-provider";
-import { GA4Provider } from "@/components/analytics/ga4-provider";
 import { MetaPixel } from "@/components/analytics/meta-pixel";
 import "./globals.css";
 
@@ -80,6 +79,7 @@ export default function RootLayout({
       className={`${sourceSans.variable} ${sourceSerif.variable} h-full antialiased scroll-smooth`}
     >
       <body className="min-h-full flex flex-col">
+        <GTMProvider />
         {/* Skip link — accessibility */}
         <a
           href="#conteudo-principal"
@@ -89,8 +89,6 @@ export default function RootLayout({
         </a>
         {children}
         <Toaster richColors position="top-right" />
-        <GTMProvider />
-        <GA4Provider />
         <MetaPixel />
       </body>
     </html>

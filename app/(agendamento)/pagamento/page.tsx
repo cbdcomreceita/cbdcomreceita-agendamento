@@ -19,7 +19,6 @@ import { checkPaymentStatus } from "@/lib/mercadopago/actions";
 import { createBookingAndPayment } from "@/app/actions/create-booking";
 import { confirmBooking } from "@/app/actions/confirm-booking";
 import { trackEvent } from "@/lib/analytics/track";
-import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
 import { medicos, type Medico } from "@/data/medicos";
 import { cn } from "@/lib/utils";
 
@@ -47,6 +46,19 @@ export default function PagamentoPage() {
   const [countdown, setCountdown] = useState("");
   const pollRef = useRef<NodeJS.Timeout | null>(null);
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
+  const fbCookiesRef = useRef<{ fbc?: string; fbp?: string }>({});
+
+  useEffect(() => {
+    const cookieMap = document.cookie.split(";").reduce<Record<string, string>>((acc, c) => {
+      const [k, v] = c.trim().split("=");
+      if (k) acc[k] = v ?? "";
+      return acc;
+    }, {});
+    fbCookiesRef.current = {
+      fbc: cookieMap["_fbc"] || undefined,
+      fbp: cookieMap["_fbp"] || undefined,
+    };
+  }, []);
 
   // Init: persist patient/booking/payment in Supabase, generate PIX. From
   // this point on, the booking lives in the DB — sessionStorage is only
@@ -106,7 +118,9 @@ export default function PagamentoPage() {
           isMock: result.isMock ?? false,
         });
         setState("awaiting");
-        trackEvent(ANALYTICS_EVENTS.PAYMENT_INITIATED);
+        if (result.trackEvent === "pix_generated") {
+          trackEvent({ name: "pix_generated", value: 49.9, booking_id: result.bookingId! });
+        }
       })
       .catch((err) => {
         console.error("[Pagamento] createBookingAndPayment threw:", err);
@@ -149,6 +163,8 @@ export default function PagamentoPage() {
         confirm = await confirmBooking({
           bookingId: pixData.bookingId,
           source: "polling",
+          userFbc: fbCookiesRef.current.fbc,
+          userFbp: fbCookiesRef.current.fbp,
         });
       } catch (err) {
         console.error("[Polling] confirmBooking threw:", err);
@@ -170,7 +186,9 @@ export default function PagamentoPage() {
       }
 
       setState("approved");
-      trackEvent(ANALYTICS_EVENTS.PAYMENT_COMPLETED);
+      if (confirm.trackEvent === "payment_confirmed") {
+        trackEvent({ name: "payment_confirmed", value: 49.9, booking_id: pixData.bookingId, currency: "BRL" });
+      }
       setTimeout(() => router.push("/confirmacao"), 2000);
     }, POLL_INTERVAL);
 

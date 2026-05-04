@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { MessageCircle } from "lucide-react";
 import { loadTriageData } from "@/lib/triagem/storage";
 import { saveBookingData } from "@/lib/calcom/storage";
+import { trackEvent } from "@/lib/analytics/track";
 import { medicos, type Medico } from "@/data/medicos";
 import { FlowBreadcrumb } from "@/components/fluxo/flow-breadcrumb";
 import { DoctorSummary } from "@/components/fluxo/doctor-summary";
@@ -33,6 +34,8 @@ export default function AgendaPage() {
   const handleSlotConfirm = useCallback(
     (slot: { date: string; time: string; timeEnd: string }) => {
       if (!doctor) return;
+
+      trackEvent({ name: "slot_selected", doctor: doctor.name, date: slot.date });
 
       saveBookingData({
         doctorId: doctor.id,

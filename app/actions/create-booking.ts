@@ -34,6 +34,8 @@ export interface CreateBookingResult {
   error?: string;
   /** Seconds the caller should wait before retrying (set on 429). */
   retryAfter?: number;
+  /** Client should fire this analytics event after receiving a successful response. */
+  trackEvent?: "pix_generated";
 }
 
 /**
@@ -312,6 +314,7 @@ export async function createBookingAndPayment(
       ticketUrl,
       expiresAt,
       isMock,
+      trackEvent: "pix_generated" as const,
     };
   } catch (err) {
     await logError({

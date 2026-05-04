@@ -10,7 +10,6 @@ import { cn } from "@/lib/utils";
 import { getAvailableSlots, type DaySlots } from "@/lib/calcom/availability";
 import { TIMEZONE, formatDateLong, formatTime } from "@/lib/utils/datetime";
 import { trackEvent } from "@/lib/analytics/track";
-import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
 
 type PickerState = "loading" | "ready" | "error" | "empty";
 
@@ -37,7 +36,7 @@ export function SlotPicker({ eventTypeId, onConfirm }: SlotPickerProps) {
       } else {
         setDays(result);
         setState("ready");
-        trackEvent(ANALYTICS_EVENTS.CALENDAR_VIEWED);
+        trackEvent({ name: "calendar_viewed" });
       }
     } catch {
       setState("error");
@@ -76,7 +75,6 @@ export function SlotPicker({ eventTypeId, onConfirm }: SlotPickerProps) {
   function selectSlot(time: string) {
     setSelectedSlot(time);
     setReservedAt(Date.now());
-    trackEvent(ANALYTICS_EVENTS.SLOT_SELECTED, { time });
   }
 
   function handleConfirm() {

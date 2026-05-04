@@ -6,7 +6,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import { saveTriageData, loadTriageData } from "@/lib/triagem/storage";
 import { matchDoctor } from "@/lib/triagem/matcher";
 import { trackEvent } from "@/lib/analytics/track";
-import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
 import { StepSymptoms } from "@/components/fluxo/step-symptoms";
 import { StepBirthDate } from "@/components/fluxo/step-birthdate";
 import { StepDuration } from "@/components/fluxo/step-duration";
@@ -32,7 +31,7 @@ export default function TriagemPage() {
       else if (saved.birthDate) setStep(2);
     }
     setLoaded(true);
-    trackEvent(ANALYTICS_EVENTS.TRIAGEM_STARTED);
+    trackEvent({ name: "quiz_started" });
   }, []);
 
   const updateData = useCallback((partial: Partial<TriageData>) => {
@@ -44,7 +43,7 @@ export default function TriagemPage() {
   }, []);
 
   function goNext() {
-    trackEvent(ANALYTICS_EVENTS.TRIAGEM_STEP_COMPLETED, { step });
+    trackEvent({ name: "triagem_step_completed", step });
     if (step < TOTAL_STEPS) {
       setDirection(1);
       setStep((s) => s + 1);

@@ -1,48 +1,35 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-
 import type { AnalyticsEvent } from "./events";
 
-// Meta Pixel standard event mapping
-const META_STANDARD_MAP: Partial<Record<AnalyticsEvent, { event: string; params?: Record<string, any> }>> = {
-  triagem_started: { event: "ViewContent" },
-  form_completed: { event: "Lead" },
-  payment_initiated: { event: "InitiateCheckout" },
-  payment_completed: { event: "Purchase", params: { value: 49.9, currency: "BRL" } },
-};
-
-/**
- * Track an event across all analytics providers:
- * - Google Analytics 4 (gtag)
- * - Google Tag Manager (dataLayer)
- * - Meta Pixel (fbq)
- */
-export function trackEvent(
-  eventName: AnalyticsEvent | string,
-  params?: Record<string, any>
-) {
+export function trackEvent(event: AnalyticsEvent): void {
   if (typeof window === "undefined") return;
 
-  // GA4 via gtag
-  const gtag = (window as any).gtag;
-  if (typeof gtag === "function") {
-    gtag("event", eventName, params);
-  }
+  const { name, ...params } = event;
 
-  // GTM via dataLayer
+  // GTM dataLayer → GA4
   const dataLayer = (window as any).dataLayer;
   if (Array.isArray(dataLayer)) {
-    dataLayer.push({ event: eventName, ...params });
+    dataLayer.push({ event: name, ...params });
   }
 
-  // Meta Pixel
+  // Meta Pixel client-side
   const fbq = (window as any).fbq;
   if (typeof fbq === "function") {
-    // Map to standard event if available
-    const mapped = META_STANDARD_MAP[eventName as AnalyticsEvent];
-    if (mapped) {
-      fbq("track", mapped.event, { ...mapped.params, ...params });
+    if (name === "payment_confirmed") {
+      const e = event as Extract<AnalyticsEvent, { name: "payment_confirmed" }>;
+      fbq("track", "Purchase", {
+        value: e.value,
+        currency: "BRL",
+        content_ids: [e.booking_id],
+      });
+    } else if (name === "pix_generated") {
+      fbq("track", "InitiateCheckout");
+    } else if (name === "quiz_started") {
+      fbq("track", "ViewContent");
+    } else if (name === "form_submitted") {
+      fbq("track", "Lead");
     } else {
-      fbq("trackCustom", eventName, params);
+      fbq("trackCustom", name, params);
     }
   }
 }
