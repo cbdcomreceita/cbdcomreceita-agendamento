@@ -78,9 +78,6 @@ export default function RootLayout({
       lang="pt-BR"
       className={`${sourceSans.variable} ${sourceSerif.variable} h-full antialiased scroll-smooth`}
     >
-      <head>
-        <meta name="facebook-domain-verification" content="0dsowo6chx2wi794jrxpazmb64azla" />
-      </head>
       <body className="min-h-full flex flex-col">
         <GTMProvider />
         {/* Skip link — accessibility */}
