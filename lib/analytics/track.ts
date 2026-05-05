@@ -6,13 +6,16 @@ export function trackEvent(event: AnalyticsEvent): void {
 
   const { name, ...params } = event;
 
-  // TODO: remove before prod — debug helper for preview validation
-  console.warn("[analytics] trackEvent →", name, params);
-
-  // GTM dataLayer → GA4
+  // GTM dataLayer (mantido para futura configuração de triggers no GTM)
   const dataLayer = (window as any).dataLayer;
   if (Array.isArray(dataLayer)) {
     dataLayer.push({ event: name, ...params });
+  }
+
+  // GA4 direto via gtag — bypass GTM enquanto triggers não estão configurados
+  const gtag = (window as any).gtag;
+  if (typeof gtag === "function") {
+    gtag("event", name, params);
   }
 
   // Meta Pixel client-side

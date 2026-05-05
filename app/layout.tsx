@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Source_Sans_3, Source_Serif_4 } from "next/font/google";
 import { Toaster } from "sonner";
+import { GA4Provider } from "@/components/analytics/ga4-provider";
 import { GTMProvider } from "@/components/analytics/gtm-provider";
 import { MetaPixel } from "@/components/analytics/meta-pixel";
 import "./globals.css";
@@ -79,6 +80,7 @@ export default function RootLayout({
       className={`${sourceSans.variable} ${sourceSerif.variable} h-full antialiased scroll-smooth`}
     >
       <body className="min-h-full flex flex-col">
+        <GA4Provider />
         <GTMProvider />
         {/* Skip link — accessibility */}
         <a
