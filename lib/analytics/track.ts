@@ -6,6 +6,9 @@ export function trackEvent(event: AnalyticsEvent): void {
 
   const { name, ...params } = event;
 
+  // TODO: remove before prod — debug helper for preview validation
+  console.warn("[analytics] trackEvent →", name, params);
+
   // GTM dataLayer → GA4
   const dataLayer = (window as any).dataLayer;
   if (Array.isArray(dataLayer)) {

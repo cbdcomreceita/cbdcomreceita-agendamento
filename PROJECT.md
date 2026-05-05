@@ -298,7 +298,7 @@ Dados ficam em `data/medicos.ts` e `data/sintoma-medico-map.ts`. Pra adicionar m
 NEXT_PUBLIC_SITE_URL=https://cbdcomreceita.com.br
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
-NEXT_PUBLIC_GA_MEASUREMENT_ID=         # GA4
+NEXT_PUBLIC_GA4_ID=                    # GA4 Measurement ID (ex: G-XXXXXXXXXX)
 NEXT_PUBLIC_GTM_ID=                     # Google Tag Manager
 NEXT_PUBLIC_META_PIXEL_ID=             # Facebook/Instagram Pixel
 NEXT_PUBLIC_CONSULTATION_PRICE=4990    # Centavos. Alterável sem redeploy se usar Vercel env vars
