@@ -19,13 +19,13 @@ export const sintomasMedicoMap: SintomaMedicoEntry[] = [
   { sintomaSlug: "tdah", medicoId: "carol", priority: 1 },
   { sintomaSlug: "perda-de-peso", medicoId: "carol", priority: 1 },
 
-  // Dr. Magno Cruz (magno) — priority 1
-  { sintomaSlug: "dores-corpo", medicoId: "magno", priority: 1 },
-  { sintomaSlug: "fibromialgia", medicoId: "magno", priority: 1 },
-  { sintomaSlug: "epilepsia", medicoId: "magno", priority: 1 },
-  { sintomaSlug: "autismo", medicoId: "magno", priority: 1 },
-  { sintomaSlug: "alcoolismo", medicoId: "magno", priority: 1 },
-  { sintomaSlug: "obesidade", medicoId: "magno", priority: 1 },
-  { sintomaSlug: "tabagismo", medicoId: "magno", priority: 1 },
-  { sintomaSlug: "parkinson", medicoId: "magno", priority: 1 },
+  // Dra. Carolina Lopes (carol) — sintomas anteriormente do Dr. Magno
+  { sintomaSlug: "dores-corpo", medicoId: "carol", priority: 1 },
+  { sintomaSlug: "fibromialgia", medicoId: "carol", priority: 1 },
+  { sintomaSlug: "epilepsia", medicoId: "carol", priority: 1 },
+  { sintomaSlug: "autismo", medicoId: "carol", priority: 1 },
+  { sintomaSlug: "alcoolismo", medicoId: "carol", priority: 1 },
+  { sintomaSlug: "obesidade", medicoId: "carol", priority: 1 },
+  { sintomaSlug: "tabagismo", medicoId: "carol", priority: 1 },
+  { sintomaSlug: "parkinson", medicoId: "carol", priority: 1 },
 ];
