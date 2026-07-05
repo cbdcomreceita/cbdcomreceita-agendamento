@@ -22,7 +22,8 @@ export default function AgendaPage() {
 
   useEffect(() => {
     const data = loadTriageData();
-    if (!data.matchedDoctorId) {
+    // selectedDays confirms the user went through the new schedule step
+    if (!data.matchedDoctorId || !data.selectedDays?.length) {
       router.replace("/triagem");
       return;
     }
