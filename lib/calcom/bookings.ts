@@ -93,13 +93,26 @@ export async function createCalcomBooking(
     const data = JSON.parse(responseText);
     const booking = data.data;
 
+    // Cal.com v2 returns the Meet URL in different fields depending on
+    // how the event type's location is configured. Try all known shapes.
+    const references: { meetingUrl?: string; meetingPassword?: string }[] =
+      Array.isArray(booking?.references) ? booking.references : [];
+    const refMeetLink = references.find((r) => r.meetingUrl)?.meetingUrl;
+
+    const rawLocation: unknown = booking?.location;
+    const locationUrl =
+      typeof rawLocation === "string" && rawLocation.startsWith("http")
+        ? rawLocation
+        : undefined;
+
     const result: CalcomBookingResult = {
       success: true,
       bookingId: booking?.id,
       bookingUid: booking?.uid,
       meetLink:
         booking?.meetingUrl ||
-        booking?.location ||
+        refMeetLink ||
+        locationUrl ||
         booking?.metadata?.videoCallUrl,
     };
     console.log(
