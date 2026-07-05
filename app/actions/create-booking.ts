@@ -157,25 +157,31 @@ export async function createBookingAndPayment(
 
     // 2. Doctor lookup
     const doctor = medicos.find((d) => d.id === booking.doctorId);
-    const candidateNames = [doctor?.name, "Dr. Magno", "Dr. Magno Cruz"]
-      .filter((n): n is string => !!n);
+    if (!doctor) {
+      await logError({
+        scope: "create",
+        message: "Doctor not found in medicos array",
+        metadata: { doctorId: booking.doctorId },
+        entityType: "doctor",
+      });
+      return { success: false, error: `Médico não encontrado: ${booking.doctorId}` };
+    }
     const { data: dbDoctor } = await supabase
       .from("doctors")
       .select("id")
-      .in("name", candidateNames)
-      .limit(1)
+      .eq("name", doctor.name)
       .maybeSingle();
 
-    if (!dbDoctor?.id || !doctor) {
+    if (!dbDoctor?.id) {
       await logError({
         scope: "create",
         message: "Doctor not found in DB",
-        metadata: { candidateNames, expectedDoctor: doctor?.name },
+        metadata: { doctorName: doctor.name },
         entityType: "doctor",
       });
       return {
         success: false,
-        error: `Médico não encontrado: ${doctor?.name ?? "?"}`,
+        error: `Médico não encontrado: ${doctor.name}`,
       };
     }
 

@@ -22,7 +22,7 @@ export default function AgendaPage() {
 
   useEffect(() => {
     const data = loadTriageData();
-    if (!data.matchedDoctorId || !data.selectedSymptoms?.length) {
+    if (!data.matchedDoctorId) {
       router.replace("/triagem");
       return;
     }

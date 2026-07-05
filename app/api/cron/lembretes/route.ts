@@ -19,7 +19,7 @@ async function sendReminders(
 
   const { data: bookings } = await supabase
     .from("bookings")
-    .select("*, patients(*)")
+    .select("*, patients(*), doctors(*)")
     .eq("status", "confirmed")
     .gte("scheduled_at", from)
     .lte("scheduled_at", to);
@@ -38,7 +38,10 @@ async function sendReminders(
     const patient = booking.patients;
     if (!patient) continue;
 
-    const doctor = medicos.find((d) => d.calcomEventTypeId !== null);
+    const dbDoctor = booking.doctors as { name: string } | null;
+    const doctor = dbDoctor
+      ? medicos.find((d) => d.name === dbDoctor.name)
+      : medicos.find((d) => d.isActive && d.calcomEventTypeId !== null);
     const reminderType = type === "reminder_24h" ? "24h" : "1h";
 
     const dateFormatted =

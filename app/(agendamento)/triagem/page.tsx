@@ -4,16 +4,17 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { saveTriageData, loadTriageData } from "@/lib/triagem/storage";
-import { matchDoctor } from "@/lib/triagem/matcher";
+import { routeBySchedule } from "@/lib/triagem/day-router";
 import { trackEvent } from "@/lib/analytics/track";
 import { StepSymptoms } from "@/components/fluxo/step-symptoms";
 import { StepBirthDate } from "@/components/fluxo/step-birthdate";
 import { StepDuration } from "@/components/fluxo/step-duration";
 import { StepCbd } from "@/components/fluxo/step-cbd";
+import { StepSchedule } from "@/components/fluxo/step-schedule";
 import { ProgressBar } from "@/components/fluxo/progress-bar";
 import type { TriageData } from "@/lib/triagem/schemas";
 
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 5;
 
 export default function TriagemPage() {
   const router = useRouter();
@@ -26,7 +27,8 @@ export default function TriagemPage() {
     const saved = loadTriageData();
     if (saved.selectedSymptoms?.length) {
       setData(saved);
-      if (saved.priorCbdUse) setStep(4);
+      if (saved.selectedDays?.length) setStep(5);
+      else if (saved.priorCbdUse) setStep(4);
       else if (saved.duration) setStep(3);
       else if (saved.birthDate) setStep(2);
     }
@@ -48,12 +50,12 @@ export default function TriagemPage() {
       setDirection(1);
       setStep((s) => s + 1);
     } else {
-      const result = matchDoctor(data.selectedSymptoms ?? [], {
-        isMinor: data.isMinor,
-        isElderly: data.isElderly,
-      });
-      updateData({ matchedDoctorId: result.doctor.id });
-      router.push("/triagem/resultado");
+      const doctorId = routeBySchedule(
+        data.selectedDays ?? [],
+        data.selectedShifts ?? []
+      );
+      updateData({ matchedDoctorId: doctorId });
+      router.push("/agenda");
     }
   }
 
@@ -110,6 +112,16 @@ export default function TriagemPage() {
               <StepCbd
                 value={data.priorCbdUse}
                 onSelect={(v) => updateData({ priorCbdUse: v })}
+                onNext={goNext}
+                onBack={goBack}
+              />
+            )}
+            {step === 5 && (
+              <StepSchedule
+                selectedDays={data.selectedDays ?? []}
+                selectedShifts={data.selectedShifts ?? []}
+                onChangeDays={(days) => updateData({ selectedDays: days })}
+                onChangeShifts={(shifts) => updateData({ selectedShifts: shifts })}
                 onNext={goNext}
                 onBack={goBack}
               />
