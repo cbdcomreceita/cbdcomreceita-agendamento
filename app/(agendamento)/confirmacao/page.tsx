@@ -137,7 +137,7 @@ export default function ConfirmacaoPage() {
               <CalendarCheck className="mt-0.5 h-4 w-4 shrink-0 text-brand-forest" />
               <div>
                 <p className="font-medium text-brand-text">Data e horário</p>
-                <p className="capitalize text-brand-text-secondary">{bookingDateStr}</p>
+                <p className="capitalize text-brand-text-secondary">{bookingDateStr} <span className="normal-case">(horário de Brasília)</span></p>
               </div>
             </div>
             <div className="flex items-start gap-3">
