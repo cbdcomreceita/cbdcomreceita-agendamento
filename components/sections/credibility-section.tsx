@@ -21,7 +21,7 @@ export function CredibilitySection() {
 
         <FadeUp delay={0.2}>
           <p className="mt-6 text-base leading-[1.8] text-brand-text-secondary sm:text-lg">
-            O CBD (canabidiol) é um composto natural da cannabis, sem efeito
+            O CBD (canabidiol) é um composto natural da Cannabis, sem efeito
             psicoativo, usado como tratamento medicinal. É uma das áreas que
             mais crescem na pesquisa científica e na prática médica: ansiedade,
             qualidade do sono, falta de foco, estresse, dores, entre outros
