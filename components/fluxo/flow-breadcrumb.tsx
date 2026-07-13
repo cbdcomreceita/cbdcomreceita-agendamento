@@ -6,7 +6,6 @@ import { cn } from "@/lib/utils";
 const steps = [
   { label: "Triagem", key: "triagem" },
   { label: "Agenda", key: "agenda" },
-  { label: "Triagem completa", key: "triagem-completa" },
   { label: "Dados", key: "dados" },
   { label: "Pagamento", key: "pagamento" },
   { label: "Confirmação", key: "confirmacao" },

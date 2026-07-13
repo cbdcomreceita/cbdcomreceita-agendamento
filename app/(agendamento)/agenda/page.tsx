@@ -46,7 +46,7 @@ export default function AgendaPage() {
         duration: 25,
       });
 
-      router.push("/triagem-completa");
+      router.push("/dados");
     },
     [doctor, router]
   );

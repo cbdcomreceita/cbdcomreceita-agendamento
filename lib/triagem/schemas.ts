@@ -35,11 +35,6 @@ export const stepScheduleSchema = z.object({
   selectedShifts: z.array(z.string()).min(1, "Selecione pelo menos um turno"),
 });
 
-export const stepMedicationSchema = z.object({
-  hasCurrentMedication: z.boolean(),
-  currentMedications: z.string().optional(),
-});
-
 export const triageDataSchema = z.object({
   birthDate: z.string().optional(),
   isMinor: z.boolean().optional(),
@@ -49,8 +44,6 @@ export const triageDataSchema = z.object({
   priorTreatment: z.enum(["never", "medication", "therapy", "other"]).optional(),
   priorTreatmentDetails: z.string().optional(),
   priorCbdUse: z.enum(["never", "with_prescription", "self", "prefer_not_say"]).optional(),
-  hasCurrentMedication: z.boolean().optional(),
-  currentMedications: z.string().optional(),
   selectedDays: z.array(z.string()).optional(),
   selectedShifts: z.array(z.string()).optional(),
   matchedDoctorId: z.string().optional(),
@@ -63,4 +56,3 @@ export type Step2Data = z.infer<typeof step2Schema>;
 export type Step3Data = z.infer<typeof step3Schema>;
 export type Step4Data = z.infer<typeof step4Schema>;
 export type StepScheduleData = z.infer<typeof stepScheduleSchema>;
-export type StepMedicationData = z.infer<typeof stepMedicationSchema>;

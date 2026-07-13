@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { formatDateBR, formatDateLong } from "@/lib/utils/datetime";
-import { Loader2, ArrowRight } from "lucide-react";
+import { Loader2, ArrowRight, Clock, Leaf } from "lucide-react";
 import { trackEvent } from "@/lib/analytics/track";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { TermsModal, PrivacyModal } from "@/components/fluxo/consent-modal";
 import { FlowBreadcrumb } from "@/components/fluxo/flow-breadcrumb";
 import { DoctorSummary } from "@/components/fluxo/doctor-summary";
-import { loadTriageData } from "@/lib/triagem/storage";
+import { SelectableCard } from "@/components/fluxo/selectable-card";
+import { loadTriageData, saveTriageData } from "@/lib/triagem/storage";
+import type { TriageData } from "@/lib/triagem/schemas";
 import { loadBookingData } from "@/lib/calcom/storage";
 import { savePatientData, loadPatientData } from "@/lib/validation/patient-storage";
 import { patientSchema, UF_OPTIONS, type PatientFormData } from "@/lib/validation/patient";
@@ -21,6 +23,20 @@ import { maskCpf, maskPhone, maskCep } from "@/lib/utils/masks";
 import { medicos, type Medico } from "@/data/medicos";
 import { sintomas } from "@/data/sintomas";
 import { cn } from "@/lib/utils";
+
+const DURATION_OPTIONS: { value: NonNullable<TriageData["duration"]>; label: string }[] = [
+  { value: "less_1m", label: "Menos de 1 mês" },
+  { value: "1_6m", label: "1 a 6 meses" },
+  { value: "6_12m", label: "6 a 12 meses" },
+  { value: "more_1y", label: "Mais de 1 ano" },
+];
+
+const CBD_OPTIONS: { value: NonNullable<TriageData["priorCbdUse"]>; label: string }[] = [
+  { value: "never", label: "Nunca" },
+  { value: "with_prescription", label: "Sim, com prescrição médica" },
+  { value: "self", label: "Sim, por conta própria" },
+  { value: "prefer_not_say", label: "Prefiro não dizer" },
+];
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
@@ -56,8 +72,8 @@ export default function DadosPage() {
   const [doctor, setDoctor] = useState<Medico | null>(null);
   const [bookingDate, setBookingDate] = useState<string | null>(null);
   const [selectedSymptomLabels, setSelectedSymptomLabels] = useState<string[]>([]);
-  const [priorCbd, setPriorCbd] = useState<string>("");
-  const [medicationSummary, setMedicationSummary] = useState<string>("");
+  const [duration, setDuration] = useState<TriageData["duration"]>();
+  const [priorCbdUse, setPriorCbdUse] = useState<TriageData["priorCbdUse"]>();
   const [cepLoading, setCepLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -94,10 +110,6 @@ export default function DadosPage() {
       router.replace("/triagem");
       return;
     }
-    if (triage.hasCurrentMedication === undefined) {
-      router.replace("/triagem-completa");
-      return;
-    }
 
     const matched = medicos.find((d) => d.id === triage.matchedDoctorId);
     setDoctor(matched ?? null);
@@ -108,22 +120,8 @@ export default function DadosPage() {
       .map((s) => s.label);
     setSelectedSymptomLabels(labels);
 
-    const cbdMap: Record<string, string> = {
-      never: "Nunca",
-      with_prescription: "Sim, com prescrição",
-      self: "Sim, por conta própria",
-      prefer_not_say: "Prefere não dizer",
-    };
-    setPriorCbd(cbdMap[triage.priorCbdUse ?? ""] ?? "");
-
-    // Pre-fill clinical answers gathered in /triagem-completa
-    setValue("hasCurrentMedication", triage.hasCurrentMedication ?? false);
-    setValue("currentMedications", triage.currentMedications ?? "");
-    setMedicationSummary(
-      triage.hasCurrentMedication
-        ? triage.currentMedications || "Sim"
-        : "Não"
-    );
+    if (triage.duration) setDuration(triage.duration);
+    if (triage.priorCbdUse) setPriorCbdUse(triage.priorCbdUse);
 
     // Pre-fill birth date from triage
     if (triage.birthDate) {
@@ -161,6 +159,7 @@ export default function DadosPage() {
     }
   }, [cepValue, setValue]);
 
+  const hasMed = watch("hasCurrentMedication");
   const lgpdChecked = watch("lgpdConsent");
   const termsChecked = watch("termsConsent");
 
@@ -168,12 +167,17 @@ export default function DadosPage() {
     setFieldErrors({});
 
     const result = patientSchema.safeParse(data);
+    const errs: Record<string, string> = {};
     if (!result.success) {
-      const errs: Record<string, string> = {};
       for (const issue of result.error.issues) {
         const key = String(issue.path[0]);
         if (!errs[key]) errs[key] = issue.message;
       }
+    }
+    if (!duration) errs.duration = "Selecione há quanto tempo você convive com isso";
+    if (!priorCbdUse) errs.priorCbdUse = "Selecione uma opção";
+
+    if (!result.success || Object.keys(errs).length > 0) {
       setFieldErrors(errs);
 
       // Scroll to first error
@@ -186,6 +190,7 @@ export default function DadosPage() {
     setSubmitting(true);
     trackEvent({ name: "form_submitted", doctor: doctor?.name ?? "" });
     savePatientData(result.data);
+    saveTriageData({ duration, priorCbdUse });
     router.push("/pagamento");
   }
 
@@ -380,18 +385,84 @@ export default function DadosPage() {
                 ))}
               </div>
             </div>
-            {medicationSummary && (
-              <div>
-                <p className="text-sm font-medium text-brand-text">Medicamento atual</p>
-                <p className="mt-1 text-sm text-brand-text-secondary">{medicationSummary}</p>
+            <div id="duration">
+              <p className="mb-2 text-sm font-medium text-brand-text">
+                Há quanto tempo você convive com isso? <span className="text-brand-error/60">*</span>
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {DURATION_OPTIONS.map((opt) => (
+                  <SelectableCard
+                    key={opt.value}
+                    label={opt.label}
+                    selected={duration === opt.value}
+                    onClick={() => {
+                      setDuration(opt.value);
+                      saveTriageData({ duration: opt.value });
+                    }}
+                    icon={<Clock className="h-4 w-4 text-brand-forest" />}
+                    role="radio"
+                  />
+                ))}
               </div>
-            )}
-            {priorCbd && (
-              <div>
-                <p className="text-sm font-medium text-brand-text">Experiência prévia com CBD</p>
-                <p className="mt-1 text-sm text-brand-text-secondary">{priorCbd}</p>
+              <FieldError message={fieldErrors.duration} />
+            </div>
+            <div>
+              <p className="mb-2 text-sm font-medium text-brand-text">
+                Já toma algum medicamento para esses sintomas? <span className="text-brand-error/60">*</span>
+              </p>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 text-sm text-brand-text">
+                  <input
+                    type="radio"
+                    name="hasMed"
+                    checked={hasMed === true}
+                    onChange={() => setValue("hasCurrentMedication", true)}
+                    className="accent-brand-forest"
+                  />
+                  Sim
+                </label>
+                <label className="flex items-center gap-2 text-sm text-brand-text">
+                  <input
+                    type="radio"
+                    name="hasMed"
+                    checked={hasMed === false}
+                    onChange={() => {
+                      setValue("hasCurrentMedication", false);
+                      setValue("currentMedications", "");
+                    }}
+                    className="accent-brand-forest"
+                  />
+                  Não
+                </label>
               </div>
-            )}
+              {hasMed === true && (
+                <div className="mt-3">
+                  <Label htmlFor="currentMedications" required>Qual medicamento?</Label>
+                  <input id="currentMedications" {...register("currentMedications")} placeholder="Nome do medicamento" className={inputClass()} />
+                </div>
+              )}
+            </div>
+            <div id="priorCbdUse">
+              <p className="mb-2 text-sm font-medium text-brand-text">
+                Você já usou CBD antes? <span className="text-brand-error/60">*</span>
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {CBD_OPTIONS.map((opt) => (
+                  <SelectableCard
+                    key={opt.value}
+                    label={opt.label}
+                    selected={priorCbdUse === opt.value}
+                    onClick={() => {
+                      setPriorCbdUse(opt.value);
+                      saveTriageData({ priorCbdUse: opt.value });
+                    }}
+                    icon={<Leaf className="h-4 w-4 text-brand-forest" />}
+                    role="radio"
+                  />
+                ))}
+              </div>
+              <FieldError message={fieldErrors.priorCbdUse} />
+            </div>
           </div>
         </div>
 
