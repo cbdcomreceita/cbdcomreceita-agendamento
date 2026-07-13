@@ -15,21 +15,27 @@ export function CredibilitySection() {
 
         <FadeUp delay={0.1}>
           <h2 className="text-2xl font-bold tracking-tight text-brand-forest-dark sm:text-3xl lg:text-4xl">
-            Cuidado em saúde exige estrutura
+            O que é CBD e pra que serve?
           </h2>
         </FadeUp>
 
         <FadeUp delay={0.2}>
           <p className="mt-6 text-base leading-[1.8] text-brand-text-secondary sm:text-lg">
-            Tratamento com CBD depende de avaliação individualizada, critério
-            médico e condução responsável em conformidade regulatória.
+            O CBD (canabidiol) é um composto natural da cannabis, sem efeito
+            psicoativo, usado como tratamento medicinal. É uma das áreas que
+            mais crescem na pesquisa científica e na prática médica: ansiedade,
+            qualidade do sono, falta de foco, estresse, dores, entre outros
+            desequilíbrios do sistema nervoso são os casos mais tratados,
+            sempre com avaliação médica individualizada.
           </p>
         </FadeUp>
 
         <FadeUp delay={0.3}>
           <p className="mt-4 text-base leading-[1.8] text-brand-text-secondary sm:text-lg">
-            Atendimento online, importação estruturada e entrega domiciliar
-            segura em todo o Brasil.
+            Aqui, conectamos paciente, médico prescritor e fornecedor
+            internacional de qualidade certificada. Atendimento especializado
+            100% online, registro e conformidade regulatória (Anvisa) por
+            nossa conta, e entrega do tratamento em todo o Brasil.
           </p>
         </FadeUp>
 
