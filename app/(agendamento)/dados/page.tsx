@@ -57,6 +57,7 @@ export default function DadosPage() {
   const [bookingDate, setBookingDate] = useState<string | null>(null);
   const [selectedSymptomLabels, setSelectedSymptomLabels] = useState<string[]>([]);
   const [priorCbd, setPriorCbd] = useState<string>("");
+  const [medicationSummary, setMedicationSummary] = useState<string>("");
   const [cepLoading, setCepLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -93,6 +94,10 @@ export default function DadosPage() {
       router.replace("/triagem");
       return;
     }
+    if (triage.hasCurrentMedication === undefined) {
+      router.replace("/triagem-completa");
+      return;
+    }
 
     const matched = medicos.find((d) => d.id === triage.matchedDoctorId);
     setDoctor(matched ?? null);
@@ -110,6 +115,15 @@ export default function DadosPage() {
       prefer_not_say: "Prefere não dizer",
     };
     setPriorCbd(cbdMap[triage.priorCbdUse ?? ""] ?? "");
+
+    // Pre-fill clinical answers gathered in /triagem-completa
+    setValue("hasCurrentMedication", triage.hasCurrentMedication ?? false);
+    setValue("currentMedications", triage.currentMedications ?? "");
+    setMedicationSummary(
+      triage.hasCurrentMedication
+        ? triage.currentMedications || "Sim"
+        : "Não"
+    );
 
     // Pre-fill birth date from triage
     if (triage.birthDate) {
@@ -147,7 +161,6 @@ export default function DadosPage() {
     }
   }, [cepValue, setValue]);
 
-  const hasMed = watch("hasCurrentMedication");
   const lgpdChecked = watch("lgpdConsent");
   const termsChecked = watch("termsConsent");
 
@@ -367,42 +380,12 @@ export default function DadosPage() {
                 ))}
               </div>
             </div>
-            <div>
-              <p className="mb-2 text-sm font-medium text-brand-text">
-                Já toma algum medicamento para esses sintomas? <span className="text-brand-error/60">*</span>
-              </p>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 text-sm text-brand-text">
-                  <input
-                    type="radio"
-                    name="hasMed"
-                    checked={hasMed === true}
-                    onChange={() => setValue("hasCurrentMedication", true)}
-                    className="accent-brand-forest"
-                  />
-                  Sim
-                </label>
-                <label className="flex items-center gap-2 text-sm text-brand-text">
-                  <input
-                    type="radio"
-                    name="hasMed"
-                    checked={hasMed === false}
-                    onChange={() => {
-                      setValue("hasCurrentMedication", false);
-                      setValue("currentMedications", "");
-                    }}
-                    className="accent-brand-forest"
-                  />
-                  Não
-                </label>
+            {medicationSummary && (
+              <div>
+                <p className="text-sm font-medium text-brand-text">Medicamento atual</p>
+                <p className="mt-1 text-sm text-brand-text-secondary">{medicationSummary}</p>
               </div>
-              {hasMed === true && (
-                <div className="mt-3">
-                  <Label htmlFor="currentMedications" required>Qual medicamento?</Label>
-                  <input id="currentMedications" {...register("currentMedications")} placeholder="Nome do medicamento" className={inputClass()} />
-                </div>
-              )}
-            </div>
+            )}
             {priorCbd && (
               <div>
                 <p className="text-sm font-medium text-brand-text">Experiência prévia com CBD</p>

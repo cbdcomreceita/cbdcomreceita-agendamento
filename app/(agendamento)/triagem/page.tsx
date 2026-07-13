@@ -7,14 +7,11 @@ import { saveTriageData, loadTriageData } from "@/lib/triagem/storage";
 import { routeBySchedule } from "@/lib/triagem/day-router";
 import { trackEvent } from "@/lib/analytics/track";
 import { StepSymptoms } from "@/components/fluxo/step-symptoms";
-import { StepBirthDate } from "@/components/fluxo/step-birthdate";
-import { StepDuration } from "@/components/fluxo/step-duration";
-import { StepCbd } from "@/components/fluxo/step-cbd";
 import { StepSchedule } from "@/components/fluxo/step-schedule";
 import { ProgressBar } from "@/components/fluxo/progress-bar";
 import type { TriageData } from "@/lib/triagem/schemas";
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 2;
 
 export default function TriagemPage() {
   const router = useRouter();
@@ -27,10 +24,7 @@ export default function TriagemPage() {
     const saved = loadTriageData();
     if (saved.selectedSymptoms?.length) {
       setData(saved);
-      if (saved.selectedDays?.length) setStep(5);
-      else if (saved.priorCbdUse) setStep(4);
-      else if (saved.duration) setStep(3);
-      else if (saved.birthDate) setStep(2);
+      setStep(2);
     }
     setLoaded(true);
     trackEvent({ name: "quiz_started" });
@@ -91,32 +85,6 @@ export default function TriagemPage() {
               />
             )}
             {step === 2 && (
-              <StepBirthDate
-                value={data.birthDate}
-                onSelect={(birthDate, isMinor, isElderly) =>
-                  updateData({ birthDate, isMinor, isElderly })
-                }
-                onNext={goNext}
-                onBack={goBack}
-              />
-            )}
-            {step === 3 && (
-              <StepDuration
-                value={data.duration}
-                onSelect={(v) => updateData({ duration: v })}
-                onNext={goNext}
-                onBack={goBack}
-              />
-            )}
-            {step === 4 && (
-              <StepCbd
-                value={data.priorCbdUse}
-                onSelect={(v) => updateData({ priorCbdUse: v })}
-                onNext={goNext}
-                onBack={goBack}
-              />
-            )}
-            {step === 5 && (
               <StepSchedule
                 selectedDays={data.selectedDays ?? []}
                 selectedShifts={data.selectedShifts ?? []}
