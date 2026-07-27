@@ -119,7 +119,12 @@ export function SlotPicker({ eventTypeId, onConfirm }: SlotPickerProps) {
             <RefreshCw className="mr-2 h-4 w-4" />
             Tentar novamente
           </Button>
-          <a href="https://wa.me/5584997048210" target="_blank" rel="noopener noreferrer">
+          <a
+            href="https://wa.me/5584997048210"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => trackEvent({ name: "whatsapp_click", origem: "slot-picker-erro" })}
+          >
             <Button className="bg-brand-forest text-brand-cream hover:bg-brand-forest-hover">
               <MessageCircle className="mr-2 h-4 w-4" />
               WhatsApp
@@ -139,7 +144,12 @@ export function SlotPicker({ eventTypeId, onConfirm }: SlotPickerProps) {
         <p className="text-sm text-brand-text-secondary">
           Entre em contato pelo WhatsApp para agendar manualmente.
         </p>
-        <a href="https://wa.me/5584997048210" target="_blank" rel="noopener noreferrer">
+        <a
+          href="https://wa.me/5584997048210"
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => trackEvent({ name: "whatsapp_click", origem: "slot-picker-vazio" })}
+        >
           <Button className="bg-[#25D366] text-white hover:bg-[#20bd5a]">
             <MessageCircle className="mr-2 h-4 w-4" />
             Falar no WhatsApp

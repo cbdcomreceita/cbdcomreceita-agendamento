@@ -5,6 +5,7 @@ import { ArrowRight, MessageCircle } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { FadeUp } from "@/components/ui/motion";
+import { trackEvent } from "@/lib/analytics/track";
 
 export function CtaSection() {
   return (
@@ -43,6 +44,7 @@ export function CtaSection() {
                 buttonVariants({ variant: "outline", size: "lg" }),
                 "border-brand-cream/30 bg-transparent text-brand-cream hover:bg-brand-cream/10 hover:text-brand-cream text-base px-8 py-6 transition-all duration-500"
               )}
+              onClick={() => trackEvent({ name: "whatsapp_click", origem: "cta-final" })}
             >
               <MessageCircle className="mr-2 h-4 w-4" />
               Tirar dúvidas

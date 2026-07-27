@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { saveTriageData, loadTriageData } from "@/lib/triagem/storage";
+import { loadEntenderRespostas, clearEntenderRespostas } from "@/lib/entender/storage";
 import { routeBySchedule } from "@/lib/triagem/day-router";
 import { trackEvent } from "@/lib/analytics/track";
 import { StepSymptoms } from "@/components/fluxo/step-symptoms";
@@ -22,8 +23,21 @@ export default function TriagemPage() {
 
   useEffect(() => {
     const saved = loadTriageData();
-    if (saved.selectedSymptoms?.length) {
-      setData(saved);
+    const entender = loadEntenderRespostas();
+
+    let merged: Partial<TriageData> = saved;
+
+    if (entender) {
+      const fromEntender: Partial<TriageData> = {
+        selectedSymptoms: entender.sintomas,
+      };
+      merged = { ...fromEntender, ...saved };
+      saveTriageData(merged);
+      clearEntenderRespostas();
+    }
+
+    if (merged.selectedSymptoms?.length) {
+      setData(merged);
       setStep(2);
     }
     setLoaded(true);

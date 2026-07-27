@@ -91,6 +91,7 @@ export default function AgendaPage() {
             target="_blank"
             rel="noopener noreferrer"
             className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#25D366] px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#20bd5a]"
+            onClick={() => trackEvent({ name: "whatsapp_click", origem: "agenda-sem-horario" })}
           >
             <MessageCircle className="h-4 w-4" />
             Falar no WhatsApp
@@ -110,6 +111,7 @@ export default function AgendaPage() {
           data-track="cta_clicked"
           data-track-section="agenda"
           data-track-label="solicitar_horario_alternativo"
+          onClick={() => trackEvent({ name: "whatsapp_click", origem: "agenda-horario-alternativo" })}
         >
           <MessageCircle className="h-4 w-4" />
           Solicitar horário alternativo

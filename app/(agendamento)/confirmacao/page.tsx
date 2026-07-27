@@ -18,6 +18,7 @@ import { loadPatientData } from "@/lib/validation/patient-storage";
 import { medicos, type Medico } from "@/data/medicos";
 import { buildGoogleCalendarUrl } from "@/lib/utils/google-calendar";
 import { getBookingSummary } from "@/app/actions/get-booking";
+import { trackEvent } from "@/lib/analytics/track";
 import { cn } from "@/lib/utils";
 
 const SUPPORT_WHATSAPP = `https://wa.me/5584997048210?text=${encodeURIComponent(
@@ -245,6 +246,7 @@ export default function ConfirmacaoPage() {
               buttonVariants({ variant: "outline", size: "lg" }),
               "border-brand-forest/20 text-brand-forest hover:bg-brand-forest/5 px-8 py-6"
             )}
+            onClick={() => trackEvent({ name: "whatsapp_click", origem: "confirmacao" })}
           >
             <MessageCircle className="mr-2 h-4 w-4" />
             Falar no WhatsApp

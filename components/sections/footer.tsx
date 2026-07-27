@@ -1,6 +1,9 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { MessageCircle, Mail } from "lucide-react";
+import { trackEvent } from "@/lib/analytics/track";
 
 const navLinks = [
   { label: "Quem Somos", href: "#quem-somos" },
@@ -49,6 +52,7 @@ export function Footer() {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-sm text-brand-text-secondary transition-colors hover:text-brand-forest"
+                      onClick={() => trackEvent({ name: "whatsapp_click", origem: "footer-nav" })}
                     >
                       {label}
                     </a>
@@ -96,6 +100,7 @@ export function Footer() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 text-sm text-brand-text-secondary transition-colors hover:text-brand-forest"
+                  onClick={() => trackEvent({ name: "whatsapp_click", origem: "footer-contato" })}
                 >
                   <MessageCircle className="h-4 w-4" />
                   (84) 99704-8210

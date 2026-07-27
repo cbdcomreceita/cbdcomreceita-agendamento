@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Menu, X, ArrowRight } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { trackEvent } from "@/lib/analytics/track";
 
 const navLinks = [
   { label: "Como Funciona", href: "#como-funciona" },
@@ -80,7 +81,14 @@ export function Header() {
 
               if (isExternal) {
                 return (
-                  <a key={link.href} href={link.href} target="_blank" rel="noopener noreferrer" className={linkClass}>
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={linkClass}
+                    onClick={() => trackEvent({ name: "whatsapp_click", origem: "header" })}
+                  >
                     {link.label}
                   </a>
                 );
@@ -142,7 +150,17 @@ export function Header() {
 
               if (isExternal) {
                 return (
-                  <a key={link.href} href={link.href} target="_blank" rel="noopener noreferrer" onClick={() => setMobileOpen(false)} className={cls}>
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => {
+                      setMobileOpen(false);
+                      trackEvent({ name: "whatsapp_click", origem: "header-mobile" });
+                    }}
+                    className={cls}
+                  >
                     {link.label}
                   </a>
                 );

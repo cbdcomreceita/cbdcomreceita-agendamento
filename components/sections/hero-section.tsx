@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { FadeUp, StaggerContainer, StaggerItem } from "@/components/ui/motion";
+import { trackEvent } from "@/lib/analytics/track";
 
 const badges = [
   "Avaliação médica individualizada",
@@ -49,35 +50,53 @@ export function HeroSection() {
           </FadeUp>
 
           <FadeUp delay={0.3}>
-            <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-              <Link
-                href="/triagem"
-                className={cn(
-                  buttonVariants({ size: "lg" }),
-                  "bg-brand-cream text-brand-forest-dark hover:bg-white font-semibold text-base px-8 py-6 shadow-lg shadow-black/15 transition-all duration-500"
-                )}
-                data-track="cta_clicked"
-                data-track-section="hero"
-                data-track-label="agendar_avaliacao"
-              >
-                Agendar Avaliação com Prescritor
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-              <a
-                href="https://wa.me/5584997048210?text=Ol%C3%A1!%20J%C3%A1%20tenho%20prescri%C3%A7%C3%A3o%20m%C3%A9dica%20e%20gostaria%20de%20orienta%C3%A7%C3%A3o%20para%20seguir%20com%20o%20processo%20de%20tratamento%20com%20CBD."
-                target="_blank"
-                rel="noopener noreferrer"
-                className={cn(
-                  buttonVariants({ variant: "outline", size: "lg" }),
-                  "border-white/30 bg-transparent text-white hover:bg-white/10 hover:text-white text-base px-8 py-6 transition-all duration-500"
-                )}
-                data-track="cta_clicked"
-                data-track-section="hero"
-                data-track-label="ja_tenho_prescricao"
-              >
-                <MessageCircle className="mr-2 h-4 w-4" />
-                Já tenho prescrição
-              </a>
+            <div className="mt-10">
+              <p className="mb-4 text-sm font-medium text-white/80">
+                Saiba por onde começar
+              </p>
+              <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+                <Link
+                  href="/triagem"
+                  className={cn(
+                    buttonVariants({ size: "lg" }),
+                    "bg-brand-cream text-brand-forest-dark hover:bg-white font-semibold text-base px-8 py-6 shadow-lg shadow-black/15 transition-all duration-500"
+                  )}
+                  data-track="cta_clicked"
+                  data-track-section="hero"
+                  data-track-label="agendar_avaliacao"
+                >
+                  Agendar Avaliação com Prescritor
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+                <a
+                  href="https://wa.me/5584997048210?text=Ol%C3%A1!%20J%C3%A1%20tenho%20prescri%C3%A7%C3%A3o%20m%C3%A9dica%20e%20gostaria%20de%20orienta%C3%A7%C3%A3o%20para%20seguir%20com%20o%20processo%20de%20tratamento%20com%20CBD."
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(
+                    buttonVariants({ variant: "outline", size: "lg" }),
+                    "border-white/30 bg-transparent text-white hover:bg-white/10 hover:text-white text-base px-8 py-6 transition-all duration-500"
+                  )}
+                  data-track="cta_clicked"
+                  data-track-section="hero"
+                  data-track-label="ja_tenho_prescricao"
+                  onClick={() => trackEvent({ name: "whatsapp_click", origem: "hero" })}
+                >
+                  <MessageCircle className="mr-2 h-4 w-4" />
+                  Já tenho prescrição
+                </a>
+              </div>
+              <div className="mt-4 flex justify-center">
+                <Link
+                  href="/entender"
+                  className={cn(
+                    buttonVariants({ variant: "outline", size: "lg" }),
+                    "w-full border-white/30 bg-transparent text-white hover:bg-white/10 hover:text-white text-base px-8 py-6 transition-all duration-500 sm:w-auto"
+                  )}
+                  onClick={() => trackEvent({ name: "entender_cta_click" })}
+                >
+                  Quero saber se faz sentido pro meu caso
+                </Link>
+              </div>
             </div>
           </FadeUp>
 

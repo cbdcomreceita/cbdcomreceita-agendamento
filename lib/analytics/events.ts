@@ -8,4 +8,12 @@ export type AnalyticsEvent =
   | { name: "triagem_step_completed"; step: number }
   | { name: "doctor_matched"; doctor: string }
   | { name: "calendar_viewed" }
-  | { name: "cta_clicked"; section?: string; label?: string };
+  | { name: "cta_clicked"; section?: string; label?: string }
+  | { name: "entender_cta_click" }
+  | { name: "entender_started" }
+  | { name: "entender_sintomas"; sintomas: string }
+  | { name: "entender_duvidas_abertas" }
+  | { name: "entender_duvidas"; duvidas: string }
+  | { name: "entender_to_agenda"; tela: 2 | 4 }
+  | { name: "entender_to_whatsapp" }
+  | { name: "whatsapp_click"; origem: string };
