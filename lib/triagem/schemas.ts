@@ -58,6 +58,8 @@ export const triageDataSchema = z.object({
   priorCbdUse: z.enum(["never", "with_prescription", "self", "prefer_not_say"]).optional(),
   scheduleSlots: z.array(scheduleSlotSchema).optional(),
   matchedDoctorId: z.string().optional(),
+  /** Raw string only — generate-pix.ts is the only place that validates it or computes a price. */
+  couponCode: z.string().optional(),
 });
 
 export type TriageData = z.infer<typeof triageDataSchema>;

@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { formatDateBR, formatDateLong } from "@/lib/utils/datetime";
-import { Loader2, ArrowRight, Clock, Leaf } from "lucide-react";
+import { Loader2, ArrowRight, Clock, Leaf, Ticket } from "lucide-react";
 import { trackEvent } from "@/lib/analytics/track";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,7 @@ import { patientSchema, UF_OPTIONS, type PatientFormData } from "@/lib/validatio
 import { fetchCep } from "@/lib/utils/viacep";
 import { maskCpf, maskPhone, maskCep } from "@/lib/utils/masks";
 import { getDoctorById } from "@/app/actions/get-doctors";
+import { isCouponAvailable } from "@/app/actions/coupon";
 import type { Doctor } from "@/lib/types/doctor";
 import { sintomas } from "@/data/sintomas";
 import { cn } from "@/lib/utils";
@@ -80,6 +81,9 @@ export default function DadosPage() {
   const [submitting, setSubmitting] = useState(false);
   const [birthDateEditing, setBirthDateEditing] = useState(false);
   const [birthDateDisplay, setBirthDateDisplay] = useState("");
+  const [couponAvailable, setCouponAvailable] = useState(false);
+  const [couponExpanded, setCouponExpanded] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
@@ -128,6 +132,11 @@ export default function DadosPage() {
 
     if (triage.duration) setDuration(triage.duration);
     if (triage.priorCbdUse) setPriorCbdUse(triage.priorCbdUse);
+    if (triage.couponCode) {
+      setCouponCode(triage.couponCode);
+      setCouponExpanded(true);
+    }
+    isCouponAvailable().then(setCouponAvailable);
 
     // Pre-fill birth date from triage
     if (triage.birthDate) {
@@ -517,6 +526,36 @@ export default function DadosPage() {
             <FieldError message={errors.lgpdConsent?.message} />
           </div>
         </div>
+
+        {/* Coupon (discreet, collapsed by default — no field at all if not configured) */}
+        {couponAvailable && (
+          <div>
+            {!couponExpanded ? (
+              <button
+                type="button"
+                onClick={() => setCouponExpanded(true)}
+                className="flex items-center gap-1.5 text-sm font-medium text-brand-forest underline underline-offset-2 hover:text-brand-forest-dark"
+              >
+                <Ticket className="h-3.5 w-3.5" />
+                Tenho um cupom de desconto
+              </button>
+            ) : (
+              <div className="max-w-xs">
+                <Label htmlFor="couponCode">Cupom de desconto</Label>
+                <input
+                  id="couponCode"
+                  value={couponCode}
+                  onChange={(e) => {
+                    setCouponCode(e.target.value);
+                    saveTriageData({ couponCode: e.target.value });
+                  }}
+                  placeholder="Código do cupom"
+                  className={cn(inputClass(), "uppercase placeholder:normal-case")}
+                />
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Submit */}
         <Button

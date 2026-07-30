@@ -6,7 +6,7 @@ import Image from "next/image";
 import { formatDateLong } from "@/lib/utils/datetime";
 import { formatCentsToBRL } from "@/lib/utils/currency";
 import {
-  Clock, Copy, CheckCircle2, Loader2, RefreshCw, AlertTriangle, Ticket,
+  Clock, Copy, CheckCircle2, Loader2, RefreshCw, AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -18,22 +18,14 @@ import { loadBookingData, saveBookingData } from "@/lib/calcom/storage";
 import { loadPatientData } from "@/lib/validation/patient-storage";
 import { checkPaymentStatus } from "@/lib/mercadopago/actions";
 import { createBooking } from "@/app/actions/create-booking";
-import { generatePix } from "@/app/actions/generate-pix";
-import { isCouponAvailable } from "@/app/actions/coupon";
+import { generatePix, type GeneratePixResult } from "@/app/actions/generate-pix";
 import { confirmBooking } from "@/app/actions/confirm-booking";
 import { trackEvent } from "@/lib/analytics/track";
 import { getDoctorById } from "@/app/actions/get-doctors";
 import type { Doctor } from "@/lib/types/doctor";
 import { cn } from "@/lib/utils";
 
-type PaymentState =
-  | "loading"
-  | "coupon"
-  | "generating"
-  | "awaiting"
-  | "approved"
-  | "expired"
-  | "error";
+type PaymentState = "loading" | "awaiting" | "approved" | "expired" | "error";
 
 interface PixData {
   paymentId: string;
@@ -56,14 +48,11 @@ export default function PagamentoPage() {
   const [bookingDateStr, setBookingDateStr] = useState("");
   const [patientName, setPatientName] = useState("");
   const [bookingId, setBookingId] = useState<string | null>(null);
-  const [couponAvailable, setCouponAvailable] = useState(false);
-  const [couponInput, setCouponInput] = useState("");
   const [pixData, setPixData] = useState<PixData | null>(null);
   const [countdown, setCountdown] = useState("");
   const pollRef = useRef<NodeJS.Timeout | null>(null);
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
   const fbCookiesRef = useRef<{ fbc?: string; fbp?: string }>({});
-  const retryTargetRef = useRef<"booking" | "pix">("booking");
 
   useEffect(() => {
     const cookieMap = document.cookie.split(";").reduce<Record<string, string>>((acc, c) => {
@@ -77,9 +66,70 @@ export default function PagamentoPage() {
     };
   }, []);
 
-  // Init: persist patient + booking in Supabase (status='awaiting_payment').
-  // No PIX yet — the patient sees an optional coupon field first, and PIX
-  // generation only happens once they click "Gerar PIX" (generatePix.ts).
+  const handlePixResult = useCallback(
+    (id: string, result: GeneratePixResult) => {
+      if (
+        !result.success ||
+        !result.qrCode ||
+        !result.expiresAt ||
+        result.amountCents === undefined
+      ) {
+        console.error("[Pagamento] generatePix failed:", result.error);
+        if (result.error === "rate_limit_exceeded") {
+          const minutes = Math.max(1, Math.ceil((result.retryAfter ?? 600) / 60));
+          toast.error(
+            `Muitas tentativas. Tente novamente em ${minutes} minuto${minutes > 1 ? "s" : ""}.`
+          );
+        } else {
+          toast.error(result.error ?? "Erro ao gerar pagamento");
+        }
+        setState("error");
+        return;
+      }
+
+      // A coupon that failed validation never blocks checkout — the PIX
+      // above was already generated at full price. Just surface why.
+      if (result.couponError) toast.error(result.couponError);
+
+      setPixData({
+        paymentId: result.paymentId!,
+        mpPaymentId: result.mpPaymentId ?? null,
+        qrCode: result.qrCode,
+        qrCodeBase64: result.qrCodeBase64 ?? "",
+        expiresAt: result.expiresAt,
+        isMock: result.isMock ?? false,
+        amountCents: result.amountCents,
+        couponApplied: result.couponApplied ?? null,
+      });
+      setState("awaiting");
+      trackEvent({
+        name: "pix_generated",
+        value: result.amountCents / 100,
+        booking_id: id,
+        coupon: result.couponApplied ?? undefined,
+      });
+    },
+    []
+  );
+
+  const runGeneratePix = useCallback(
+    (id: string, couponCode?: string) => {
+      setState("loading");
+      generatePix({ bookingId: id, couponCode })
+        .then((result) => handlePixResult(id, result))
+        .catch((err) => {
+          console.error("[Pagamento] generatePix threw:", err);
+          toast.error("Erro ao gerar pagamento");
+          setState("error");
+        });
+    },
+    [handlePixResult]
+  );
+
+  // Init: persist patient + booking in Supabase (status='awaiting_payment'),
+  // then immediately generate the PIX — the coupon (if any) was already
+  // typed back on /dados and travels here via triage state, so there's no
+  // separate coupon step on this page anymore.
   const initBooking = useCallback(() => {
     const triage = loadTriageData();
     const booking = loadBookingData();
@@ -96,7 +146,6 @@ export default function PagamentoPage() {
     setPatientName(patient.fullName);
     setBookingDateStr(formatDateLong(booking.scheduledAt));
 
-    retryTargetRef.current = "booking";
     setState("loading");
 
     createBooking({
@@ -128,72 +177,18 @@ export default function PagamentoPage() {
         // Persist bookingId so /confirmacao (and a future page refresh)
         // can fetch the booking from the DB if needed.
         saveBookingData({ ...booking, bookingId: result.bookingId });
-        setState("coupon");
+        runGeneratePix(result.bookingId, triage.couponCode);
       })
       .catch((err) => {
         console.error("[Pagamento] createBooking threw:", err);
         toast.error("Erro ao criar agendamento");
         setState("error");
       });
-  }, [router]);
+  }, [router, runGeneratePix]);
 
   useEffect(() => {
     initBooking();
-    isCouponAvailable().then(setCouponAvailable);
   }, [initBooking]);
-
-  const handleGeneratePix = useCallback(() => {
-    if (!bookingId) return;
-    retryTargetRef.current = "pix";
-    setState("generating");
-
-    generatePix({ bookingId, couponCode: couponInput.trim() || undefined })
-      .then((result) => {
-        if (
-          !result.success ||
-          !result.qrCode ||
-          !result.expiresAt ||
-          result.amountCents === undefined
-        ) {
-          console.error("[Pagamento] generatePix failed:", result.error);
-          if (result.error === "rate_limit_exceeded") {
-            const minutes = Math.max(1, Math.ceil((result.retryAfter ?? 600) / 60));
-            toast.error(
-              `Muitas tentativas. Tente novamente em ${minutes} minuto${minutes > 1 ? "s" : ""}.`
-            );
-          } else {
-            toast.error(result.error ?? "Erro ao gerar pagamento");
-          }
-          setState("error");
-          return;
-        }
-
-        if (result.couponError) toast.error(result.couponError);
-
-        setPixData({
-          paymentId: result.paymentId!,
-          mpPaymentId: result.mpPaymentId ?? null,
-          qrCode: result.qrCode,
-          qrCodeBase64: result.qrCodeBase64 ?? "",
-          expiresAt: result.expiresAt,
-          isMock: result.isMock ?? false,
-          amountCents: result.amountCents,
-          couponApplied: result.couponApplied ?? null,
-        });
-        setState("awaiting");
-        trackEvent({
-          name: "pix_generated",
-          value: result.amountCents / 100,
-          booking_id: bookingId,
-          coupon: result.couponApplied ?? undefined,
-        });
-      })
-      .catch((err) => {
-        console.error("[Pagamento] generatePix threw:", err);
-        toast.error("Erro ao gerar pagamento");
-        setState("error");
-      });
-  }, [bookingId, couponInput]);
 
   // Polling for payment status. Once MP reports "approved", we trigger
   // confirmPayment (server action) ourselves rather than waiting on the
@@ -299,16 +294,14 @@ export default function PagamentoPage() {
   }, [pixData]);
 
   function handleRetry() {
-    if (retryTargetRef.current === "booking") {
-      initBooking();
+    if (bookingId) {
+      runGeneratePix(bookingId, loadTriageData().couponCode);
     } else {
-      handleGeneratePix();
+      initBooking();
     }
   }
 
   if (!doctor) return null;
-
-  const totalCents = pixData?.amountCents ?? BASE_PRICE_CENTS;
 
   return (
     <div className="mx-auto w-full max-w-2xl flex-1 px-5 py-8 sm:px-8 sm:py-12">
@@ -336,16 +329,22 @@ export default function PagamentoPage() {
               <span className="text-brand-text">{patientName}</span>
             </div>
             <div className="h-px bg-brand-sand/40" />
-            <div className="flex justify-between text-base font-semibold">
+            <div className="flex items-baseline justify-between text-base font-semibold">
               <span className="text-brand-forest-dark">Total</span>
-              <span className="text-brand-forest">
-                {formatCentsToBRL(totalCents)}
-                {pixData?.couponApplied && (
+              {pixData?.couponApplied ? (
+                <span className="text-brand-forest">
+                  {formatCentsToBRL(BASE_PRICE_CENTS)}
+                  {" → "}
+                  {formatCentsToBRL(pixData.amountCents)}
                   <span className="ml-1.5 text-xs font-medium text-brand-text-muted">
-                    (cupom aplicado)
+                    com cupom aplicado
                   </span>
-                )}
-              </span>
+                </span>
+              ) : (
+                <span className="text-brand-forest">
+                  {formatCentsToBRL(pixData?.amountCents ?? BASE_PRICE_CENTS)}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -358,55 +357,6 @@ export default function PagamentoPage() {
           {state === "loading" && (
             <motion.div
               key="loading"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex flex-col items-center gap-3 py-12"
-            >
-              <Loader2 className="h-8 w-8 animate-spin text-brand-forest-light" />
-              <p className="text-sm text-brand-text-muted">Preparando seu agendamento...</p>
-            </motion.div>
-          )}
-
-          {/* Coupon + generate PIX */}
-          {state === "coupon" && (
-            <motion.div
-              key="coupon"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              {couponAvailable && (
-                <div className="mb-5">
-                  <label
-                    htmlFor="coupon"
-                    className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-brand-text"
-                  >
-                    <Ticket className="h-4 w-4 text-brand-forest" />
-                    Cupom de desconto (opcional)
-                  </label>
-                  <input
-                    id="coupon"
-                    value={couponInput}
-                    onChange={(e) => setCouponInput(e.target.value)}
-                    placeholder="Código do cupom"
-                    className="w-full rounded-xl border-2 border-brand-sand/60 bg-white px-4 py-3 text-sm uppercase text-brand-text placeholder:normal-case placeholder:text-brand-text-muted/50 transition-colors focus:border-brand-forest focus:outline-none"
-                  />
-                </div>
-              )}
-              <Button
-                onClick={handleGeneratePix}
-                className="w-full bg-brand-forest text-brand-cream hover:bg-brand-forest-hover font-semibold py-6 text-base shadow-lg shadow-brand-forest/20"
-              >
-                Gerar PIX
-              </Button>
-            </motion.div>
-          )}
-
-          {/* Generating PIX */}
-          {state === "generating" && (
-            <motion.div
-              key="generating"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -537,7 +487,7 @@ export default function PagamentoPage() {
                 O tempo para pagamento se esgotou.
               </p>
               <Button
-                onClick={handleGeneratePix}
+                onClick={() => bookingId && runGeneratePix(bookingId, loadTriageData().couponCode)}
                 className="bg-brand-forest text-brand-cream hover:bg-brand-forest-hover"
               >
                 <RefreshCw className="mr-2 h-4 w-4" />

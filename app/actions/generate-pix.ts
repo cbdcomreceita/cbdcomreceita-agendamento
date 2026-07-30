@@ -116,6 +116,22 @@ export async function generatePix(input: GeneratePixInput): Promise<GeneratePixR
     const couponError =
       !coupon.valid && couponCode?.trim() ? couponErrorMessage(coupon.reason) : undefined;
 
+    // The code was right but the discount config is broken — this must
+    // never fail silently (it did once: a matched coupon shipped at 0%
+    // discount because COUPON_DISCOUNT_PERCENT wasn't set at runtime).
+    if (!coupon.valid && coupon.codeMatched && coupon.reason === "not_configured") {
+      await logError({
+        scope: "create",
+        message: "Coupon code matched but COUPON_DISCOUNT_PERCENT is missing or out of range",
+        metadata: {
+          bookingId,
+          discountPercentRaw: process.env.COUPON_DISCOUNT_PERCENT ?? null,
+        },
+        entityType: "booking",
+        entityId: bookingId,
+      });
+    }
+
     const { data: existingPayment } = await supabase
       .from("payments")
       .select("id, status")
