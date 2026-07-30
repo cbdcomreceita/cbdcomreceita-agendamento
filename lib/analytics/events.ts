@@ -7,6 +7,7 @@ export type AnalyticsEvent =
   | { name: "payment_confirmed"; value: number; booking_id: string; currency: "BRL" }
   | { name: "triagem_step_completed"; step: number }
   | { name: "doctor_matched"; doctor: string }
+  | { name: "doctor_selected"; doctor_id: string }
   | { name: "calendar_viewed" }
   | { name: "cta_clicked"; section?: string; label?: string }
   | { name: "entender_cta_click" }

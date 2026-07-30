@@ -30,9 +30,21 @@ export const step4Schema = z.object({
   priorCbdUse: z.enum(["never", "with_prescription", "self", "prefer_not_say"]),
 });
 
+const scheduleSlotSchema = z.object({
+  weekday: z.union([
+    z.literal(0),
+    z.literal(1),
+    z.literal(2),
+    z.literal(3),
+    z.literal(4),
+    z.literal(5),
+    z.literal(6),
+  ]),
+  period: z.enum(["manha", "tarde", "noite"]),
+});
+
 export const stepScheduleSchema = z.object({
-  selectedDays: z.array(z.string()).min(1, "Selecione pelo menos um dia"),
-  selectedShifts: z.array(z.string()).min(1, "Selecione pelo menos um turno"),
+  scheduleSlots: z.array(scheduleSlotSchema).min(1, "Selecione pelo menos uma opção"),
 });
 
 export const triageDataSchema = z.object({
@@ -44,8 +56,7 @@ export const triageDataSchema = z.object({
   priorTreatment: z.enum(["never", "medication", "therapy", "other"]).optional(),
   priorTreatmentDetails: z.string().optional(),
   priorCbdUse: z.enum(["never", "with_prescription", "self", "prefer_not_say"]).optional(),
-  selectedDays: z.array(z.string()).optional(),
-  selectedShifts: z.array(z.string()).optional(),
+  scheduleSlots: z.array(scheduleSlotSchema).optional(),
   matchedDoctorId: z.string().optional(),
 });
 

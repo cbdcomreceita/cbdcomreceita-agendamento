@@ -3,17 +3,25 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
+import { MessageCircle, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { saveTriageData, loadTriageData } from "@/lib/triagem/storage";
 import { loadEntenderRespostas, clearEntenderRespostas } from "@/lib/entender/storage";
-import { toWeekdays, toPeriods } from "@/lib/triagem/schedule";
-import { getDoctorForSchedule, getActiveDoctors } from "@/app/actions/get-doctors";
+import { getScheduleOptions } from "@/app/actions/get-doctors";
+import { resolveDoctorForSchedule, type ResolveDoctorResult } from "@/app/actions/resolve-doctor";
+import { formatDateLongNoTime } from "@/lib/utils/datetime";
 import { trackEvent } from "@/lib/analytics/track";
 import { StepSymptoms } from "@/components/fluxo/step-symptoms";
 import { StepSchedule } from "@/components/fluxo/step-schedule";
 import { ProgressBar } from "@/components/fluxo/progress-bar";
 import type { TriageData } from "@/lib/triagem/schemas";
+import type { ScheduleSlot } from "@/lib/types/availability";
 
 const TOTAL_STEPS = 2;
+
+const SLOTS_WHATSAPP = `https://wa.me/5584997048210?text=${encodeURIComponent(
+  "Olá! Estava tentando agendar minha consulta mas não encontrei horário disponível no site."
+)}`;
 
 export default function TriagemPage() {
   const router = useRouter();
@@ -22,6 +30,8 @@ export default function TriagemPage() {
   const [data, setData] = useState<Partial<TriageData>>({});
   const [loaded, setLoaded] = useState(false);
   const [routing, setRouting] = useState(false);
+  const [scheduleOptions, setScheduleOptions] = useState<ScheduleSlot[]>([]);
+  const [noSlots, setNoSlots] = useState<ResolveDoctorResult["fallback"] | null>(null);
 
   useEffect(() => {
     const saved = loadTriageData();
@@ -44,6 +54,8 @@ export default function TriagemPage() {
     }
     setLoaded(true);
     trackEvent({ name: "quiz_started" });
+
+    getScheduleOptions().then(setScheduleOptions);
   }, []);
 
   const updateData = useCallback((partial: Partial<TriageData>) => {
@@ -62,18 +74,18 @@ export default function TriagemPage() {
       return;
     }
 
+    setNoSlots(null);
     setRouting(true);
     try {
-      const weekdays = toWeekdays(data.selectedDays ?? []);
-      const periods = toPeriods(data.selectedShifts ?? []);
-      const doctor =
-        (await getDoctorForSchedule(weekdays, periods)) ??
-        (await getActiveDoctors())[0] ??
-        null;
+      const result = await resolveDoctorForSchedule(data.scheduleSlots ?? []);
 
-      if (!doctor) return;
+      if (!result.doctor) {
+        setNoSlots(result.fallback);
+        return;
+      }
 
-      updateData({ matchedDoctorId: doctor.id });
+      trackEvent({ name: "doctor_selected", doctor_id: result.doctor.id });
+      updateData({ matchedDoctorId: result.doctor.id });
       router.push("/agenda");
     } finally {
       setRouting(false);
@@ -112,15 +124,45 @@ export default function TriagemPage() {
               />
             )}
             {step === 2 && (
-              <StepSchedule
-                selectedDays={data.selectedDays ?? []}
-                selectedShifts={data.selectedShifts ?? []}
-                onChangeDays={(days) => updateData({ selectedDays: days })}
-                onChangeShifts={(shifts) => updateData({ selectedShifts: shifts })}
-                onNext={goNext}
-                onBack={goBack}
-                loading={routing}
-              />
+              <>
+                <StepSchedule
+                  options={scheduleOptions}
+                  selected={data.scheduleSlots ?? []}
+                  onChangeSelected={(slots) => updateData({ scheduleSlots: slots })}
+                  onNext={goNext}
+                  onBack={goBack}
+                  loading={routing}
+                />
+                {noSlots && (
+                  <div className="mt-6 flex flex-col items-center gap-3 rounded-2xl border border-brand-sand bg-white p-6 text-center">
+                    <p className="text-sm font-medium text-brand-text">
+                      {noSlots.doctor.name} está sem horários livres nos próximos dias.
+                    </p>
+                    {noSlots.nextAvailableDate && (
+                      <p className="text-sm text-brand-text-secondary">
+                        Próxima data disponível: {formatDateLongNoTime(`${noSlots.nextAvailableDate}T12:00:00`)}
+                      </p>
+                    )}
+                    <div className="mt-1 flex gap-3">
+                      <Button onClick={goNext} variant="outline" className="border-brand-forest/20 text-brand-forest">
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        Tentar novamente
+                      </Button>
+                      <a
+                        href={SLOTS_WHATSAPP}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => trackEvent({ name: "whatsapp_click", origem: "triagem-sem-horario" })}
+                      >
+                        <Button className="bg-[#25D366] text-white hover:bg-[#20bd5a]">
+                          <MessageCircle className="mr-2 h-4 w-4" />
+                          WhatsApp
+                        </Button>
+                      </a>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </motion.div>
         </AnimatePresence>

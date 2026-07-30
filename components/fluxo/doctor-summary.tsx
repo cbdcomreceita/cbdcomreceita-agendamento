@@ -26,11 +26,16 @@ export function DoctorSummary({ doctor }: { doctor: Doctor }) {
         <h2 className="text-base font-semibold text-brand-forest-dark">
           {doctor.name}
         </h2>
-        <p className="text-sm text-brand-text-muted">
-          {doctor.crm
-            ? `CRM ${doctor.crm}/${doctor.crm_uf} — ${doctor.medical_specialty ?? ""}`
-            : doctor.medical_specialty}
-        </p>
+        {doctor.medical_specialty && (
+          <p className="text-sm font-medium text-brand-forest">
+            {doctor.medical_specialty}
+          </p>
+        )}
+        {doctor.crm && (
+          <p className="text-xs text-brand-text-muted">
+            CRM-{doctor.crm_uf} {doctor.crm}
+          </p>
+        )}
       </div>
     </div>
   );

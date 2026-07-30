@@ -8,6 +8,7 @@ import {
   tryCheckRateLimit,
   getClientIp,
   maskIp,
+  redis,
 } from "@/lib/rate-limit";
 
 export interface TimeSlot {
@@ -19,6 +20,30 @@ export interface DaySlots {
   slots: TimeSlot[];
 }
 
+const CACHE_TTL_SECONDS = 90;
+
+function slotsCacheKey(eventTypeId: number, daysAhead: number): string {
+  return `slots:${eventTypeId}:${daysAhead}`;
+}
+
+/** Fail-open on any Upstash error, same pattern as rate limiting: treat as a cache miss. */
+async function getCachedSlots(eventTypeId: number, daysAhead: number): Promise<DaySlots[] | null> {
+  try {
+    return await redis.get<DaySlots[]>(slotsCacheKey(eventTypeId, daysAhead));
+  } catch (err) {
+    console.error("[Cal.com] cache read failed, falling through:", err);
+    return null;
+  }
+}
+
+async function setCachedSlots(eventTypeId: number, daysAhead: number, data: DaySlots[]): Promise<void> {
+  try {
+    await redis.set(slotsCacheKey(eventTypeId, daysAhead), data, { ex: CACHE_TTL_SECONDS });
+  } catch (err) {
+    console.error("[Cal.com] cache write failed:", err);
+  }
+}
+
 /**
  * Fetch available slots from Cal.com API v2.
  *
@@ -27,10 +52,16 @@ export interface DaySlots {
  * Response shape:
  *   { status: "success", data: { "YYYY-MM-DD": [{ start: ISO }, ...], ... } }
  *
- * Searches next 30 days, returns only days with slots, max 3 days.
+ * Searches the next `daysAhead` days, returns only days with slots, max 3 days.
+ *
+ * Cached in Upstash for 90s per (eventTypeId, daysAhead) — checked before
+ * the rate limiter, so cache hits don't burn a visitor's request budget
+ * and don't touch Cal.com at all. Fail-open on any Upstash error (same
+ * pattern as rate limiting): treated as a miss, falls through to the API.
  */
 export async function getAvailableSlots(
-  eventTypeId: number
+  eventTypeId: number,
+  daysAhead = 30
 ): Promise<DaySlots[]> {
   const apiKey = process.env.CALCOM_API_KEY;
   if (!apiKey) {
@@ -38,10 +69,12 @@ export async function getAvailableSlots(
     return [];
   }
 
-  // Rate limit per IP (15/min) — protects Cal.com quota and blocks
-  // scrapers. On rate-limited requests we audit and return [] so the
-  // slot-picker shows the empty state. The 1-min window is short
-  // enough that legit users rarely notice.
+  const cached = await getCachedSlots(eventTypeId, daysAhead);
+  if (cached) return cached;
+
+  // Rate limit per IP — protects Cal.com quota and blocks scrapers. Only
+  // reached on a cache miss. On rate-limited requests we audit and
+  // return [] so the slot-picker shows the empty state.
   const reqHeaders = await headers();
   const ip = getClientIp(reqHeaders);
   const rl = await tryCheckRateLimit(rateLimiters.slots, ip);
@@ -63,7 +96,7 @@ export async function getAvailableSlots(
   }
 
   const start = new Date().toISOString();
-  const end = addDays(new Date(), 30).toISOString();
+  const end = addDays(new Date(), daysAhead).toISOString();
 
   const url = new URL("https://api.cal.com/v2/slots");
   url.searchParams.set("eventTypeId", String(eventTypeId));
@@ -103,7 +136,9 @@ export async function getAvailableSlots(
     }
 
     result.sort((a, b) => a.date.localeCompare(b.date));
-    return result.slice(0, 3);
+    const trimmed = result.slice(0, 3);
+    await setCachedSlots(eventTypeId, daysAhead, trimmed);
+    return trimmed;
   } catch (err) {
     console.error("[Cal.com] Failed to fetch slots:", err);
     return [];

@@ -22,7 +22,7 @@ import { Redis } from "@upstash/redis";
  * `rl:cep` limiter here and wire it into the proxy route.
  */
 
-const redis = Redis.fromEnv();
+export const redis = Redis.fromEnv();
 
 export const rateLimiters = {
   // Generates a real PIX and writes patient/booking/payment rows.
@@ -48,12 +48,16 @@ export const rateLimiters = {
     prefix: "rl:webhook-mp",
   }),
 
-  // /agenda fetches slots once per mount. 15/min/IP is plenty for any
-  // legitimate browse pattern and cuts the scraping budget compared to
-  // a more permissive limit. Raise if real users complain.
+  // Read-only, now cached (90s TTL in lib/calcom/availability.ts) so a
+  // burst of hits mostly serves from Redis, not Cal.com. Raised from
+  // 15/min for the paid-traffic campaign: mobile carriers NAT many real
+  // users onto one IP, and /16 IP masking (LGPD) collapses the bucket
+  // further, so 15/min was producing 429s for legitimate visitors. A
+  // schedule resolution can also fan out to a few doctors in parallel
+  // (see resolveDoctorForSchedule), which eats several hits per visit.
   slots: new Ratelimit({
     redis,
-    limiter: Ratelimit.slidingWindow(15, "1 m"),
+    limiter: Ratelimit.slidingWindow(100, "1 m"),
     analytics: true,
     prefix: "rl:slots",
   }),

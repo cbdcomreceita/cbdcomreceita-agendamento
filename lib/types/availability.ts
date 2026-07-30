@@ -2,3 +2,8 @@
 export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
 export type Period = "manha" | "tarde" | "noite";
+
+export interface ScheduleSlot {
+  weekday: Weekday;
+  period: Period;
+}
