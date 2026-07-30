@@ -2,7 +2,6 @@
 
 import { headers } from "next/headers";
 import { createServiceClient } from "@/lib/supabase/server";
-import { createMpPayment, isMpConfigured } from "@/lib/mercadopago/client";
 import { logError } from "@/lib/audit/log-error";
 import {
   rateLimiters,
@@ -26,31 +25,23 @@ export interface CreateBookingInput {
 export interface CreateBookingResult {
   success: boolean;
   bookingId?: string;
-  paymentId?: string;
-  mpPaymentId?: number | null;
-  qrCode?: string;
-  qrCodeBase64?: string;
-  ticketUrl?: string;
-  expiresAt?: string;
-  isMock?: boolean;
   error?: string;
   /** Seconds the caller should wait before retrying (set on 429). */
   retryAfter?: number;
-  /** Client should fire this analytics event after receiving a successful response. */
-  trackEvent?: "pix_generated";
 }
 
 /**
- * Phase 1 of the new payment flow.
+ * Phase 1 of the payment flow.
  *
- * Persists the patient/booking/payment in Supabase BEFORE generating the
- * PIX. The premise: once the QR code is shown, all the data already lives
- * in the database, so neither a closed browser tab nor a missing webhook
- * can lose the booking. The polling-driven confirmBooking and the MP
- * webhook are then both able to look the booking up by its UUID and run
- * the post-payment side effects idempotently.
+ * Persists the patient + booking (status='awaiting_payment') in Supabase
+ * BEFORE any payment happens. The premise: as soon as the patient fills
+ * the form, the lead already lives in the database, so neither a closed
+ * tab nor an abandoned checkout loses it. PIX generation is a separate
+ * step (app/actions/generate-pix.ts) — split out so the patient can enter
+ * a coupon before the PIX is created, without creating a duplicate
+ * booking row on every regeneration.
  */
-export async function createBookingAndPayment(
+export async function createBooking(
   input: CreateBookingInput
 ): Promise<CreateBookingResult> {
   const { patient, booking, triage } = input;
@@ -61,8 +52,8 @@ export async function createBookingAndPayment(
     scheduledAt: booking.scheduledAt,
   });
 
-  // Rate limit BEFORE any DB write or PIX generation. 5/IP/10min.
-  // Fail-open if Upstash is unreachable.
+  // Rate limit BEFORE any DB write. 5/IP/10min. Fail-open if Upstash is
+  // unreachable.
   const reqHeaders = await headers();
   const ip = getClientIp(reqHeaders);
   const rl = await tryCheckRateLimit(rateLimiters.createBooking, ip);
@@ -216,112 +207,18 @@ export async function createBookingAndPayment(
       };
     }
 
-    // 4. Generate PIX. external_reference = booking UUID, so the webhook
-    //    can match this back even if our DB lookup ever changes.
-    let mpPaymentId: number | null = null;
-    let qrCode = "";
-    let qrCodeBase64 = "";
-    let ticketUrl = "";
-    let expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-    let isMock = true;
-
-    if (isMpConfigured()) {
-      const nameParts = patient.fullName.trim().split(/\s+/);
-      const firstName = nameParts[0];
-      const lastName = nameParts.slice(1).join(" ");
-      try {
-        const mpResp = await createMpPayment({
-          transaction_amount: 49.9,
-          payment_method_id: "pix",
-          payer: {
-            email: patient.email,
-            first_name: firstName,
-            last_name: lastName,
-            identification: { type: "CPF", number: cpfClean },
-          },
-          description: `Consulta CBD com Receita - ${doctor.name}`,
-          external_reference: dbBooking.id,
-        });
-        mpPaymentId = mpResp.id;
-        qrCode = mpResp.point_of_interaction.transaction_data.qr_code;
-        qrCodeBase64 = mpResp.point_of_interaction.transaction_data.qr_code_base64;
-        ticketUrl = mpResp.point_of_interaction.transaction_data.ticket_url;
-        expiresAt = mpResp.date_of_expiration || expiresAt;
-        isMock = false;
-      } catch (err) {
-        await logError({
-          scope: "create",
-          message: "MP createPayment failed",
-          metadata: { error: String(err), bookingId: dbBooking.id },
-          entityType: "booking",
-          entityId: dbBooking.id,
-        });
-        return { success: false, error: `Erro ao gerar PIX: ${String(err)}` };
-      }
-    } else {
-      qrCode =
-        "00020126580014br.gov.bcb.pix0136mock-pix-key-cbd-com-receita-dev5204000053039865802BR5925CBD COM RECEITA6009SAO PAULO62070503***6304MOCK";
-    }
-
-    // 5. Insert payment row (status='pending')
-    const { data: dbPayment, error: paymentError } = await supabase
-      .from("payments")
-      .insert({
-        booking_id: dbBooking.id,
-        amount_cents: 4990,
-        status: "pending",
-        method: "pix",
-        mp_payment_id: mpPaymentId,
-        mp_qr_code: qrCode,
-        mp_qr_code_base64: qrCodeBase64,
-        mp_ticket_url: ticketUrl,
-        external_reference: dbBooking.id,
-        expires_at: expiresAt,
-      })
-      .select()
-      .single();
-
-    if (paymentError) {
-      await logError({
-        scope: "create",
-        message: "Payment insert failed",
-        metadata: { error: paymentError, bookingId: dbBooking.id, mpPaymentId },
-        entityType: "payment",
-      });
-      return {
-        success: false,
-        error: `Erro ao registrar pagamento: ${paymentError.message}`,
-      };
-    }
-
     await supabase.from("audit_events").insert({
       event_type: "booking_created",
       entity_type: "booking",
       entity_id: dbBooking.id,
-      metadata: {
-        paymentId: dbPayment.id,
-        mpPaymentId,
-        doctorId: doctor.id,
-        isMock,
-      },
+      metadata: { doctorId: doctor.id },
     });
 
-    return {
-      success: true,
-      bookingId: dbBooking.id,
-      paymentId: dbPayment.id,
-      mpPaymentId,
-      qrCode,
-      qrCodeBase64,
-      ticketUrl,
-      expiresAt,
-      isMock,
-      trackEvent: "pix_generated" as const,
-    };
+    return { success: true, bookingId: dbBooking.id };
   } catch (err) {
     await logError({
       scope: "create",
-      message: "Unhandled error in createBookingAndPayment",
+      message: "Unhandled error in createBooking",
       metadata: {
         error: String(err),
         stack: err instanceof Error ? err.stack : undefined,

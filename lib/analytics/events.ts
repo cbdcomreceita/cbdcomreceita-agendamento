@@ -3,8 +3,8 @@ export type AnalyticsEvent =
   | { name: "quiz_completed"; symptom: string; doctor_assigned: string }
   | { name: "slot_selected"; doctor: string; date: string }
   | { name: "form_submitted"; doctor: string }
-  | { name: "pix_generated"; value: number; booking_id: string }
-  | { name: "payment_confirmed"; value: number; booking_id: string; currency: "BRL" }
+  | { name: "pix_generated"; value: number; booking_id: string; coupon?: string }
+  | { name: "payment_confirmed"; value: number; booking_id: string; currency: "BRL"; coupon?: string }
   | { name: "triagem_step_completed"; step: number }
   | { name: "doctor_matched"; doctor: string }
   | { name: "doctor_selected"; doctor_id: string }

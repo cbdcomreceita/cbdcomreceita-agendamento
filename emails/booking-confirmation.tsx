@@ -9,6 +9,7 @@ interface BookingConfirmationProps {
   dateFormatted: string;
   duration: string;
   meetLink?: string;
+  amountFormatted: string;
 }
 
 export function BookingConfirmationEmail({
@@ -18,6 +19,7 @@ export function BookingConfirmationEmail({
   dateFormatted,
   duration,
   meetLink,
+  amountFormatted,
 }: BookingConfirmationProps) {
   return (
     <Html lang="pt-BR">
@@ -53,6 +55,9 @@ export function BookingConfirmationEmail({
 
               <Text style={cardLabelStyle}>Formato</Text>
               <Text style={cardValueStyle}>Videochamada via Google Meet</Text>
+
+              <Text style={cardLabelStyle}>Valor pago</Text>
+              <Text style={cardValueStyle}>{amountFormatted}</Text>
             </Section>
 
             {meetLink ? (

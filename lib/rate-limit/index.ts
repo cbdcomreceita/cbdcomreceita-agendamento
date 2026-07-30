@@ -35,6 +35,17 @@ export const rateLimiters = {
     prefix: "rl:booking",
   }),
 
+  // Generates the real PIX + writes the payment row. Same level as
+  // createBooking (real cost: a Mercado Pago call), separate bucket so
+  // regenerating after expiry doesn't eat into the booking-creation
+  // budget or vice versa.
+  generatePix: new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(5, "10 m"),
+    analytics: true,
+    prefix: "rl:generate-pix",
+  }),
+
   // MP retries a few times and rotates IPs from regional pools.
   // 60/min/IP gives MP plenty of room while still capping a brute-force
   // probe of the HMAC signature. Watch for `rate_limit_exceeded`

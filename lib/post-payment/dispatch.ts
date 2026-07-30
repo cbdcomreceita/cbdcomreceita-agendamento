@@ -18,6 +18,7 @@ import {
   PRIOR_TREATMENT_LABELS,
   getSymptomLabels,
 } from "@/lib/utils/triagem-labels";
+import { formatCentsToBRL } from "@/lib/utils/currency";
 
 export interface PostPaymentInput {
   patient: {
@@ -111,9 +112,7 @@ export async function dispatchPostPaymentSideEffects(
   const termsAtBR = formatDateTimeBR(patient.terms_consent_at);
   const paidAtBR = formatDateTimeBR(payment.paid_at);
 
-  const amountFormatted = `R$ ${(payment.amount_cents / 100)
-    .toFixed(2)
-    .replace(".", ",")}`;
+  const amountFormatted = formatCentsToBRL(payment.amount_cents);
   const statusLabel = payment.status === "approved" ? "Aprovado" : payment.status;
 
   const addressLine = [

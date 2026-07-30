@@ -51,7 +51,7 @@ export const sintomas: Sintoma[] = [
   { slug: "dores-corpo", label: "Dores no corpo", category: "pain", isEmergency: false, displayOrder: 12 },
   { slug: "fibromialgia", label: "Fibromialgia", category: "pain", isEmergency: false, displayOrder: 13 },
   { slug: "epilepsia", label: "Epilepsia", category: "neuro", isEmergency: false, displayOrder: 14 },
-  { slug: "autismo", label: "Autismo", category: "neuro", isEmergency: false, displayOrder: 15 },
+  { slug: "autismo", label: "TEA (Transtorno do Espectro Autista)", category: "neuro", isEmergency: false, displayOrder: 15 },
   { slug: "alcoolismo", label: "Alcoolismo", category: "addiction", isEmergency: false, displayOrder: 16 },
   { slug: "obesidade", label: "Obesidade", category: "metabolic", isEmergency: false, displayOrder: 17 },
   { slug: "tabagismo", label: "Tabagismo", category: "addiction", isEmergency: false, displayOrder: 18 },

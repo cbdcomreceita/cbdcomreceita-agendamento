@@ -12,6 +12,7 @@ interface SendConfirmationParams {
   dateFormatted: string;
   duration: string;
   meetLink?: string;
+  amountFormatted: string;
 }
 
 export async function sendBookingConfirmation(
@@ -35,6 +36,7 @@ export async function sendBookingConfirmation(
         dateFormatted: params.dateFormatted,
         duration: params.duration,
         meetLink: params.meetLink,
+        amountFormatted: params.amountFormatted,
       }),
     });
 

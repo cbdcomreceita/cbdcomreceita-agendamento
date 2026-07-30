@@ -9,6 +9,7 @@ import { logError } from "@/lib/audit/log-error";
 import { sendMetaConversionEvent } from "@/lib/analytics/meta-conversions-api";
 import type { Doctor } from "@/lib/types/doctor";
 import { formatDateLong } from "@/lib/utils/datetime";
+import { formatCentsToBRL } from "@/lib/utils/currency";
 
 export type ConfirmSource = "polling" | "webhook" | "cron";
 
@@ -26,6 +27,9 @@ export interface ConfirmBookingResult {
   error?: string;
   /** Client should fire this analytics event after receiving a successful response. */
   trackEvent?: "payment_confirmed";
+  /** Amount actually charged (post-coupon), for accurate analytics. */
+  amountCents?: number;
+  couponCode?: string | null;
 }
 
 /**
@@ -103,6 +107,7 @@ export async function confirmBooking(
       id: string;
       mp_payment_id: number | null;
       amount_cents: number;
+      coupon_code: string | null;
     };
     const payments = (Array.isArray(booking.payments)
       ? booking.payments
@@ -210,6 +215,7 @@ export async function confirmBooking(
 
     // 7. Patient confirmation email
     const dateFormatted = formatDateLong(booking.scheduled_at);
+    const amountCents = payment?.amount_cents ?? 4990;
     await sendBookingConfirmation({
       patientName: patient.full_name,
       patientEmail: patient.email,
@@ -218,6 +224,7 @@ export async function confirmBooking(
       dateFormatted,
       duration: "25 minutos",
       meetLink,
+      amountFormatted: formatCentsToBRL(amountCents),
     });
 
     // 8. Doctor intake + team intake + Google Sheets
@@ -264,7 +271,7 @@ export async function confirmBooking(
         meet_link: meetLink ?? null,
       },
       payment: {
-        amount_cents: payment?.amount_cents ?? 4990,
+        amount_cents: amountCents,
         status: "approved",
         paid_at: paidAt,
       },
@@ -274,7 +281,7 @@ export async function confirmBooking(
     await sendMetaConversionEvent({
       eventName: "Purchase",
       bookingId,
-      value: 49.9,
+      value: amountCents / 100,
       userEmail: patient.email,
       userPhone: patient.phone,
       userFbc: input.userFbc,
@@ -295,7 +302,13 @@ export async function confirmBooking(
       metadata: { source, meetLink, doctorId: doctor.id },
     });
 
-    return { success: true, meetLink, trackEvent: "payment_confirmed" as const };
+    return {
+      success: true,
+      meetLink,
+      trackEvent: "payment_confirmed" as const,
+      amountCents,
+      couponCode: payment?.coupon_code ?? null,
+    };
   } catch (err) {
     await logError({
       scope: "confirm",
