@@ -19,7 +19,8 @@ import { checkPaymentStatus } from "@/lib/mercadopago/actions";
 import { createBookingAndPayment } from "@/app/actions/create-booking";
 import { confirmBooking } from "@/app/actions/confirm-booking";
 import { trackEvent } from "@/lib/analytics/track";
-import { medicos, type Medico } from "@/data/medicos";
+import { getDoctorById } from "@/app/actions/get-doctors";
+import type { Doctor } from "@/lib/types/doctor";
 import { cn } from "@/lib/utils";
 
 type PaymentState = "loading" | "awaiting" | "approved" | "expired" | "error";
@@ -39,7 +40,7 @@ const POLL_INTERVAL = 5000;
 export default function PagamentoPage() {
   const router = useRouter();
   const [state, setState] = useState<PaymentState>("loading");
-  const [doctor, setDoctor] = useState<Medico | null>(null);
+  const [doctor, setDoctor] = useState<Doctor | null>(null);
   const [bookingDateStr, setBookingDateStr] = useState("");
   const [patientName, setPatientName] = useState("");
   const [pixData, setPixData] = useState<PixData | null>(null);
@@ -73,8 +74,9 @@ export default function PagamentoPage() {
       return;
     }
 
-    const matched = medicos.find((d) => d.id === triage.matchedDoctorId);
-    setDoctor(matched ?? null);
+    if (triage.matchedDoctorId) {
+      getDoctorById(triage.matchedDoctorId).then((matched) => setDoctor(matched));
+    }
     setPatientName(patient.fullName);
     setBookingDateStr(formatDateLong(booking.scheduledAt));
 
@@ -92,6 +94,11 @@ export default function PagamentoPage() {
           !result.expiresAt
         ) {
           console.error("[Pagamento] createBookingAndPayment failed:", result.error);
+          if (result.error === "invalid_doctor_session") {
+            toast.error("Sua sessão expirou. Escolha o horário novamente.");
+            router.replace("/agenda");
+            return;
+          }
           if (result.error === "rate_limit_exceeded") {
             const minutes = Math.max(1, Math.ceil((result.retryAfter ?? 600) / 60));
             toast.error(
@@ -251,6 +258,11 @@ export default function PagamentoPage() {
         !result.qrCode ||
         !result.expiresAt
       ) {
+        if (result.error === "invalid_doctor_session") {
+          toast.error("Sua sessão expirou. Escolha o horário novamente.");
+          router.replace("/agenda");
+          return;
+        }
         if (result.error === "rate_limit_exceeded") {
           const minutes = Math.max(1, Math.ceil((result.retryAfter ?? 600) / 60));
           toast.error(

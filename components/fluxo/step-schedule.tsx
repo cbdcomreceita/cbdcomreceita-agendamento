@@ -2,7 +2,7 @@
 
 import { Calendar, Sun, Sunset, Moon } from "lucide-react";
 import { StepNav } from "./step-nav";
-import { WEEKEND_DAYS } from "@/lib/triagem/day-router";
+import { WEEKEND_DAYS } from "@/lib/triagem/schedule";
 import { cn } from "@/lib/utils";
 
 const DAYS = [
@@ -30,6 +30,8 @@ interface Props {
   onChangeShifts: (shifts: string[]) => void;
   onNext: () => void;
   onBack: () => void;
+  /** True while resolving the matched doctor after this step submits. */
+  loading?: boolean;
 }
 
 export function StepSchedule({
@@ -39,6 +41,7 @@ export function StepSchedule({
   onChangeShifts,
   onNext,
   onBack,
+  loading = false,
 }: Props) {
   const allSelectedWeekend = selectedDays.length > 0 && selectedDays.every((d) => weekendValues.includes(d));
   const showNight = !allSelectedWeekend;
@@ -161,7 +164,7 @@ export function StepSchedule({
         onNext={onNext}
         onBack={onBack}
         nextLabel="Ver horários disponíveis"
-        nextDisabled={!isValid}
+        nextDisabled={!isValid || loading}
       />
     </div>
   );

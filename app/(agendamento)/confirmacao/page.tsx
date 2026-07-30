@@ -15,7 +15,8 @@ import { DoctorSummary } from "@/components/fluxo/doctor-summary";
 import { loadTriageData, clearTriageData } from "@/lib/triagem/storage";
 import { loadBookingData, saveBookingData, clearBookingData, type BookingData } from "@/lib/calcom/storage";
 import { loadPatientData } from "@/lib/validation/patient-storage";
-import { medicos, type Medico } from "@/data/medicos";
+import { getDoctorById } from "@/app/actions/get-doctors";
+import type { Doctor } from "@/lib/types/doctor";
 import { buildGoogleCalendarUrl } from "@/lib/utils/google-calendar";
 import { getBookingSummary } from "@/app/actions/get-booking";
 import { trackEvent } from "@/lib/analytics/track";
@@ -27,7 +28,7 @@ const SUPPORT_WHATSAPP = `https://wa.me/5584997048210?text=${encodeURIComponent(
 
 export default function ConfirmacaoPage() {
   const router = useRouter();
-  const [doctor, setDoctor] = useState<Medico | null>(null);
+  const [doctor, setDoctor] = useState<Doctor | null>(null);
   const [bookingDateStr, setBookingDateStr] = useState("");
   const [patientName, setPatientName] = useState("");
   const [bookingData, setBookingData] = useState<BookingData | null>(null);
@@ -38,13 +39,18 @@ export default function ConfirmacaoPage() {
     const booking = loadBookingData();
     const patient = loadPatientData();
 
-    if (!booking || !patient?.fullName) {
+    if (!booking || !patient?.fullName || !triage.matchedDoctorId) {
       router.replace("/triagem");
       return;
     }
 
-    const matched = medicos.find((d) => d.id === triage.matchedDoctorId);
-    setDoctor(matched ?? null);
+    getDoctorById(triage.matchedDoctorId).then((matched) => {
+      if (!matched) {
+        router.replace("/triagem");
+        return;
+      }
+      setDoctor(matched);
+    });
     setPatientName(patient.fullName);
     setBookingDateStr(formatDateLong(booking.scheduledAt));
 
@@ -93,7 +99,7 @@ export default function ConfirmacaoPage() {
   const meetLink = bookingData.meetLink;
   const gcalUrl = buildGoogleCalendarUrl({
     doctorName: doctor.name,
-    doctorCrm: doctor.crm ? `CRM ${doctor.crm}/${doctor.crmUf}` : undefined,
+    doctorCrm: doctor.crm ? `CRM ${doctor.crm}/${doctor.crm_uf}` : undefined,
     patientName,
     startISO: bookingData.scheduledAt,
     endISO: bookingData.scheduledEndAt,

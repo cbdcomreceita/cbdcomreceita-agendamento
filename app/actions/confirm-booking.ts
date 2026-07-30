@@ -7,7 +7,7 @@ import { sendBookingConfirmation } from "@/lib/resend/send-confirmation";
 import { dispatchPostPaymentSideEffects } from "@/lib/post-payment/dispatch";
 import { logError } from "@/lib/audit/log-error";
 import { sendMetaConversionEvent } from "@/lib/analytics/meta-conversions-api";
-import { medicos } from "@/data/medicos";
+import type { Doctor } from "@/lib/types/doctor";
 import { formatDateLong } from "@/lib/utils/datetime";
 
 export type ConfirmSource = "polling" | "webhook" | "cron";
@@ -121,20 +121,17 @@ export async function confirmBooking(
       }
     }
 
-    // 4. Find doctor in medicos array (DB row only has the name; the
-    //    array has calcomEventTypeId, email, etc.)
-    type DoctorRow = { id: string; name: string };
-    const dbDoctor = booking.doctors as DoctorRow | null;
-    const doctor = dbDoctor ? medicos.find((m) => m.name === dbDoctor.name) : undefined;
+    // 4. Doctor comes straight from the joined doctors(*) row.
+    const doctor = booking.doctors as Doctor | null;
     if (!doctor) {
       await logError({
         scope: "confirm",
-        message: "Doctor not found in medicos array",
-        metadata: { bookingId, dbDoctorName: dbDoctor?.name },
+        message: "Doctor not found via join",
+        metadata: { bookingId, doctorId: booking.doctor_id },
         entityType: "booking",
         entityId: bookingId,
       });
-      return { success: false, error: "Médico não encontrado em medicos.ts" };
+      return { success: false, error: "Médico não encontrado" };
     }
 
     type PatientRow = {
@@ -187,9 +184,9 @@ export async function confirmBooking(
 
     // 6. Cal.com booking
     let meetLink: string | undefined;
-    if (doctor.calcomEventTypeId) {
+    if (doctor.calcom_event_type_id) {
       const calResult = await createCalcomBooking({
-        eventTypeId: doctor.calcomEventTypeId,
+        eventTypeId: doctor.calcom_event_type_id,
         scheduledAt: booking.scheduled_at,
         patientName: patient.full_name,
         patientEmail: patient.email,
@@ -217,7 +214,7 @@ export async function confirmBooking(
       patientName: patient.full_name,
       patientEmail: patient.email,
       doctorName: doctor.name,
-      doctorCrm: doctor.crm ? `CRM ${doctor.crm}/${doctor.crmUf}` : undefined,
+      doctorCrm: doctor.crm ? `CRM ${doctor.crm}/${doctor.crm_uf}` : undefined,
       dateFormatted,
       duration: "25 minutos",
       meetLink,
@@ -260,7 +257,7 @@ export async function confirmBooking(
         name: doctor.name,
         email: doctor.email,
         crm: doctor.crm,
-        crmUf: doctor.crmUf,
+        crmUf: doctor.crm_uf,
       },
       booking: {
         scheduled_at: booking.scheduled_at,

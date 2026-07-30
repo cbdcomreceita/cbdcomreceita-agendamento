@@ -6,7 +6,8 @@ import { MessageCircle } from "lucide-react";
 import { loadTriageData } from "@/lib/triagem/storage";
 import { saveBookingData } from "@/lib/calcom/storage";
 import { trackEvent } from "@/lib/analytics/track";
-import { medicos, type Medico } from "@/data/medicos";
+import { getDoctorById } from "@/app/actions/get-doctors";
+import type { Doctor } from "@/lib/types/doctor";
 import { FlowBreadcrumb } from "@/components/fluxo/flow-breadcrumb";
 import { DoctorSummary } from "@/components/fluxo/doctor-summary";
 import { SlotPicker } from "@/components/fluxo/slot-picker";
@@ -17,7 +18,7 @@ const ALT_SLOT_WHATSAPP = `https://wa.me/5584997048210?text=${encodeURIComponent
 
 export default function AgendaPage() {
   const router = useRouter();
-  const [doctor, setDoctor] = useState<Medico | null>(null);
+  const [doctor, setDoctor] = useState<Doctor | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -27,9 +28,14 @@ export default function AgendaPage() {
       router.replace("/triagem");
       return;
     }
-    const matched = medicos.find((d) => d.id === data.matchedDoctorId) ?? null;
-    setDoctor(matched);
-    setLoaded(true);
+    getDoctorById(data.matchedDoctorId).then((matched) => {
+      if (!matched) {
+        router.replace("/triagem");
+        return;
+      }
+      setDoctor(matched);
+      setLoaded(true);
+    });
   }, [router]);
 
   const handleSlotConfirm = useCallback(
@@ -53,7 +59,7 @@ export default function AgendaPage() {
 
   if (!loaded || !doctor) return null;
 
-  const hasCalcom = !!doctor.calcomEventTypeId;
+  const hasCalcom = !!doctor.calcom_event_type_id;
 
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-5 py-8 sm:px-8 sm:py-12">
@@ -73,7 +79,7 @@ export default function AgendaPage() {
       {hasCalcom ? (
         <div className="mt-8">
           <SlotPicker
-            eventTypeId={doctor.calcomEventTypeId!}
+            eventTypeId={doctor.calcom_event_type_id!}
             onConfirm={handleSlotConfirm}
           />
         </div>

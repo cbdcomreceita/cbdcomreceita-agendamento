@@ -10,10 +10,12 @@ import {
   getClientIp,
   maskIp,
 } from "@/lib/rate-limit";
-import { medicos } from "@/data/medicos";
+import { getDoctorById } from "@/app/actions/get-doctors";
 import type { PatientFormData } from "@/lib/validation/patient";
 import type { BookingData } from "@/lib/calcom/storage";
 import type { TriageData } from "@/lib/triagem/schemas";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface CreateBookingInput {
   patient: PatientFormData;
@@ -155,34 +157,28 @@ export async function createBookingAndPayment(
       dbPatient = data;
     }
 
-    // 2. Doctor lookup
-    const doctor = medicos.find((d) => d.id === booking.doctorId);
-    if (!doctor) {
+    // 2. Doctor lookup — booking.doctorId must be a valid, active doctor
+    //    UUID. A non-UUID here means a session started before this
+    //    deploy (sessionStorage still holding the old short id).
+    if (!UUID_RE.test(booking.doctorId)) {
       await logError({
         scope: "create",
-        message: "Doctor not found in medicos array",
+        message: "doctorId is not a valid UUID (stale pre-deploy session)",
         metadata: { doctorId: booking.doctorId },
         entityType: "doctor",
       });
-      return { success: false, error: `Médico não encontrado: ${booking.doctorId}` };
+      return { success: false, error: "invalid_doctor_session" };
     }
-    const { data: dbDoctor } = await supabase
-      .from("doctors")
-      .select("id")
-      .eq("name", doctor.name)
-      .maybeSingle();
 
-    if (!dbDoctor?.id) {
+    const doctor = await getDoctorById(booking.doctorId);
+    if (!doctor || !doctor.is_active) {
       await logError({
         scope: "create",
-        message: "Doctor not found in DB",
-        metadata: { doctorName: doctor.name },
+        message: "Doctor not found or inactive",
+        metadata: { doctorId: booking.doctorId },
         entityType: "doctor",
       });
-      return {
-        success: false,
-        error: `Médico não encontrado: ${doctor.name}`,
-      };
+      return { success: false, error: "invalid_doctor_session" };
     }
 
     // 3. Insert booking (status='awaiting_payment')
@@ -190,7 +186,7 @@ export async function createBookingAndPayment(
       .from("bookings")
       .insert({
         patient_id: dbPatient.id,
-        doctor_id: dbDoctor.id,
+        doctor_id: doctor.id,
         status: "awaiting_payment",
         scheduled_at: booking.scheduledAt,
         scheduled_end_at: booking.scheduledEndAt,
@@ -211,7 +207,7 @@ export async function createBookingAndPayment(
       await logError({
         scope: "create",
         message: "Booking insert failed",
-        metadata: { error: bookingError, patientId: dbPatient.id, doctorId: dbDoctor.id },
+        metadata: { error: bookingError, patientId: dbPatient.id, doctorId: doctor.id },
         entityType: "booking",
       });
       return {

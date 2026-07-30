@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { saveTriageData, loadTriageData } from "@/lib/triagem/storage";
 import { loadEntenderRespostas, clearEntenderRespostas } from "@/lib/entender/storage";
-import { routeBySchedule } from "@/lib/triagem/day-router";
+import { toWeekdays, toPeriods } from "@/lib/triagem/schedule";
+import { getDoctorForSchedule, getActiveDoctors } from "@/app/actions/get-doctors";
 import { trackEvent } from "@/lib/analytics/track";
 import { StepSymptoms } from "@/components/fluxo/step-symptoms";
 import { StepSchedule } from "@/components/fluxo/step-schedule";
@@ -20,6 +21,7 @@ export default function TriagemPage() {
   const [direction, setDirection] = useState(1);
   const [data, setData] = useState<Partial<TriageData>>({});
   const [loaded, setLoaded] = useState(false);
+  const [routing, setRouting] = useState(false);
 
   useEffect(() => {
     const saved = loadTriageData();
@@ -52,18 +54,29 @@ export default function TriagemPage() {
     });
   }, []);
 
-  function goNext() {
+  async function goNext() {
     trackEvent({ name: "triagem_step_completed", step });
     if (step < TOTAL_STEPS) {
       setDirection(1);
       setStep((s) => s + 1);
-    } else {
-      const doctorId = routeBySchedule(
-        data.selectedDays ?? [],
-        data.selectedShifts ?? []
-      );
-      updateData({ matchedDoctorId: doctorId });
+      return;
+    }
+
+    setRouting(true);
+    try {
+      const weekdays = toWeekdays(data.selectedDays ?? []);
+      const periods = toPeriods(data.selectedShifts ?? []);
+      const doctor =
+        (await getDoctorForSchedule(weekdays, periods)) ??
+        (await getActiveDoctors())[0] ??
+        null;
+
+      if (!doctor) return;
+
+      updateData({ matchedDoctorId: doctor.id });
       router.push("/agenda");
+    } finally {
+      setRouting(false);
     }
   }
 
@@ -106,6 +119,7 @@ export default function TriagemPage() {
                 onChangeShifts={(shifts) => updateData({ selectedShifts: shifts })}
                 onNext={goNext}
                 onBack={goBack}
+                loading={routing}
               />
             )}
           </motion.div>

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { sendBookingReminder } from "@/lib/resend/send-reminder";
-import { medicos } from "@/data/medicos";
+import { logError } from "@/lib/audit/log-error";
+import type { Doctor } from "@/lib/types/doctor";
 import { formatInTimeZone } from "date-fns-tz";
 import { ptBR } from "date-fns/locale";
 import { TIMEZONE } from "@/lib/utils/datetime";
@@ -38,10 +39,17 @@ async function sendReminders(
     const patient = booking.patients;
     if (!patient) continue;
 
-    const dbDoctor = booking.doctors as { name: string } | null;
-    const doctor = dbDoctor
-      ? medicos.find((d) => d.name === dbDoctor.name)
-      : medicos.find((d) => d.isActive && d.calcomEventTypeId !== null);
+    const doctor = booking.doctors as Doctor | null;
+    if (!doctor) {
+      await logError({
+        scope: "resend",
+        message: "Doctor not found via join, skipping reminder",
+        metadata: { bookingId: booking.id, doctorId: booking.doctor_id, type },
+        entityType: "booking",
+        entityId: booking.id,
+      });
+      continue;
+    }
     const reminderType = type === "reminder_24h" ? "24h" : "1h";
 
     const dateFormatted =
@@ -52,7 +60,7 @@ async function sendReminders(
     const result = await sendBookingReminder({
       patientName: patient.full_name,
       patientEmail: patient.email,
-      doctorName: doctor?.name ?? "Médico",
+      doctorName: doctor.name,
       dateFormatted,
       meetLink: booking.meet_link,
       reminderType,

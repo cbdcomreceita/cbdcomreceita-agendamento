@@ -20,7 +20,8 @@ import { savePatientData, loadPatientData } from "@/lib/validation/patient-stora
 import { patientSchema, UF_OPTIONS, type PatientFormData } from "@/lib/validation/patient";
 import { fetchCep } from "@/lib/utils/viacep";
 import { maskCpf, maskPhone, maskCep } from "@/lib/utils/masks";
-import { medicos, type Medico } from "@/data/medicos";
+import { getDoctorById } from "@/app/actions/get-doctors";
+import type { Doctor } from "@/lib/types/doctor";
 import { sintomas } from "@/data/sintomas";
 import { cn } from "@/lib/utils";
 
@@ -69,7 +70,7 @@ function inputClass(hasError?: boolean) {
 
 export default function DadosPage() {
   const router = useRouter();
-  const [doctor, setDoctor] = useState<Medico | null>(null);
+  const [doctor, setDoctor] = useState<Doctor | null>(null);
   const [bookingDate, setBookingDate] = useState<string | null>(null);
   const [selectedSymptomLabels, setSelectedSymptomLabels] = useState<string[]>([]);
   const [duration, setDuration] = useState<TriageData["duration"]>();
@@ -106,13 +107,18 @@ export default function DadosPage() {
     const triage = loadTriageData();
     const booking = loadBookingData();
 
-    if (!triage.selectedSymptoms?.length || !booking) {
+    if (!triage.selectedSymptoms?.length || !booking || !triage.matchedDoctorId) {
       router.replace("/triagem");
       return;
     }
 
-    const matched = medicos.find((d) => d.id === triage.matchedDoctorId);
-    setDoctor(matched ?? null);
+    getDoctorById(triage.matchedDoctorId).then((matched) => {
+      if (!matched) {
+        router.replace("/triagem");
+        return;
+      }
+      setDoctor(matched);
+    });
     setBookingDate(booking.scheduledAt);
 
     const labels = sintomas
