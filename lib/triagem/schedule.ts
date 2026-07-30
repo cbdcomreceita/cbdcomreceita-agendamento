@@ -1,5 +1,3 @@
-import { toZonedTime } from "date-fns-tz";
-import { TIMEZONE } from "@/lib/utils/datetime";
 import type { Weekday, Period } from "@/lib/types/availability";
 
 export const WEEKDAY_LABELS: Record<Weekday, string> = {
@@ -10,6 +8,16 @@ export const WEEKDAY_LABELS: Record<Weekday, string> = {
   4: "Quinta-feira",
   5: "Sexta-feira",
   6: "Sábado",
+};
+
+export const WEEKDAY_SHORT_LABELS: Record<Weekday, string> = {
+  0: "Dom",
+  1: "Seg",
+  2: "Ter",
+  3: "Qua",
+  4: "Qui",
+  5: "Sex",
+  6: "Sáb",
 };
 
 export const PERIOD_LABELS: Record<Period, string> = {
@@ -23,15 +31,3 @@ export const PERIOD_ORDER: Record<Period, number> = {
   tarde: 1,
   noite: 2,
 };
-
-/** Cal.com slot ISO time -> the period bucket it falls in, for preference highlighting. */
-export function periodForHour(hour: number): Period {
-  if (hour < 12) return "manha";
-  if (hour < 18) return "tarde";
-  return "noite";
-}
-
-/** Weekday (0=domingo) of an ISO time in the app's display timezone, not the server/runtime's. */
-export function getWeekdayInTimezone(iso: string | Date): Weekday {
-  return toZonedTime(iso, TIMEZONE).getDay() as Weekday;
-}

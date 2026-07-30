@@ -8,7 +8,6 @@ import { saveBookingData } from "@/lib/calcom/storage";
 import { trackEvent } from "@/lib/analytics/track";
 import { getDoctorById } from "@/app/actions/get-doctors";
 import type { Doctor } from "@/lib/types/doctor";
-import type { ScheduleSlot } from "@/lib/types/availability";
 import { FlowBreadcrumb } from "@/components/fluxo/flow-breadcrumb";
 import { DoctorSummary } from "@/components/fluxo/doctor-summary";
 import { SlotPicker } from "@/components/fluxo/slot-picker";
@@ -20,7 +19,6 @@ const ALT_SLOT_WHATSAPP = `https://wa.me/5584997048210?text=${encodeURIComponent
 export default function AgendaPage() {
   const router = useRouter();
   const [doctor, setDoctor] = useState<Doctor | null>(null);
-  const [preferredSlots, setPreferredSlots] = useState<ScheduleSlot[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -36,7 +34,6 @@ export default function AgendaPage() {
         return;
       }
       setDoctor(matched);
-      setPreferredSlots(data.scheduleSlots!);
       setLoaded(true);
     });
   }, [router]);
@@ -84,7 +81,6 @@ export default function AgendaPage() {
           <SlotPicker
             eventTypeId={doctor.calcom_event_type_id!}
             onConfirm={handleSlotConfirm}
-            preferredSlots={preferredSlots}
           />
         </div>
       ) : (

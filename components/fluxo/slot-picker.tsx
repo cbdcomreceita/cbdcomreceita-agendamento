@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { parseISO } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { ptBR } from "date-fns/locale";
@@ -9,9 +9,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { getAvailableSlots, type DaySlots } from "@/lib/calcom/availability";
 import { TIMEZONE, formatDateLong, formatTime } from "@/lib/utils/datetime";
-import { getWeekdayInTimezone, periodForHour } from "@/lib/triagem/schedule";
 import { trackEvent } from "@/lib/analytics/track";
-import type { ScheduleSlot } from "@/lib/types/availability";
 
 type PickerState = "loading" | "ready" | "error" | "empty";
 
@@ -20,25 +18,14 @@ const RESERVATION_MINUTES = 15;
 interface SlotPickerProps {
   eventTypeId: number;
   onConfirm: (slot: { date: string; time: string; timeEnd: string }) => void;
-  /**
-   * The patient's preferred (weekday, period) picks from the triagem
-   * step. Shown as a highlight, never a filter — the full agenda is
-   * always visible so a patient who'd take a different slot still can.
-   */
-  preferredSlots?: ScheduleSlot[];
 }
 
-export function SlotPicker({ eventTypeId, onConfirm, preferredSlots = [] }: SlotPickerProps) {
+export function SlotPicker({ eventTypeId, onConfirm }: SlotPickerProps) {
   const [state, setState] = useState<PickerState>("loading");
   const [days, setDays] = useState<DaySlots[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [reservedAt, setReservedAt] = useState<number | null>(null);
   const [countdown, setCountdown] = useState("");
-
-  const preferredKeys = useMemo(
-    () => new Set(preferredSlots.map((s) => `${s.weekday}-${s.period}`)),
-    [preferredSlots]
-  );
 
   const fetchSlots = useCallback(async () => {
     setState("loading");
@@ -181,25 +168,15 @@ export function SlotPicker({ eventTypeId, onConfirm, preferredSlots = [] }: Slot
           const dateObj = parseISO(`${day.date}T12:00:00`);
           const dayLabel = formatInTimeZone(dateObj, TIMEZONE, "EEEE", { locale: ptBR });
           const dateLabel = formatInTimeZone(dateObj, TIMEZONE, "d 'de' MMM", { locale: ptBR });
-          const dayWeekday = getWeekdayInTimezone(dateObj);
-          const isPreferredDay = preferredSlots.some((s) => s.weekday === dayWeekday);
 
           return (
             <div
               key={day.date}
-              className={cn(
-                "rounded-2xl border bg-white p-4 shadow-sm",
-                isPreferredDay ? "border-brand-forest/50" : "border-brand-sand/60"
-              )}
+              className="rounded-2xl border border-brand-sand/60 bg-white p-4 shadow-sm"
             >
               <div className="mb-3 text-center">
                 <p className="text-sm font-semibold capitalize text-brand-forest-dark">
                   {dayLabel}
-                  {isPreferredDay && (
-                    <span className="ml-1.5 rounded-full bg-brand-forest/10 px-2 py-0.5 text-[10px] font-medium normal-case text-brand-forest">
-                      preferido
-                    </span>
-                  )}
                 </p>
                 <p className="text-xs text-brand-text-muted">{dateLabel}</p>
               </div>
@@ -207,12 +184,6 @@ export function SlotPicker({ eventTypeId, onConfirm, preferredSlots = [] }: Slot
                 {day.slots.map((slot) => {
                   const timeStr = formatTime(slot.time);
                   const isSelected = selectedSlot === slot.time;
-                  const slotHour = Number(
-                    formatInTimeZone(parseISO(slot.time), TIMEZONE, "H")
-                  );
-                  const isPreferredSlot = preferredKeys.has(
-                    `${dayWeekday}-${periodForHour(slotHour)}`
-                  );
 
                   return (
                     <button
@@ -223,9 +194,7 @@ export function SlotPicker({ eventTypeId, onConfirm, preferredSlots = [] }: Slot
                         "flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-medium transition-all duration-300",
                         isSelected
                           ? "bg-brand-forest text-brand-cream shadow-sm"
-                          : isPreferredSlot
-                            ? "bg-brand-forest/10 text-brand-forest-dark hover:bg-brand-forest/15"
-                            : "bg-brand-cream/60 text-brand-forest-dark hover:bg-brand-forest/10"
+                          : "bg-brand-cream/60 text-brand-forest-dark hover:bg-brand-forest/10"
                       )}
                       data-track="slot_selected"
                       data-track-time={timeStr}
