@@ -8,6 +8,9 @@ import type { ScheduleSlot } from "@/lib/types/availability";
 /** How far ahead a candidate needs a free slot to be presented immediately. */
 const AVAILABILITY_HORIZON_DAYS = 14;
 
+/** Dra. Carolina Lopes — excluded from routing when the patient flagged "autismo". */
+const AUTISM_EXCLUDED_DOCTOR_IDS = ["7b74694a-b8f5-462a-9da2-75ce207ea786"];
+
 export interface ResolveDoctorResult {
   /** The doctor to present, already confirmed to have a slot. Null if nobody does. */
   doctor: Doctor | null;
@@ -28,10 +31,17 @@ export interface ResolveDoctorResult {
  * slot in the next 14 days.
  */
 export async function resolveDoctorForSchedule(
-  slots: ScheduleSlot[]
+  slots: ScheduleSlot[],
+  symptoms: string[] = []
 ): Promise<ResolveDoctorResult> {
-  let candidates = await getDoctorCandidatesForSchedule(slots);
-  if (candidates.length === 0) candidates = await getActiveDoctors();
+  const excludeAutismDoctors = symptoms.includes("autismo");
+  const withoutExcluded = (doctors: Doctor[]) =>
+    excludeAutismDoctors
+      ? doctors.filter((doctor) => !AUTISM_EXCLUDED_DOCTOR_IDS.includes(doctor.id))
+      : doctors;
+
+  let candidates = withoutExcluded(await getDoctorCandidatesForSchedule(slots));
+  if (candidates.length === 0) candidates = withoutExcluded(await getActiveDoctors());
   if (candidates.length === 0) return { doctor: null, fallback: null };
 
   const availability = await Promise.all(

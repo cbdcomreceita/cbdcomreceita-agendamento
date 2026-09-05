@@ -77,7 +77,7 @@ export default function TriagemPage() {
     setNoSlots(null);
     setRouting(true);
     try {
-      const result = await resolveDoctorForSchedule(data.scheduleSlots ?? []);
+      const result = await resolveDoctorForSchedule(data.scheduleSlots ?? [], data.selectedSymptoms ?? []);
 
       if (!result.doctor) {
         setNoSlots(result.fallback);
