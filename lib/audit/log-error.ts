@@ -9,7 +9,8 @@ export type ErrorScope =
   | "resend"
   | "sheets"
   | "simulate"
-  | "webhook";
+  | "webhook"
+  | "whatsapp";
 
 export interface LogErrorParams {
   scope: ErrorScope;

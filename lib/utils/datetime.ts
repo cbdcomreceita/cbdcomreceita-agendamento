@@ -41,6 +41,11 @@ export function formatTime(iso: string | Date): string {
   return formatInTimeZone(iso, TIMEZONE, "HH:mm");
 }
 
+/** "14h30" — NexTalk's confirmacao_consulta template expects this separator, not "14:30". */
+export function formatTimeH(iso: string | Date): string {
+  return formatTime(iso).replace(":", "h");
+}
+
 /** "01/05/2026 11:00" */
 export function formatDateTimeBR(iso: string | Date): string {
   return formatInTimeZone(iso, TIMEZONE, "dd/MM/yyyy HH:mm");

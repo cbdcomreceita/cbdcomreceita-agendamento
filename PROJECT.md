@@ -325,11 +325,34 @@ META_WHATSAPP_APP_SECRET=
 RESEND_API_KEY=
 RESEND_FROM_EMAIL=noreply@cbdcomreceita.com.br
 
+# NEXTALK (CRM WhatsApp — confirmação de consulta pós-pagamento, via lib/whatsapp/)
+NEXTALK_API_TOKEN=
+WHATSAPP_CONFIRMATION_MODE=off          # off | team_only | all
+WHATSAPP_TEAM_NUMBERS=                  # E.164, separados por vírgula — só usado em team_only
+WHATSAPP_ALERT_EMAIL=contato@cbdcomreceita.com.br
+
+# UPSTASH QSTASH (fila durável para o envio e a verificação de entrega do WhatsApp acima)
+QSTASH_URL=https://qstash-us-east-1.upstash.io   # região US, explícita — o default da lib é o alias EU (qstash.upstash.io)
+QSTASH_TOKEN=
+QSTASH_CURRENT_SIGNING_KEY=
+QSTASH_NEXT_SIGNING_KEY=
+WHATSAPP_CALLBACK_BASE_URL=https://www.cbdcomreceita.com.br   # SÓ para as URLs de callback do QStash — nunca NEXT_PUBLIC_SITE_URL nem VERCEL_URL
+
 # CRON SECRET
 CRON_SECRET=
 ```
 
 **Nota sobre preço da consulta**: valor em env var (`NEXT_PUBLIC_CONSULTATION_PRICE`) permite alterar via dashboard da Vercel sem precisar de novo deploy ou migration. Muda em 1 minuto quando o preço atualizar daqui 6 meses.
+
+**Nota sobre confirmação por WhatsApp**: `WHATSAPP_CONFIRMATION_MODE=off` por padrão — nada é enviado até a variável ser trocada. Em `team_only`, só números em `WHATSAPP_TEAM_NUMBERS` recebem mensagem (os demais ficam `skipped`, sem alerta). O fluxo completo (contato → conversa → mensagem de template → card no funil de vendas) fica em `lib/whatsapp/`, orquestrado via QStash a partir de `app/actions/confirm-booking.ts`. Template `confirmacao_consulta` ainda pendente de aprovação na Meta — ver `docs/nextalk-api-lembrete.pdf` para a referência completa da API.
+
+**Nota sobre QSTASH_URL**: obrigatória — `lib/whatsapp/qstash.ts` lê `QSTASH_URL` e passa como `baseUrl` explícito no `Client`, sem depender do default da SDK (que resolve para `https://qstash.upstash.io`, o alias da região **EU**).
+
+**Nota sobre WHATSAPP_CALLBACK_BASE_URL**: variável dedicada só para montar as URLs de callback publicadas no QStash (`.../api/whatsapp/send-confirmation` e `.../verify-delivery`) — deliberadamente **não** reaproveita `NEXT_PUBLIC_SITE_URL` nem cai para `VERCEL_URL`. Dois motivos:
+1. O domínio sem `www` (`cbdcomreceita.com.br`) redireciona tudo — inclusive rotas `/api` — com 307 para `https://www.cbdcomreceita.com.br`. QStash não segue esse redirect como um navegador faria, então a URL precisa já ser a de `www` diretamente.
+2. Em preview deployments, `VERCEL_URL` aponta pra um alias protegido por autenticação da Vercel que o QStash não consegue alcançar — nem deveria, já que um build de preview não deve disparar WhatsApp de verdade.
+
+`getCallbackBaseUrl()` valida que o valor começa com `https://` e remove barra final; a mesma função é usada tanto para publicar quanto para verificar a assinatura (`verifyQstashSignature` recebe o path da rota e reconstrói a URL esperada), então as duas nunca podem divergir. Sem essa variável (com o modo ligado), o envio é registrado e alertado por e-mail em vez de falhar em silêncio — ver `checkWhatsappReadiness()` em `lib/whatsapp/config.ts`.
 
 ---
 
