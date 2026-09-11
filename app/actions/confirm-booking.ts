@@ -6,9 +6,12 @@ import { createCalcomBooking } from "@/lib/calcom/bookings";
 import { sendBookingConfirmation } from "@/lib/resend/send-confirmation";
 import { dispatchPostPaymentSideEffects } from "@/lib/post-payment/dispatch";
 import { logError } from "@/lib/audit/log-error";
+import { publishSendConfirmation } from "@/lib/whatsapp/qstash";
+import { checkWhatsappReadiness, getConfirmationMode } from "@/lib/whatsapp/config";
+import { sendWhatsappAlert } from "@/lib/resend/send-whatsapp-alert";
 import { sendMetaConversionEvent } from "@/lib/analytics/meta-conversions-api";
 import type { Doctor } from "@/lib/types/doctor";
-import { formatDateLong } from "@/lib/utils/datetime";
+import { formatDateLong, formatDateBR, formatTimeH } from "@/lib/utils/datetime";
 import { formatCentsToBRL } from "@/lib/utils/currency";
 
 export type ConfirmSource = "polling" | "webhook" | "cron";
@@ -235,47 +238,125 @@ export async function confirmBooking(
     };
     const triageData = (booking.triage_data ?? {}) as TriageJson;
 
-    await dispatchPostPaymentSideEffects({
-      patient: {
-        full_name: patient.full_name,
-        email: patient.email,
-        phone: patient.phone,
-        cpf: patient.cpf,
-        rg: patient.rg,
-        birth_date: patient.birth_date,
-        address_street: patient.address_street,
-        address_number: patient.address_number,
-        address_complement: patient.address_complement,
-        address_district: patient.address_district,
-        address_city: patient.address_city,
-        address_state: patient.address_state,
-        address_zipcode: patient.address_zipcode,
-        selected_symptoms: patient.selected_symptoms ?? [],
-        has_current_medication: patient.has_current_medication ?? false,
-        current_medications: patient.current_medications,
-        prior_cbd_use: patient.prior_cbd_use,
-        duration: triageData.duration ?? null,
-        prior_treatment: triageData.priorTreatment ?? null,
-        prior_treatment_details: triageData.priorTreatmentDetails ?? null,
-        lgpd_consent_at: patient.lgpd_consent_at,
-        terms_consent_at: patient.terms_consent_at,
-      },
-      doctor: {
-        name: doctor.name,
-        email: doctor.email,
-        crm: doctor.crm,
-        crmUf: doctor.crm_uf,
-      },
-      booking: {
-        scheduled_at: booking.scheduled_at,
-        meet_link: meetLink ?? null,
-      },
-      payment: {
-        amount_cents: amountCents,
-        status: "approved",
-        paid_at: paidAt,
-      },
-    });
+    // Reused by both alert calls below.
+    const dateBR = formatDateBR(booking.scheduled_at);
+    const timeH = formatTimeH(booking.scheduled_at);
+
+    // Wrapped locally (not inside dispatch.ts, which stays untouched) so a
+    // throw here can't prevent the WhatsApp confirmation below from firing —
+    // that needs to run even if step 8 fails.
+    try {
+      await dispatchPostPaymentSideEffects({
+        patient: {
+          full_name: patient.full_name,
+          email: patient.email,
+          phone: patient.phone,
+          cpf: patient.cpf,
+          rg: patient.rg,
+          birth_date: patient.birth_date,
+          address_street: patient.address_street,
+          address_number: patient.address_number,
+          address_complement: patient.address_complement,
+          address_district: patient.address_district,
+          address_city: patient.address_city,
+          address_state: patient.address_state,
+          address_zipcode: patient.address_zipcode,
+          selected_symptoms: patient.selected_symptoms ?? [],
+          has_current_medication: patient.has_current_medication ?? false,
+          current_medications: patient.current_medications,
+          prior_cbd_use: patient.prior_cbd_use,
+          duration: triageData.duration ?? null,
+          prior_treatment: triageData.priorTreatment ?? null,
+          prior_treatment_details: triageData.priorTreatmentDetails ?? null,
+          lgpd_consent_at: patient.lgpd_consent_at,
+          terms_consent_at: patient.terms_consent_at,
+        },
+        doctor: {
+          name: doctor.name,
+          email: doctor.email,
+          crm: doctor.crm,
+          crmUf: doctor.crm_uf,
+        },
+        booking: {
+          scheduled_at: booking.scheduled_at,
+          meet_link: meetLink ?? null,
+        },
+        payment: {
+          amount_cents: amountCents,
+          status: "approved",
+          paid_at: paidAt,
+        },
+      });
+    } catch (err) {
+      await logError({
+        scope: "confirm",
+        message: "dispatchPostPaymentSideEffects threw",
+        metadata: { error: String(err), bookingId },
+        entityType: "booking",
+        entityId: bookingId,
+      });
+      await sendWhatsappAlert({
+        reason: "dispatch_failed",
+        bookingId,
+        patientName: patient.full_name,
+        patientPhoneRaw: patient.phone,
+        patientEmail: patient.email,
+        dateBR,
+        timeH,
+        doctorName: doctor.name,
+        detail: `O agendamento foi confirmado, mas o aviso ao médico, o e-mail da equipe ou a planilha podem não ter saído. Conferir manualmente. Erro técnico: ${String(err)}`,
+      });
+    }
+
+    // 8b. WhatsApp confirmation via NexTalk — isolated the same way: never
+    // allowed to block/delay/break the rest of confirmBooking.
+    const whatsappMode = getConfirmationMode();
+    if (whatsappMode !== "off") {
+      const readiness = checkWhatsappReadiness();
+      if (!readiness.ready) {
+        await logError({
+          scope: "whatsapp",
+          message: `WhatsApp confirmation mode is "${whatsappMode}" but required config is missing`,
+          metadata: { bookingId, mode: whatsappMode, missing: readiness.missing },
+          entityType: "booking",
+          entityId: bookingId,
+        });
+        await sendWhatsappAlert({
+          reason: "config_missing",
+          bookingId,
+          patientName: patient.full_name,
+          patientPhoneRaw: patient.phone,
+          patientEmail: patient.email,
+          dateBR,
+          timeH,
+          doctorName: doctor.name,
+          detail: `Modo "${whatsappMode}" ativo, mas faltam as variáveis: ${readiness.missing.join(", ")}. Nenhuma mensagem foi enviada para este agendamento.`,
+        });
+      } else {
+        try {
+          await publishSendConfirmation(bookingId);
+        } catch (err) {
+          await logError({
+            scope: "whatsapp",
+            message: "Failed to publish send-confirmation job to QStash",
+            metadata: { error: String(err), bookingId },
+            entityType: "booking",
+            entityId: bookingId,
+          });
+          await sendWhatsappAlert({
+            reason: "qstash_publish_failed",
+            bookingId,
+            patientName: patient.full_name,
+            patientPhoneRaw: patient.phone,
+            patientEmail: patient.email,
+            dateBR,
+            timeH,
+            doctorName: doctor.name,
+            detail: `Falha ao publicar o job de confirmação no QStash: ${String(err)}`,
+          });
+        }
+      }
+    }
 
     // 9. Meta Conversions API (server-side, fire-and-forget style — errors are caught internally)
     await sendMetaConversionEvent({
