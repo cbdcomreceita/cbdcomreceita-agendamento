@@ -7,7 +7,13 @@ import { sendBookingConfirmation } from "@/lib/resend/send-confirmation";
 import { dispatchPostPaymentSideEffects } from "@/lib/post-payment/dispatch";
 import { logError } from "@/lib/audit/log-error";
 import { publishSendConfirmation } from "@/lib/whatsapp/qstash";
-import { checkWhatsappReadiness, getConfirmationMode } from "@/lib/whatsapp/config";
+import { orchestrateConfirmation } from "@/lib/whatsapp/orchestrate-confirmation";
+import {
+  checkWhatsappReadiness,
+  getConfirmationMode,
+  getDispatchMode,
+  INLINE_DISPATCH_TIMEOUT_MS,
+} from "@/lib/whatsapp/config";
 import { sendWhatsappAlert } from "@/lib/resend/send-whatsapp-alert";
 import { sendMetaConversionEvent } from "@/lib/analytics/meta-conversions-api";
 import type { Doctor } from "@/lib/types/doctor";
@@ -341,6 +347,39 @@ export async function confirmBooking(
           doctorName: doctor.name,
           detail: `Modo "${whatsappMode}" ativo, mas faltam as variáveis: ${readiness.missing.join(", ")}. Nenhuma mensagem foi enviada para este agendamento.`,
         });
+      } else if (getDispatchMode() === "inline") {
+        // No QStash in this mode — call the same flow QStash would have
+        // triggered directly, bounded so a slow/stuck NexTalk can't starve
+        // the remaining steps below (Meta conversion, final audit write).
+        // orchestrateConfirmation never throws on its own; this only fires
+        // if it's still running past the timeout.
+        const TIMED_OUT = Symbol("inline-whatsapp-timeout");
+        const result = await Promise.race([
+          orchestrateConfirmation(bookingId).then(() => "done" as const),
+          new Promise<typeof TIMED_OUT>((resolve) =>
+            setTimeout(() => resolve(TIMED_OUT), INLINE_DISPATCH_TIMEOUT_MS)
+          ),
+        ]);
+        if (result === TIMED_OUT) {
+          await logError({
+            scope: "whatsapp",
+            message: "Inline WhatsApp dispatch exceeded the timeout",
+            metadata: { bookingId, timeoutMs: INLINE_DISPATCH_TIMEOUT_MS },
+            entityType: "booking",
+            entityId: bookingId,
+          });
+          await sendWhatsappAlert({
+            reason: "send_failed",
+            bookingId,
+            patientName: patient.full_name,
+            patientPhoneRaw: patient.phone,
+            patientEmail: patient.email,
+            dateBR,
+            timeH,
+            doctorName: doctor.name,
+            detail: `Envio inline pelo WhatsApp excedeu ${INLINE_DISPATCH_TIMEOUT_MS / 1000}s e foi abandonado nesta requisição (pode ainda concluir em segundo plano). Confirme manualmente se a mensagem chegou.`,
+          });
+        }
       } else {
         try {
           await publishSendConfirmation(bookingId);

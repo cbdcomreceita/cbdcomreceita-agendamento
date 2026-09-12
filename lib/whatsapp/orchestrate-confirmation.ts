@@ -1,7 +1,7 @@
 import { logError } from "@/lib/audit/log-error";
 import type { WhatsappAlertReason } from "@/lib/resend/send-whatsapp-alert";
 import { alertForBooking as alert, loadBookingContext, type BookingContext } from "./booking-context";
-import { getConfirmationMode, getTeamNumbers } from "./config";
+import { getConfirmationMode, getDispatchMode, getTeamNumbers } from "./config";
 import { NextalkApiError } from "./nextalk-client";
 import { extractMeetCode, isValidMeetLink, normalizePhoneToVariants, type PhoneVariants } from "./phone";
 import { findOrCreateContact, ensureContactInbox } from "./contact";
@@ -76,12 +76,14 @@ export async function orchestrateConfirmation(bookingId: string): Promise<void> 
       return;
     }
 
+    const dispatchMode = getDispatchMode();
+
     if (mode === "team_only" && !getTeamNumbers().has(variants.primary)) {
       const { row, isNew } = await reserveNotification({
         bookingId,
         patientId: ctx.patientId,
         recipient: variants.primary,
-        payload: { mode, reason: "not_in_team_only_list" },
+        payload: { mode, dispatchMode, reason: "not_in_team_only_list" },
       });
       if (isNew) {
         await updateNotificationLog(row.id, { status: "skipped" });
@@ -93,7 +95,7 @@ export async function orchestrateConfirmation(bookingId: string): Promise<void> 
       bookingId,
       patientId: ctx.patientId,
       recipient: variants.primary,
-      payload: { mode },
+      payload: { mode, dispatchMode },
     });
 
     if (!isNew) {
@@ -182,7 +184,12 @@ export async function orchestrateConfirmation(bookingId: string): Promise<void> 
     // Passo 5 runs regardless of message outcome, as long as a conversation exists.
     await runKanbanStep(row, ctx, conversationDisplayId);
 
-    if (messageSentOk) {
+    // Delivery verification is a QStash-scheduled job — in "inline" mode
+    // there's no QStash to schedule it with, so we deliberately skip it
+    // rather than erroring. dispatchMode is already recorded on the row
+    // (payload above), so it's clear afterward which sends never got a
+    // verification pass.
+    if (messageSentOk && dispatchMode === "qstash") {
       await publishVerifyDelivery(row.id);
     }
   } catch (err) {
