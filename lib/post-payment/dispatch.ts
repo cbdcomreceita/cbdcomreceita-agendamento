@@ -3,6 +3,8 @@
 import { parseISO } from "date-fns";
 import { sendDoctorIntake, sendTeamIntake } from "@/lib/resend/send-intake";
 import { appendToGoogleSheet } from "@/lib/google-sheets/append-row";
+import { sendDispatchAlert, type DispatchFailure } from "@/lib/resend/send-dispatch-alert";
+import { logError } from "@/lib/audit/log-error";
 import { calculateAge } from "@/lib/utils/age";
 import { maskCpf, maskPhone, maskCep } from "@/lib/utils/masks";
 import {
@@ -21,6 +23,7 @@ import {
 import { formatCentsToBRL } from "@/lib/utils/currency";
 
 export interface PostPaymentInput {
+  bookingId: string;
   patient: {
     full_name: string;
     email: string;
@@ -65,7 +68,7 @@ export interface PostPaymentInput {
 export async function dispatchPostPaymentSideEffects(
   input: PostPaymentInput
 ): Promise<void> {
-  const { patient, doctor, booking, payment } = input;
+  const { bookingId, patient, doctor, booking, payment } = input;
 
   const dateFormatted = formatDateLongNoTime(booking.scheduled_at);
   const timeFormatted = formatTime(booking.scheduled_at);
@@ -123,7 +126,10 @@ export async function dispatchPostPaymentSideEffects(
     .filter(Boolean)
     .join(", ");
 
-  // 1. Doctor intake email
+  const failures: DispatchFailure[] = [];
+
+  // 1. Doctor intake email — most critical: without it, the doctor doesn't
+  // know about the consultation.
   const doctorIntakeResult = await sendDoctorIntake({
     doctorName: doctor.name,
     doctorEmail: doctor.email,
@@ -140,7 +146,16 @@ export async function dispatchPostPaymentSideEffects(
     subjectTime: timeFormatted,
   });
   if (!doctorIntakeResult.success) {
-    console.error("[PostPayment] Doctor intake failed:", doctorIntakeResult.error);
+    const detail = doctorIntakeResult.error ?? "erro desconhecido";
+    console.error("[PostPayment] Doctor intake failed:", detail);
+    failures.push({ step: "doctor_email", detail });
+    await logError({
+      scope: "dispatch",
+      message: "Doctor intake e-mail failed",
+      metadata: { detail, doctorEmail: doctor.email },
+      entityType: "booking",
+      entityId: bookingId,
+    });
   }
 
   // 2. Team intake email
@@ -177,7 +192,16 @@ export async function dispatchPostPaymentSideEffects(
     subjectDate: dateBRShort,
   });
   if (!teamIntakeResult.success) {
-    console.error("[PostPayment] Team intake failed:", teamIntakeResult.error);
+    const detail = teamIntakeResult.error ?? "erro desconhecido";
+    console.error("[PostPayment] Team intake failed:", detail);
+    failures.push({ step: "team_email", detail });
+    await logError({
+      scope: "dispatch",
+      message: "Team intake e-mail failed",
+      metadata: { detail },
+      entityType: "booking",
+      entityId: bookingId,
+    });
   }
 
   // 3. Google Sheets row
@@ -212,6 +236,26 @@ export async function dispatchPostPaymentSideEffects(
     "Consentimento Termo": termsAtBR,
   });
   if (!sheetResult.success) {
-    console.error("[PostPayment] Google Sheets failed:", sheetResult.error);
+    const detail = sheetResult.error ?? "erro desconhecido";
+    console.error("[PostPayment] Google Sheets failed:", detail);
+    failures.push({ step: "sheets", detail });
+    await logError({
+      scope: "dispatch",
+      message: "Google Sheets append failed",
+      metadata: { detail },
+      entityType: "booking",
+      entityId: bookingId,
+    });
+  }
+
+  if (failures.length > 0) {
+    await sendDispatchAlert({
+      bookingId,
+      patientName: patient.full_name,
+      doctorName: doctor.name,
+      dateBR,
+      timeH: timeFormatted,
+      failures,
+    });
   }
 }
