@@ -6,7 +6,7 @@ import Image from "next/image";
 import { formatDateLong } from "@/lib/utils/datetime";
 import { formatCentsToBRL } from "@/lib/utils/currency";
 import {
-  Clock, Copy, CheckCircle2, Loader2, RefreshCw, AlertTriangle,
+  Clock, Copy, CheckCircle2, Loader2, RefreshCw, AlertTriangle, Mail,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -25,7 +25,16 @@ import { getDoctorById } from "@/app/actions/get-doctors";
 import type { Doctor } from "@/lib/types/doctor";
 import { cn } from "@/lib/utils";
 
-type PaymentState = "loading" | "awaiting" | "approved" | "expired" | "error";
+type PaymentState =
+  | "loading"
+  | "awaiting"
+  | "confirming"
+  | "confirmed"
+  | "confirmed_pending_email"
+  | "verifying_expiry"
+  | "expired"
+  | "expired_unverified"
+  | "error";
 
 interface PixData {
   paymentId: string;
@@ -39,6 +48,11 @@ interface PixData {
 }
 
 const POLL_INTERVAL = 5000;
+// Time we let confirmBooking run (MP re-check, Cal.com, e-mails, WhatsApp,
+// Meta) before giving up on showing the full confirmation inline and
+// falling back to "check your e-mail". Measured in production: a normal
+// run takes single-digit seconds; a slow one (observed) took ~37s.
+const CONFIRM_TIMEOUT_MS = 45000;
 const BASE_PRICE_CENTS = Number(process.env.NEXT_PUBLIC_CONSULTATION_PRICE ?? "4990");
 
 export default function PagamentoPage() {
@@ -53,6 +67,10 @@ export default function PagamentoPage() {
   const pollRef = useRef<NodeJS.Timeout | null>(null);
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
   const fbCookiesRef = useRef<{ fbc?: string; fbp?: string }>({});
+  // Guards handlePaymentApproved against running twice — it can be
+  // triggered either by the regular poll tick or by the last-chance check
+  // at PIX expiry, and must only ever call confirmBooking once.
+  const approvalHandledRef = useRef(false);
 
   useEffect(() => {
     const cookieMap = document.cookie.split(";").reduce<Record<string, string>>((acc, c) => {
@@ -190,18 +208,94 @@ export default function PagamentoPage() {
     initBooking();
   }, [initBooking]);
 
-  // Polling for payment status. Once MP reports "approved", we trigger
-  // confirmPayment (server action) ourselves rather than waiting on the
-  // MP webhook — the webhook stays as a backup, idempotency prevents
+  // Called the moment MP reports "approved" — either from the regular poll
+  // tick or from the last-chance check when the PIX countdown runs out.
+  // Moves the UI off the QR code immediately (state "confirming") and only
+  // then calls confirmBooking (server action) ourselves rather than waiting
+  // on the MP webhook — the webhook stays as a backup, idempotency prevents
   // duplicate processing.
+  //
+  // confirmBooking does a long chain of sequential third-party calls (MP
+  // re-check, Cal.com, patient/doctor/team e-mails, WhatsApp, Meta) before
+  // it resolves, so we race it against CONFIRM_TIMEOUT_MS. Whichever
+  // happens first decides the screen; if confirmBooking is still slow or
+  // fails after we've already shown "confirmed_pending_email", we no longer
+  // touch the screen — we just persist the meet link / fire analytics
+  // silently so the data isn't lost.
+  const handlePaymentApproved = useCallback(() => {
+    if (approvalHandledRef.current || !bookingId || !pixData) return;
+    approvalHandledRef.current = true;
+
+    if (pollRef.current) clearInterval(pollRef.current);
+    if (countdownRef.current) clearInterval(countdownRef.current);
+
+    setState("confirming");
+
+    let finalized = false;
+
+    const fallbackTimer = setTimeout(() => {
+      if (finalized) return;
+      finalized = true;
+      setState("confirmed_pending_email");
+    }, CONFIRM_TIMEOUT_MS);
+
+    console.log("[Pagamento] Payment approved. Calling confirmBooking", { bookingId });
+
+    confirmBooking({
+      bookingId,
+      source: "polling",
+      userFbc: fbCookiesRef.current.fbc,
+      userFbp: fbCookiesRef.current.fbp,
+    })
+      .then((confirm) => {
+        console.log("[Pagamento] confirmBooking result:", JSON.stringify(confirm));
+
+        const currentBooking = loadBookingData();
+        if (currentBooking && confirm.meetLink) {
+          saveBookingData({ ...currentBooking, meetLink: confirm.meetLink });
+        }
+
+        if (!confirm.success) {
+          console.error("[Pagamento] confirmBooking returned failure:", confirm.error);
+          if (finalized) return;
+          finalized = true;
+          clearTimeout(fallbackTimer);
+          setState("confirmed_pending_email");
+          return;
+        }
+
+        if (confirm.trackEvent === "payment_confirmed") {
+          trackEvent({
+            name: "payment_confirmed",
+            value: (confirm.amountCents ?? pixData.amountCents) / 100,
+            booking_id: bookingId,
+            currency: "BRL",
+            coupon: confirm.couponCode ?? undefined,
+          });
+        }
+
+        // Already showing "confirmed_pending_email" — data above is saved,
+        // but don't flip the screen again.
+        if (finalized) return;
+        finalized = true;
+        clearTimeout(fallbackTimer);
+        setState("confirmed");
+        setTimeout(() => router.push("/confirmacao"), 2000);
+      })
+      .catch((err) => {
+        console.error("[Pagamento] confirmBooking threw:", err);
+        if (finalized) return;
+        finalized = true;
+        clearTimeout(fallbackTimer);
+        setState("confirmed_pending_email");
+      });
+  }, [bookingId, pixData, router]);
+
+  // Polling for payment status.
   useEffect(() => {
     if (state !== "awaiting" || !pixData || !bookingId) return;
 
-    let processing = false;
-
     pollRef.current = setInterval(async () => {
-      if (processing) return;
-
       let statusResult;
       try {
         statusResult = await checkPaymentStatus(pixData.mpPaymentId);
@@ -210,57 +304,42 @@ export default function PagamentoPage() {
         return;
       }
       if (statusResult.status !== "approved") return;
-
-      processing = true;
-      if (pollRef.current) clearInterval(pollRef.current);
-      if (countdownRef.current) clearInterval(countdownRef.current);
-
-      console.log("[Polling] Payment approved. Calling confirmBooking", { bookingId });
-
-      let confirm;
-      try {
-        confirm = await confirmBooking({
-          bookingId,
-          source: "polling",
-          userFbc: fbCookiesRef.current.fbc,
-          userFbp: fbCookiesRef.current.fbp,
-        });
-      } catch (err) {
-        console.error("[Polling] confirmBooking threw:", err);
-        toast.error("Erro ao processar pagamento. Entre em contato pelo WhatsApp.");
-        setState("error");
-        return;
-      }
-      console.log("[Polling] confirmBooking result:", JSON.stringify(confirm));
-
-      if (!confirm.success) {
-        toast.error(confirm.error ?? "Erro ao processar pagamento");
-        setState("error");
-        return;
-      }
-
-      const currentBooking = loadBookingData();
-      if (currentBooking && confirm.meetLink) {
-        saveBookingData({ ...currentBooking, meetLink: confirm.meetLink });
-      }
-
-      setState("approved");
-      if (confirm.trackEvent === "payment_confirmed") {
-        trackEvent({
-          name: "payment_confirmed",
-          value: (confirm.amountCents ?? pixData.amountCents) / 100,
-          booking_id: bookingId,
-          currency: "BRL",
-          coupon: confirm.couponCode ?? undefined,
-        });
-      }
-      setTimeout(() => router.push("/confirmacao"), 2000);
+      handlePaymentApproved();
     }, POLL_INTERVAL);
 
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [state, pixData, bookingId, router]);
+  }, [state, pixData, bookingId, handlePaymentApproved]);
+
+  // Last-chance check when the PIX countdown reaches zero: confirms with
+  // Mercado Pago directly whether the payment truly wasn't approved before
+  // ever showing "expired". If MP itself can't be reached, we say so
+  // explicitly instead of guessing.
+  const verifyExpiry = useCallback(async () => {
+    if (!pixData) return;
+    const attempts = 3;
+    for (let i = 0; i < attempts; i++) {
+      try {
+        const result = await checkPaymentStatus(pixData.mpPaymentId);
+        if (result.status === "approved") {
+          handlePaymentApproved();
+          return;
+        }
+        // MP gave us a real, non-error answer: it wasn't paid.
+        setState("expired");
+        return;
+      } catch (err) {
+        console.error("[Pagamento] verifyExpiry checkPaymentStatus threw:", err);
+        if (i < attempts - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+        }
+      }
+    }
+    // Every attempt failed to even reach Mercado Pago — we genuinely don't
+    // know whether it was paid, so we say that instead of "expired".
+    setState("expired_unverified");
+  }, [pixData, handlePaymentApproved]);
 
   // Countdown timer
   useEffect(() => {
@@ -271,10 +350,11 @@ export default function PagamentoPage() {
     countdownRef.current = setInterval(() => {
       const remaining = expiresAt - Date.now();
       if (remaining <= 0) {
-        setState("expired");
         if (countdownRef.current) clearInterval(countdownRef.current);
         if (pollRef.current) clearInterval(pollRef.current);
         setCountdown("00:00");
+        setState("verifying_expiry");
+        verifyExpiry();
         return;
       }
       const mins = Math.floor(remaining / 60000);
@@ -285,7 +365,7 @@ export default function PagamentoPage() {
     return () => {
       if (countdownRef.current) clearInterval(countdownRef.current);
     };
-  }, [state, pixData]);
+  }, [state, pixData, verifyExpiry]);
 
   const copyCode = useCallback(async () => {
     if (!pixData?.qrCode) return;
@@ -421,6 +501,16 @@ export default function PagamentoPage() {
                 </div>
               </div>
 
+              {/* Email notice */}
+              <div className="mt-6 flex items-start gap-3 rounded-2xl bg-brand-sand/40 p-5">
+                <Mail className="mt-0.5 h-5 w-5 shrink-0 text-brand-forest" />
+                <p className="text-lg leading-relaxed text-brand-text-secondary">
+                  Assim que identificarmos seu pagamento, a confirmação da consulta aparece aqui
+                  nesta tela. Também enviaremos os detalhes e o link de acesso pelo Google Meet
+                  para o e-mail cadastrado.
+                </p>
+              </div>
+
               {/* Countdown */}
               <div className="mt-6 flex items-center justify-center gap-2">
                 <Clock className={cn(
@@ -445,10 +535,39 @@ export default function PagamentoPage() {
             </motion.div>
           )}
 
-          {/* Approved */}
-          {state === "approved" && (
+          {/* Confirming: payment approved, confirmBooking still running.
+              No back/retry/regenerate action here on purpose — the payment
+              already went through. */}
+          {state === "confirming" && (
             <motion.div
-              key="approved"
+              key="confirming"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex flex-col items-center gap-4 py-12"
+              data-track="payment_completed"
+            >
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", stiffness: 200, damping: 15 }}
+                className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-success/10"
+              >
+                <CheckCircle2 className="h-8 w-8 text-brand-success" />
+              </motion.div>
+              <h2 className="text-xl font-bold text-brand-forest-dark">
+                Pagamento aprovado!
+              </h2>
+              <p className="flex items-center gap-2 text-lg text-brand-text-secondary">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Estamos preparando sua consulta. Isso leva alguns segundos.
+              </p>
+            </motion.div>
+          )}
+
+          {/* Confirmed: confirmBooking succeeded, redirecting to /confirmacao. */}
+          {state === "confirmed" && (
+            <motion.div
+              key="confirmed"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               className="flex flex-col items-center gap-4 py-12"
@@ -463,11 +582,54 @@ export default function PagamentoPage() {
                 <CheckCircle2 className="h-8 w-8 text-brand-success" />
               </motion.div>
               <h2 className="text-xl font-bold text-brand-forest-dark">
-                Pagamento confirmado!
+                Pagamento aprovado!
               </h2>
               <p className="text-sm text-brand-text-secondary">
                 Redirecionando para a confirmação...
               </p>
+            </motion.div>
+          )}
+
+          {/* Confirmed, but confirmBooking was slow or failed: never shown
+              as an error and never offers to go back or retry — the
+              payment is done. */}
+          {state === "confirmed_pending_email" && (
+            <motion.div
+              key="confirmed_pending_email"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="flex flex-col items-center gap-4 py-12"
+              data-track="payment_completed"
+            >
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", stiffness: 200, damping: 15 }}
+                className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-success/10"
+              >
+                <CheckCircle2 className="h-8 w-8 text-brand-success" />
+              </motion.div>
+              <h2 className="text-xl font-bold text-brand-forest-dark">
+                Pagamento aprovado!
+              </h2>
+              <p className="max-w-md text-center text-lg leading-relaxed text-brand-text-secondary">
+                Sua consulta está sendo confirmada. Os detalhes e o link de acesso pelo Google
+                Meet serão enviados para o seu e-mail em alguns minutos.
+              </p>
+            </motion.div>
+          )}
+
+          {/* Verifying expiry: last-chance check with MP before ever
+              claiming the PIX expired. No QR code, no countdown here. */}
+          {state === "verifying_expiry" && (
+            <motion.div
+              key="verifying_expiry"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex flex-col items-center gap-3 py-12"
+            >
+              <Loader2 className="h-8 w-8 animate-spin text-brand-forest-light" />
+              <p className="text-sm text-brand-text-muted">Verificando seu pagamento...</p>
             </motion.div>
           )}
 
@@ -493,6 +655,44 @@ export default function PagamentoPage() {
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Gerar novo código PIX
               </Button>
+            </motion.div>
+          )}
+
+          {/* Expired, unverified: the countdown ran out but we couldn't
+              reach Mercado Pago to confirm it wasn't paid, so we don't
+              claim it expired. */}
+          {state === "expired_unverified" && (
+            <motion.div
+              key="expired_unverified"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex flex-col items-center gap-4 py-8"
+            >
+              <AlertTriangle className="h-10 w-10 text-brand-warning" />
+              <h2 className="text-lg font-semibold text-brand-forest-dark">
+                Não conseguimos confirmar seu pagamento
+              </h2>
+              <p className="max-w-md text-center text-lg leading-relaxed text-brand-text-secondary">
+                Se você já pagou, aguarde alguns minutos. Assim que identificarmos, enviaremos a
+                confirmação e o link da consulta para o seu e-mail. Se ainda não pagou, gere um
+                novo código.
+              </p>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Button
+                  onClick={() => { setState("verifying_expiry"); verifyExpiry(); }}
+                  className="bg-brand-forest text-brand-cream hover:bg-brand-forest-hover"
+                >
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Verificar novamente
+                </Button>
+                <Button
+                  onClick={() => bookingId && runGeneratePix(bookingId, loadTriageData().couponCode)}
+                  variant="outline"
+                  className="border-brand-forest/20 text-brand-forest"
+                >
+                  Gerar novo código PIX
+                </Button>
+              </div>
             </motion.div>
           )}
 

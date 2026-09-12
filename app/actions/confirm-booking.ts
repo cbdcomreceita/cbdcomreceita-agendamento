@@ -122,6 +122,13 @@ export async function confirmBooking(
     if (payment?.mp_payment_id) {
       const mp = await getMpPayment(payment.mp_payment_id);
       if (mp.status !== "approved") {
+        await logError({
+          scope: "confirm",
+          message: "MP status not approved at confirm time",
+          metadata: { bookingId, mpPaymentId: payment.mp_payment_id, mpStatus: mp.status, source },
+          entityType: "booking",
+          entityId: bookingId,
+        });
         return {
           success: false,
           error: `MP status é ${mp.status}, esperado approved`,
