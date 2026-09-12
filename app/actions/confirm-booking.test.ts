@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getConfirmationMode = vi.fn();
 const checkWhatsappReadiness = vi.fn();
+const getDispatchMode = vi.fn();
 const publishSendConfirmation = vi.fn();
+const orchestrateConfirmation = vi.fn();
 const sendWhatsappAlert = vi.fn();
 const dispatchPostPaymentSideEffects = vi.fn();
 const logError = vi.fn();
@@ -10,9 +12,14 @@ const logError = vi.fn();
 vi.mock("@/lib/whatsapp/config", () => ({
   getConfirmationMode: (...a: unknown[]) => getConfirmationMode(...a),
   checkWhatsappReadiness: (...a: unknown[]) => checkWhatsappReadiness(...a),
+  getDispatchMode: (...a: unknown[]) => getDispatchMode(...a),
+  INLINE_DISPATCH_TIMEOUT_MS: 20000,
 }));
 vi.mock("@/lib/whatsapp/qstash", () => ({
   publishSendConfirmation: (...a: unknown[]) => publishSendConfirmation(...a),
+}));
+vi.mock("@/lib/whatsapp/orchestrate-confirmation", () => ({
+  orchestrateConfirmation: (...a: unknown[]) => orchestrateConfirmation(...a),
 }));
 vi.mock("@/lib/resend/send-whatsapp-alert", () => ({
   sendWhatsappAlert: (...a: unknown[]) => sendWhatsappAlert(...a),
@@ -94,12 +101,15 @@ function baseBookingRow(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
   getConfirmationMode.mockReset();
   checkWhatsappReadiness.mockReset();
+  getDispatchMode.mockReset();
   publishSendConfirmation.mockReset();
+  orchestrateConfirmation.mockReset();
   sendWhatsappAlert.mockReset();
   dispatchPostPaymentSideEffects.mockReset();
   logError.mockReset();
   dispatchPostPaymentSideEffects.mockResolvedValue(undefined);
   getConfirmationMode.mockReturnValue("off");
+  getDispatchMode.mockReturnValue("qstash");
   currentBookingRow = baseBookingRow();
 });
 
@@ -201,5 +211,65 @@ describe("confirmBooking — QStash publish failure", () => {
 
     expect(publishSendConfirmation).toHaveBeenCalledWith("booking-1");
     expect(sendWhatsappAlert).not.toHaveBeenCalled();
+  });
+});
+
+describe("confirmBooking — WhatsApp inline dispatch", () => {
+  it("calls orchestrateConfirmation directly and never touches QStash", async () => {
+    getConfirmationMode.mockReturnValue("all");
+    getDispatchMode.mockReturnValue("inline");
+    checkWhatsappReadiness.mockReturnValue({ ready: true, missing: [] });
+    orchestrateConfirmation.mockResolvedValueOnce(undefined);
+
+    const result = await confirmBooking({ bookingId: "booking-1", source: "webhook" });
+
+    expect(result.success).toBe(true);
+    expect(orchestrateConfirmation).toHaveBeenCalledWith("booking-1");
+    expect(publishSendConfirmation).not.toHaveBeenCalled();
+    expect(sendWhatsappAlert).not.toHaveBeenCalled();
+  });
+
+  it("does not alert when orchestrateConfirmation itself handles a failure internally (it never throws)", async () => {
+    getConfirmationMode.mockReturnValue("all");
+    getDispatchMode.mockReturnValue("inline");
+    checkWhatsappReadiness.mockReturnValue({ ready: true, missing: [] });
+    // orchestrateConfirmation's contract is to never throw, even when the
+    // send itself failed — it alerts internally with its own specific reason.
+    orchestrateConfirmation.mockResolvedValueOnce(undefined);
+
+    await confirmBooking({ bookingId: "booking-1", source: "webhook" });
+
+    expect(sendWhatsappAlert).not.toHaveBeenCalled();
+  });
+
+  it("gives up and alerts (reason: send_failed) if orchestrateConfirmation is still running past the timeout, without failing confirmBooking", async () => {
+    vi.useFakeTimers();
+    try {
+      getConfirmationMode.mockReturnValue("all");
+      getDispatchMode.mockReturnValue("inline");
+      checkWhatsappReadiness.mockReturnValue({ ready: true, missing: [] });
+      // Never resolves within the test — simulates a stuck NexTalk call.
+      orchestrateConfirmation.mockReturnValueOnce(new Promise(() => {}));
+
+      const resultPromise = confirmBooking({ bookingId: "booking-1", source: "webhook" });
+      await vi.advanceTimersByTimeAsync(20000);
+      const result = await resultPromise;
+
+      expect(result.success).toBe(true); // confirmBooking's own return is unaffected
+      expect(logError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          scope: "whatsapp",
+          message: "Inline WhatsApp dispatch exceeded the timeout",
+        })
+      );
+      expect(sendWhatsappAlert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          reason: "send_failed",
+          detail: expect.stringContaining("20s"),
+        })
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
