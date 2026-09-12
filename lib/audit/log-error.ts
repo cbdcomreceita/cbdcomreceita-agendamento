@@ -6,6 +6,7 @@ export type ErrorScope =
   | "calcom"
   | "confirm"
   | "create"
+  | "dispatch"
   | "resend"
   | "sheets"
   | "simulate"

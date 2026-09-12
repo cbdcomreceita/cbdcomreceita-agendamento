@@ -249,11 +249,13 @@ export async function confirmBooking(
     const dateBR = formatDateBR(booking.scheduled_at);
     const timeH = formatTimeH(booking.scheduled_at);
 
-    // Wrapped locally (not inside dispatch.ts, which stays untouched) so a
-    // throw here can't prevent the WhatsApp confirmation below from firing —
-    // that needs to run even if step 8 fails.
+    // dispatchPostPaymentSideEffects handles its own per-step failures
+    // (doctor/team e-mail, sheets) without throwing — this try/catch is
+    // just a last-resort safety net for a truly unexpected error, so it
+    // can't prevent the WhatsApp confirmation below from firing.
     try {
       await dispatchPostPaymentSideEffects({
+        bookingId,
         patient: {
           full_name: patient.full_name,
           email: patient.email,
