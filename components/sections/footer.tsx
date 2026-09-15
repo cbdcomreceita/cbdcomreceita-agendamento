@@ -129,6 +129,11 @@ export function Footer() {
             &copy; {new Date().getFullYear()} CBD com Receita. Todos os direitos
             reservados.
           </p>
+          <p className="mt-1 text-center text-xs text-brand-text-muted">
+            Operado por: CBDCR BRASIL SERVICOS DE INTERMEDIACAO COMERCIAL LTDA
+            - CNPJ: 65.351.973/0001-10 - R DAS ORQUIDEAS, 401, JARDIM POMPEIA,
+            INDAIATUBA - SP
+          </p>
         </div>
       </div>
     </footer>
