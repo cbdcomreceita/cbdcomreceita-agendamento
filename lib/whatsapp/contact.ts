@@ -1,5 +1,6 @@
 import { NEXTALK_INBOX_ID } from "./config";
 import { NextalkApiError, nextalkPostCreate, nextalkPostSearch } from "./nextalk-client";
+import { assertFiniteNumber } from "./nextalk-response";
 import { searchOrder, type PhoneVariants } from "./phone";
 import type {
   NextalkContact,
@@ -21,11 +22,17 @@ async function findByPhone(phone: string): Promise<NextalkContact | null> {
   return res.payload[0] ?? null;
 }
 
+export interface ContactResult {
+  contact: NextalkContact;
+  /** Raw response body from POST /contacts — only set when a new contact was actually created (null when found via search), per the "provider_response only for creations" rule. */
+  createRaw: unknown | null;
+}
+
 async function createContact(
   phone: string,
   name: string,
   email?: string | null
-): Promise<NextalkContact> {
+): Promise<ContactResult> {
   // Deliberately omit inbox_id/source_id here even though the PDF says the
   // create endpoint accepts them — Passo 2 (ensureContactInbox) is the
   // idempotent, safer way to establish the link, per the doc's own note.
@@ -36,7 +43,9 @@ async function createContact(
     additional_attributes: {},
     custom_attributes: { origem: "site-agendamento" },
   });
-  return res.payload.contact;
+  const contact = res.payload.contact;
+  assertFiniteNumber(contact.id, "id", "POST /contacts (criação)", res);
+  return { contact, createRaw: res };
 }
 
 /**
@@ -52,10 +61,10 @@ export async function findOrCreateContact(
   variants: PhoneVariants,
   patientName: string,
   patientEmail?: string | null
-): Promise<NextalkContact> {
+): Promise<ContactResult> {
   for (const phone of searchOrder(variants)) {
     const found = await findByPhone(phone);
-    if (found) return found;
+    if (found) return { contact: found, createRaw: null };
   }
 
   try {
@@ -68,7 +77,7 @@ export async function findOrCreateContact(
     ) {
       for (const phone of searchOrder(variants)) {
         const found = await findByPhone(phone);
-        if (found) return found;
+        if (found) return { contact: found, createRaw: null };
       }
     }
     throw err;

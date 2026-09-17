@@ -103,10 +103,12 @@ export async function orchestrateConfirmation(bookingId: string): Promise<void> 
         return;
       }
       if (!row.nextalk_message_id) {
+        const message =
+          "Linha já existia sem nextalk_message_id confirmado — reenvio bloqueado para evitar duplicidade.";
         await updateNotificationLog(row.id, {
           status: "failed",
-          error_message:
-            "Linha já existia sem nextalk_message_id confirmado — reenvio bloqueado para evitar duplicidade.",
+          error_message: message,
+          external_error: message,
         });
         await alert(
           "send_failed",
@@ -116,7 +118,24 @@ export async function orchestrateConfirmation(bookingId: string): Promise<void> 
         return;
       }
       if (!row.nextalk_kanban_card_id && row.nextalk_conversation_display_id) {
-        await runKanbanStep(row, ctx, Number(row.nextalk_conversation_display_id));
+        const displayId = Number(row.nextalk_conversation_display_id);
+        if (Number.isFinite(displayId)) {
+          await runKanbanStep(row, ctx, displayId);
+        } else {
+          await logError({
+            scope: "whatsapp",
+            message:
+              "orchestrateConfirmation: nextalk_conversation_display_id inválido na retomada — Passo 5 (kanban) não executado",
+            metadata: { bookingId, notificationLogId: row.id, rawValue: row.nextalk_conversation_display_id },
+            entityType: "booking",
+            entityId: bookingId,
+          });
+          await alert(
+            "card_error",
+            ctx,
+            `Retomada bloqueada: nextalk_conversation_display_id inválido ("${row.nextalk_conversation_display_id}") — card não foi criado/movido. Verifique manualmente.`
+          );
+        }
       }
       return;
     }
@@ -125,25 +144,41 @@ export async function orchestrateConfirmation(bookingId: string): Promise<void> 
 
     let contactId: number;
     let conversationDisplayId: number;
+    const providerResponse: Record<string, unknown> = {};
     try {
-      const contact = await findOrCreateContact(variants, ctx.patientFullName, ctx.patientEmail);
+      const { contact, createRaw: contactRaw } = await findOrCreateContact(
+        variants,
+        ctx.patientFullName,
+        ctx.patientEmail
+      );
       contactId = contact.id;
-      await updateNotificationLog(row.id, { nextalk_contact_id: String(contactId) });
+      if (contactRaw !== null) providerResponse.contact_create = contactRaw;
+      await updateNotificationLog(row.id, {
+        nextalk_contact_id: String(contactId),
+        ...(contactRaw !== null ? { provider_response: providerResponse } : {}),
+      });
 
       await ensureContactInbox(contactId);
 
-      conversationDisplayId = await findOrCreateConversation(contactId, {
+      const { displayId, createRaw: conversationRaw } = await findOrCreateConversation(contactId, {
         bookingId,
         dateBR: ctx.dateBR,
         timeH: ctx.timeH,
         doctorName: ctx.doctorName,
         meetLink: ctx.meetLink!,
       });
+      conversationDisplayId = displayId;
+      if (conversationRaw !== null) providerResponse.conversation_create = conversationRaw;
       await updateNotificationLog(row.id, {
         nextalk_conversation_display_id: String(conversationDisplayId),
+        ...(conversationRaw !== null ? { provider_response: providerResponse } : {}),
       });
     } catch (err) {
-      await updateNotificationLog(row.id, { status: "failed", error_message: String(err) });
+      await updateNotificationLog(row.id, {
+        status: "failed",
+        error_message: String(err),
+        external_error: String(err),
+      });
       const reason: WhatsappAlertReason =
         err instanceof NextalkApiError && err.status === 401 ? "auth_error" : "send_failed";
       await alert(reason, ctx, `Falha ao preparar contato/conversa no NexTalk: ${String(err)}`);
@@ -175,7 +210,11 @@ export async function orchestrateConfirmation(bookingId: string): Promise<void> 
         messageSentOk = true;
       }
     } catch (err) {
-      await updateNotificationLog(row.id, { status: "failed", error_message: String(err) });
+      await updateNotificationLog(row.id, {
+        status: "failed",
+        error_message: String(err),
+        external_error: String(err),
+      });
       const reason: WhatsappAlertReason =
         err instanceof NextalkApiError && err.status === 401 ? "auth_error" : "send_failed";
       await alert(reason, ctx, `Falha ao enviar mensagem pelo NexTalk: ${String(err)}`);
