@@ -1,7 +1,28 @@
 import { NEXTALK_INBOX_ID } from "./config";
 import { nextalkGet, nextalkPostCreate } from "./nextalk-client";
-import { assertFiniteNumber, readNumericField, unwrapNextalkObject } from "./nextalk-response";
+import {
+  assertFiniteNumber,
+  readNumericFieldWithFallback,
+  unwrapNextalkObjectAny,
+} from "./nextalk-response";
 import type { NextalkConversationListResponse } from "./types";
+
+/**
+ * Field priority for POST /conversations' create-response id. The PDF
+ * (§6.3) documents both `id` (internal, don't use) and `display_id` (use
+ * this one) — but account 5's real API was confirmed (2026-09-16) to omit
+ * `display_id` entirely and only return `id`, which on THIS endpoint turns
+ * out to already BE the display_id: the `id` a real creation returned
+ * (265) matched exactly the `id` that GET /contacts/{id}/conversations
+ * returned for that same conversation — and the PDF's own §6.1 note says
+ * that list endpoint's `id` IS the display_id. So `display_id` is tried
+ * first (per the PDF, in case another account/inbox does return it), and
+ * `id` is the confirmed real fallback for this account.
+ *
+ * Do NOT "fix" this to require `display_id` only — that breaks conversation
+ * creation on this account entirely.
+ */
+const CONVERSATION_CREATE_ID_FIELDS = ["display_id", "id"];
 
 const REUSABLE_STATUSES = new Set(["open", "pending", "snoozed"]);
 
@@ -29,10 +50,12 @@ export interface ConversationResult {
  * types.ts). On every other endpoint `display_id` is a separate field —
  * this function normalizes both into the display_id we return.
  *
- * The create-response shape is read tolerantly (bare object, or wrapped in
- * `payload`/`data`) via nextalk-response.ts — this account's real API was
- * found not to match the bare-object shape the PDF documents for this
- * endpoint, which is how "undefined" ended up written to
+ * The create-response id is read tolerantly via nextalk-response.ts: both
+ * the object shape (bare, or wrapped in `payload`/`data`) and the field
+ * name itself (`display_id`, falling back to `id` — see
+ * CONVERSATION_CREATE_ID_FIELDS above) are treated as uncertain. This
+ * account's real API doesn't match the PDF's documented bare-`display_id`
+ * shape for this endpoint, which is how "undefined" ended up written to
  * notifications_log.nextalk_conversation_display_id before this fix.
  */
 export async function findOrCreateConversation(
@@ -69,7 +92,7 @@ export async function findOrCreateConversation(
     },
   });
   const context = "POST /conversations (criação)";
-  const obj = unwrapNextalkObject(raw, "display_id", context);
-  const displayId = readNumericField(obj, "display_id", context, raw);
+  const obj = unwrapNextalkObjectAny(raw, CONVERSATION_CREATE_ID_FIELDS, context);
+  const displayId = readNumericFieldWithFallback(obj, CONVERSATION_CREATE_ID_FIELDS, context, raw);
   return { displayId, createRaw: raw };
 }

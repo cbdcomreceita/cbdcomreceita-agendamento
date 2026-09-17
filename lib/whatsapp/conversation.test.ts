@@ -88,15 +88,57 @@ describe("findOrCreateConversation — creation path (the one that was broken)",
     expect(result.displayId).toBe(83);
   });
 
-  it("throws instead of returning undefined/NaN when display_id is missing everywhere — this is the original bug", async () => {
+  it("falls back to `id` when display_id is absent — the confirmed real shape for account 5", async () => {
+    // This is the exact original bug scenario: display_id absent, only
+    // `id` present. It used to throw; now it must succeed via fallback.
     nextalkGet.mockResolvedValue({ payload: [] });
     nextalkPostCreate.mockResolvedValue({ id: 501, inbox_id: 13, contact_id: 8645, status: "pending" });
+
+    const result = await findOrCreateConversation(8645, ctx);
+
+    expect(result.displayId).toBe(501);
+  });
+
+  it("matches the real production payload captured for account 5 (contact 10144, conversation 265 — 2026-09-16)", async () => {
+    nextalkGet.mockResolvedValue({ payload: [] });
+    nextalkPostCreate.mockResolvedValue({
+      id: 265,
+      uuid: "01a70843-7c40-4443-a135-53fdde7fa6d2",
+      inbox_id: 13,
+      contact_id: 10144,
+      status: "pending",
+    });
+
+    const result = await findOrCreateConversation(10144, ctx);
+
+    expect(result.displayId).toBe(265);
+  });
+
+  it("prefers display_id over id when both are present (the PDF's documented shape, for any account that does return it)", async () => {
+    nextalkGet.mockResolvedValue({ payload: [] });
+    nextalkPostCreate.mockResolvedValue({ id: 501, display_id: 83, inbox_id: 13, contact_id: 8645, status: "pending" });
+
+    const result = await findOrCreateConversation(8645, ctx);
+
+    expect(result.displayId).toBe(83);
+  });
+
+  it("throws instead of returning undefined/NaN when neither display_id nor id is present anywhere", async () => {
+    nextalkGet.mockResolvedValue({ payload: [] });
+    nextalkPostCreate.mockResolvedValue({ inbox_id: 13, contact_id: 8645, status: "pending" });
 
     await expect(findOrCreateConversation(8645, ctx)).rejects.toThrow(NextalkResponseShapeError);
   });
 
-  it("throws (does not fall through to `payload`) when display_id is present but non-numeric at the bare level", async () => {
-    nextalkPostCreate.mockResolvedValue({ display_id: "83", payload: { display_id: 83 } });
+  it("includes the numeric fields actually present in the error, for fast diagnosis", async () => {
+    nextalkGet.mockResolvedValue({ payload: [] });
+    nextalkPostCreate.mockResolvedValue({ inbox_id: 13, contact_id: 8645 });
+
+    await expect(findOrCreateConversation(8645, ctx)).rejects.toThrow(/inbox_id=13/);
+  });
+
+  it("throws (does not fall through to `id` or `payload`) when display_id is present but non-numeric at the bare level", async () => {
+    nextalkPostCreate.mockResolvedValue({ display_id: "83", id: 501, payload: { display_id: 83 } });
     nextalkGet.mockResolvedValue({ payload: [] });
 
     await expect(findOrCreateConversation(8645, ctx)).rejects.toThrow(NextalkResponseShapeError);
