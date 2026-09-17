@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { NextalkResponseShapeError, assertFiniteNumber, readNumericField, unwrapNextalkObject } from "./nextalk-response";
+import {
+  NextalkResponseShapeError,
+  assertFiniteNumber,
+  readNumericField,
+  readNumericFieldWithFallback,
+  unwrapNextalkObject,
+  unwrapNextalkObjectAny,
+} from "./nextalk-response";
 
 describe("unwrapNextalkObject", () => {
   it("finds the field on the bare object", () => {
@@ -42,6 +49,68 @@ describe("unwrapNextalkObject", () => {
     expect(() => unwrapNextalkObject(null, "id", "ctx")).toThrow(NextalkResponseShapeError);
     expect(() => unwrapNextalkObject(undefined, "id", "ctx")).toThrow(NextalkResponseShapeError);
     expect(() => unwrapNextalkObject("oops", "id", "ctx")).toThrow(NextalkResponseShapeError);
+  });
+
+  it("lists the numeric fields actually present when the probe field isn't found — this is the point of the improvement", () => {
+    const raw = { id: 265, uuid: "01a70843-7c40-4443-a135-53fdde7fa6d2", inbox_id: 13, contact_id: 10144 };
+    try {
+      unwrapNextalkObject(raw, "display_id", "POST /conversations (criação)");
+      throw new Error("expected to throw");
+    } catch (err) {
+      expect(String(err)).toContain("id=265");
+      expect(String(err)).toContain("inbox_id=13");
+      expect(String(err)).toContain("contact_id=10144");
+      expect(String(err)).not.toContain("uuid="); // non-numeric fields aren't listed
+    }
+  });
+});
+
+describe("unwrapNextalkObjectAny", () => {
+  it("commits to the bare object when any of the probe fields is present there", () => {
+    const raw = { id: 265, inbox_id: 13 };
+    expect(unwrapNextalkObjectAny(raw, ["display_id", "id"], "ctx")).toBe(raw);
+  });
+
+  it("falls back to `payload`/`data` exactly like the single-field version", () => {
+    const raw = { payload: { id: 265 } };
+    expect(unwrapNextalkObjectAny(raw, ["display_id", "id"], "ctx")).toBe(raw.payload);
+  });
+
+  it("throws, listing numeric fields present, when none of the probe fields exist anywhere", () => {
+    const raw = { inbox_id: 13, contact_id: 10144 };
+    try {
+      unwrapNextalkObjectAny(raw, ["display_id", "id"], "POST /conversations (criação)");
+      throw new Error("expected to throw");
+    } catch (err) {
+      expect(err).toBeInstanceOf(NextalkResponseShapeError);
+      expect(String(err)).toContain("display_id");
+      expect(String(err)).toContain("inbox_id=13");
+    }
+  });
+});
+
+describe("readNumericFieldWithFallback", () => {
+  it("returns the first field (in priority order) that's present and valid", () => {
+    expect(readNumericFieldWithFallback({ id: 265 }, ["display_id", "id"], "ctx", {})).toBe(265);
+  });
+
+  it("prefers the earlier field when both are present and valid", () => {
+    expect(readNumericFieldWithFallback({ id: 501, display_id: 83 }, ["display_id", "id"], "ctx", {})).toBe(83);
+  });
+
+  it("throws — does not try the next field — when the first present field has the wrong type", () => {
+    expect(() =>
+      readNumericFieldWithFallback({ display_id: "83", id: 501 }, ["display_id", "id"], "ctx", {})
+    ).toThrow(NextalkResponseShapeError);
+  });
+
+  it("throws, listing numeric fields present, when none of the fields exist", () => {
+    try {
+      readNumericFieldWithFallback({ inbox_id: 13 }, ["display_id", "id"], "POST /conversations", { inbox_id: 13 });
+      throw new Error("expected to throw");
+    } catch (err) {
+      expect(String(err)).toContain("inbox_id=13");
+    }
   });
 });
 
