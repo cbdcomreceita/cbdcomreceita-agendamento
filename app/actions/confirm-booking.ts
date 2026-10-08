@@ -300,6 +300,7 @@ export async function confirmBooking(
           amount_cents: amountCents,
           status: "approved",
           paid_at: paidAt,
+          coupon_code: payment?.coupon_code ?? null,
         },
       });
     } catch (err) {

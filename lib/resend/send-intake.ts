@@ -107,6 +107,7 @@ export interface TeamIntakeParams {
   paymentAmount: string;
   paymentStatus: string;
   paymentDate: string;
+  couponCode?: string | null;
   // Subject helpers
   subjectDate: string; // dd/MM
 }
@@ -155,6 +156,7 @@ export async function sendTeamIntake(
         paymentAmount: params.paymentAmount,
         paymentStatus: params.paymentStatus,
         paymentDate: params.paymentDate,
+        couponCode: params.couponCode,
       }),
     });
 

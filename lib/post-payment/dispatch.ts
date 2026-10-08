@@ -62,6 +62,7 @@ export interface PostPaymentInput {
     amount_cents: number;
     status: string;
     paid_at: string;        // ISO
+    coupon_code?: string | null;
   };
 }
 
@@ -189,6 +190,7 @@ export async function dispatchPostPaymentSideEffects(
     paymentAmount: amountFormatted,
     paymentStatus: statusLabel,
     paymentDate: paidAtBR,
+    couponCode: payment.coupon_code,
     subjectDate: dateBRShort,
   });
   if (!teamIntakeResult.success) {
@@ -234,6 +236,7 @@ export async function dispatchPostPaymentSideEffects(
     "Link Meet": meetLink ?? "Pendente",
     "Consentimento LGPD": lgpdAtBR,
     "Consentimento Termo": termsAtBR,
+    Cupom: payment.coupon_code ?? "",
   });
   if (!sheetResult.success) {
     const detail = sheetResult.error ?? "erro desconhecido";

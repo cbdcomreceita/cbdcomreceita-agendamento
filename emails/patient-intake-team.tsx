@@ -38,6 +38,7 @@ export interface PatientIntakeTeamProps {
   paymentAmount: string;
   paymentStatus: string;
   paymentDate: string;
+  couponCode?: string | null;
 }
 
 export function PatientIntakeTeamEmail(props: PatientIntakeTeamProps) {
@@ -130,6 +131,7 @@ export function PatientIntakeTeamEmail(props: PatientIntakeTeamProps) {
               <Row label="Valor" value={props.paymentAmount} />
               <Row label="Status" value={props.paymentStatus} />
               <Row label="Data" value={props.paymentDate} />
+              {props.couponCode && <Row label="Cupom" value={props.couponCode} />}
             </Section>
 
             <Hr style={hrStyle} />
