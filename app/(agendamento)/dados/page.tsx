@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { formatDateBR, formatDateLong } from "@/lib/utils/datetime";
-import { Loader2, ArrowRight, Clock, Leaf, Ticket } from "lucide-react";
+import { Loader2, ArrowRight, Clock, Leaf, Ticket, CheckCircle2, XCircle } from "lucide-react";
 import { trackEvent } from "@/lib/analytics/track";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +21,8 @@ import { patientSchema, UF_OPTIONS, type PatientFormData } from "@/lib/validatio
 import { fetchCep } from "@/lib/utils/viacep";
 import { maskCpf, maskPhone, maskCep } from "@/lib/utils/masks";
 import { getDoctorById } from "@/app/actions/get-doctors";
-import { isCouponAvailable } from "@/app/actions/coupon";
+import { isCouponAvailable, validateCouponAction, type CouponCheckResult } from "@/app/actions/coupon";
+import { formatCentsToBRL } from "@/lib/utils/currency";
 import type { Doctor } from "@/lib/types/doctor";
 import { sintomas } from "@/data/sintomas";
 import { cn } from "@/lib/utils";
@@ -82,10 +83,48 @@ export default function DadosPage() {
   const [birthDateEditing, setBirthDateEditing] = useState(false);
   const [birthDateDisplay, setBirthDateDisplay] = useState("");
   const [couponAvailable, setCouponAvailable] = useState(false);
-  const [couponExpanded, setCouponExpanded] = useState(false);
-  const [couponCode, setCouponCode] = useState("");
+  const [couponInput, setCouponInput] = useState("");
+  const [couponChecking, setCouponChecking] = useState(false);
+  const [couponResult, setCouponResult] = useState<CouponCheckResult | null>(null);
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  // Applies (or re-validates) a coupon code against the server. Always
+  // the single source of truth for whether a code is valid — the value
+  // only gets persisted to triage storage once this confirms it.
+  const applyCoupon = useCallback(async (raw: string) => {
+    const normalized = raw.trim().toUpperCase();
+    if (!normalized) return;
+
+    setCouponChecking(true);
+    try {
+      const result = await validateCouponAction(normalized);
+      setCouponResult(result);
+      setCouponInput(result.code ?? normalized);
+      // Rate-limited responses carry no verdict — leave any previously
+      // applied coupon untouched rather than wiping it out.
+      if (!result.rateLimited) {
+        saveTriageData({ couponCode: result.valid ? result.code : undefined });
+      }
+    } catch (err) {
+      console.error("[Dados] validateCouponAction threw:", err);
+      setCouponResult({
+        valid: false,
+        discountPercent: 0,
+        amountCents: 0,
+        basePriceCents: 0,
+        message: "Não foi possível verificar o cupom agora. Tente novamente.",
+      });
+    } finally {
+      setCouponChecking(false);
+    }
+  }, []);
+
+  const removeCoupon = useCallback(() => {
+    setCouponInput("");
+    setCouponResult(null);
+    saveTriageData({ couponCode: undefined });
+  }, []);
 
   const {
     register,
@@ -133,8 +172,8 @@ export default function DadosPage() {
     if (triage.duration) setDuration(triage.duration);
     if (triage.priorCbdUse) setPriorCbdUse(triage.priorCbdUse);
     if (triage.couponCode) {
-      setCouponCode(triage.couponCode);
-      setCouponExpanded(true);
+      setCouponInput(triage.couponCode);
+      applyCoupon(triage.couponCode);
     }
     isCouponAvailable().then(setCouponAvailable);
 
@@ -156,7 +195,7 @@ export default function DadosPage() {
     }
 
     setLoaded(true);
-  }, [router, setValue]);
+  }, [router, setValue, applyCoupon]);
 
   // CEP auto-fill
   const cepValue = watch("cep");
@@ -527,32 +566,77 @@ export default function DadosPage() {
           </div>
         </div>
 
-        {/* Coupon (discreet, collapsed by default — no field at all if not configured) */}
+        {/* Coupon: always visible when configured, with instant server-side validation */}
         {couponAvailable && (
-          <div>
-            {!couponExpanded ? (
-              <button
-                type="button"
-                onClick={() => setCouponExpanded(true)}
-                className="flex items-center gap-1.5 text-sm font-medium text-brand-forest underline underline-offset-2 hover:text-brand-forest-dark"
-              >
-                <Ticket className="h-3.5 w-3.5" />
-                Tenho um cupom de desconto
-              </button>
-            ) : (
-              <div className="max-w-xs">
-                <Label htmlFor="couponCode">Cupom de desconto</Label>
-                <input
-                  id="couponCode"
-                  value={couponCode}
-                  onChange={(e) => {
-                    setCouponCode(e.target.value);
-                    saveTriageData({ couponCode: e.target.value });
-                  }}
-                  placeholder="Código do cupom"
-                  className={cn(inputClass(), "uppercase placeholder:normal-case")}
-                />
+          <div className="rounded-2xl border-2 border-brand-forest/30 bg-brand-forest/5 p-5">
+            <div className="mb-3 flex items-center gap-2">
+              <Ticket className="h-5 w-5 shrink-0 text-brand-forest" />
+              <h3 className="text-lg font-semibold text-brand-forest-dark">
+                Tem um cupom de desconto?
+              </h3>
+            </div>
+
+            {couponResult?.valid ? (
+              <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-brand-success/30 bg-brand-success/10 p-4">
+                <div>
+                  <p className="flex items-center gap-1.5 text-lg font-semibold text-brand-success">
+                    <CheckCircle2 className="h-5 w-5 shrink-0" />
+                    Cupom aplicado! Você ganhou {couponResult.discountPercent}% de desconto.
+                  </p>
+                  <p className="mt-1.5 text-lg">
+                    <span className="text-brand-text-muted line-through">
+                      {formatCentsToBRL(couponResult.basePriceCents)}
+                    </span>{" "}
+                    <span className="font-bold text-brand-forest-dark">
+                      {formatCentsToBRL(couponResult.amountCents)}
+                    </span>
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={removeCoupon}
+                  className="shrink-0 border-brand-forest/30 text-lg text-brand-forest"
+                >
+                  Remover
+                </Button>
               </div>
+            ) : (
+              <>
+                <label htmlFor="couponCode" className="sr-only">Código do cupom</label>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <input
+                    id="couponCode"
+                    value={couponInput}
+                    onChange={(e) => setCouponInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        applyCoupon(couponInput);
+                      }
+                    }}
+                    placeholder="Código do cupom"
+                    disabled={couponChecking}
+                    className={cn(inputClass(), "flex-1 text-lg uppercase placeholder:text-base placeholder:normal-case")}
+                  />
+                  <Button
+                    type="button"
+                    onClick={() => applyCoupon(couponInput)}
+                    disabled={couponChecking || !couponInput.trim()}
+                    className="shrink-0 bg-brand-forest py-6 text-lg text-brand-cream hover:bg-brand-forest-hover sm:py-3"
+                  >
+                    {couponChecking ? <Loader2 className="h-5 w-5 animate-spin" /> : "Aplicar"}
+                  </Button>
+                </div>
+                {couponResult && !couponResult.valid && (
+                  <p className="mt-3 flex items-center gap-1.5 text-lg font-medium text-brand-error">
+                    <XCircle className="h-5 w-5 shrink-0" />
+                    {couponResult.rateLimited
+                      ? `Muitas tentativas. Tente novamente em ${Math.max(1, Math.ceil((couponResult.retryAfter ?? 600) / 60))} minuto(s).`
+                      : couponResult.message}
+                  </p>
+                )}
+              </>
             )}
           </div>
         )}

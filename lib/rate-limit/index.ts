@@ -59,6 +59,18 @@ export const rateLimiters = {
     prefix: "rl:webhook-mp",
   }),
 
+  // Instant coupon validation on /dados, before any booking/PIX exists.
+  // Separate bucket from createBooking/generatePix (those carry a real
+  // cost — DB write, Mercado Pago call) so this one can be looser without
+  // eating their budget, while still capping brute-force code guessing.
+  // 10 attempts / 10 min / IP.
+  validateCoupon: new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(10, "10 m"),
+    analytics: true,
+    prefix: "rl:validate-coupon",
+  }),
+
   // Read-only, now cached (90s TTL in lib/calcom/availability.ts) so a
   // burst of hits mostly serves from Redis, not Cal.com. Raised from
   // 15/min for the paid-traffic campaign: mobile carriers NAT many real
