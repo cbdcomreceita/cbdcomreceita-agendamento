@@ -52,6 +52,8 @@ export function StepSchedule({
   // period's days sorted domingo -> sábado.
   const byPeriod = new Map<Period, ScheduleSlot[]>();
   for (const opt of options) {
+    // Sábado (weekday 6) não é oferecido no momento.
+    if (opt.weekday === 6) continue;
     if (!byPeriod.has(opt.period)) byPeriod.set(opt.period, []);
     byPeriod.get(opt.period)!.push(opt);
   }
