@@ -12,6 +12,7 @@ export interface MpPixPaymentRequest {
   };
   description: string;
   external_reference: string;
+  date_of_expiration: string;
 }
 
 export interface MpPixPaymentResponse {

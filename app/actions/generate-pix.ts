@@ -11,8 +11,18 @@ import {
   maskIp,
 } from "@/lib/rate-limit";
 import { validateCoupon, computeAmountCents, couponErrorMessage } from "@/lib/coupon/validate";
+import { toMpExpirationIso } from "@/lib/utils/datetime";
 
 const BASE_PRICE_CENTS = Number(process.env.NEXT_PUBLIC_CONSULTATION_PRICE ?? "4990");
+
+/** Baseline (2026-11): 100% of real payments confirm within ~4 minutes of
+ * PIX creation (see scripts/funnel-snapshot.ts) — 120 is generous headroom,
+ * not a guess. Kept as an env var instead of a constant so it can be
+ * retuned without a deploy if that distribution shifts. */
+export function getPixExpirationMinutes(): number {
+  const raw = Number(process.env.PIX_EXPIRATION_MINUTES);
+  return Number.isFinite(raw) && raw > 0 ? raw : 120;
+}
 
 export interface GeneratePixInput {
   bookingId: string;
@@ -126,11 +136,12 @@ export async function generatePix(input: GeneratePixInput): Promise<GeneratePixR
       return { success: false, error: "Este pagamento já foi confirmado" };
     }
 
+    const expirationMinutes = getPixExpirationMinutes();
     let mpPaymentId: number | null = null;
     let qrCode = "";
     let qrCodeBase64 = "";
     let ticketUrl = "";
-    let expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    let expiresAt = new Date(Date.now() + expirationMinutes * 60 * 1000).toISOString();
     let isMock = true;
 
     if (isMpConfigured()) {
@@ -150,6 +161,9 @@ export async function generatePix(input: GeneratePixInput): Promise<GeneratePixR
           },
           description: `Consulta CBD com Receita - ${doctor.name}`,
           external_reference: bookingId,
+          date_of_expiration: toMpExpirationIso(
+            new Date(Date.now() + expirationMinutes * 60 * 1000)
+          ),
         });
         mpPaymentId = mpResp.id;
         qrCode = mpResp.point_of_interaction.transaction_data.qr_code;
