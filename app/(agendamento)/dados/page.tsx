@@ -17,7 +17,14 @@ import { loadTriageData, saveTriageData } from "@/lib/triagem/storage";
 import type { TriageData } from "@/lib/triagem/schemas";
 import { loadBookingData } from "@/lib/calcom/storage";
 import { savePatientData, loadPatientData } from "@/lib/validation/patient-storage";
-import { patientSchema, patientPhoneE164, UF_OPTIONS, type PatientFormData } from "@/lib/validation/patient";
+import {
+  patientSchemaFull,
+  patientSchemaLight,
+  patientPhoneE164,
+  UF_OPTIONS,
+  type PatientFormData,
+} from "@/lib/validation/patient";
+import { isLightFormEnabled } from "@/app/actions/feature-flags";
 import { COUNTRY_OPTIONS, DEFAULT_COUNTRY } from "@/lib/validation/phone";
 import { fetchCep } from "@/lib/utils/viacep";
 import { maskCpf, maskPhone, maskCep } from "@/lib/utils/masks";
@@ -83,6 +90,7 @@ export default function DadosPage() {
   const [submitting, setSubmitting] = useState(false);
   const [birthDateEditing, setBirthDateEditing] = useState(false);
   const [birthDateDisplay, setBirthDateDisplay] = useState("");
+  const [lightFormEnabled, setLightFormEnabled] = useState(false);
   const [couponAvailable, setCouponAvailable] = useState(false);
   const [couponInput, setCouponInput] = useState("");
   const [couponChecking, setCouponChecking] = useState(false);
@@ -179,6 +187,7 @@ export default function DadosPage() {
       applyCoupon(triage.couponCode);
     }
     isCouponAvailable().then(setCouponAvailable);
+    isLightFormEnabled().then(setLightFormEnabled);
 
     // Pre-fill birth date from triage
     if (triage.birthDate) {
@@ -225,7 +234,8 @@ export default function DadosPage() {
   async function onSubmit(data: PatientFormData) {
     setFieldErrors({});
 
-    const result = patientSchema.safeParse(data);
+    const activeSchema = lightFormEnabled ? patientSchemaLight : patientSchemaFull;
+    const result = activeSchema.safeParse(data);
     const errs: Record<string, string> = {};
     if (!result.success) {
       for (const issue of result.error.issues) {
@@ -264,8 +274,25 @@ export default function DadosPage() {
       <FlowBreadcrumb currentStep="dados" />
 
       <h1 className="text-2xl font-bold tracking-tight text-brand-forest-dark sm:text-3xl">
-        Seus dados
+        {lightFormEnabled ? "Vamos seguir com o agendamento" : "Seus dados"}
       </h1>
+      {lightFormEnabled && (
+        <>
+          <p className="mt-2 text-lg text-brand-text-secondary">
+            Precisamos de algumas informações para você receber os dados da sua consulta online.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5">
+            <span className="flex items-center gap-1.5 text-sm text-brand-text-muted">
+              <CheckCircle2 className="h-4 w-4 text-brand-forest" />
+              Médicos com CRM
+            </span>
+            <span className="flex items-center gap-1.5 text-sm text-brand-text-muted">
+              <CheckCircle2 className="h-4 w-4 text-brand-forest" />
+              Seus dados estão protegidos
+            </span>
+          </div>
+        </>
+      )}
 
       {/* Booking summary */}
       <div className="mt-4 space-y-3">
@@ -334,7 +361,7 @@ export default function DadosPage() {
                 <FieldError message={errors.phone?.message} />
               </div>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className={cn("grid gap-4", !lightFormEnabled && "sm:grid-cols-2")}>
               <div>
                 <Label htmlFor="cpf" required>CPF</Label>
                 <input
@@ -347,107 +374,120 @@ export default function DadosPage() {
                   className={inputClass(!!errors.cpf)}
                 />
                 <FieldError message={errors.cpf?.message} />
-              </div>
-              <div>
-                <Label htmlFor="rg" required>RG</Label>
-                <input id="rg" {...register("rg")} placeholder="Número do RG" className={inputClass(!!errors.rg)} />
-                <FieldError message={errors.rg?.message} />
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="birthDate" required>Data de nascimento</Label>
-              {birthDateDisplay && !birthDateEditing ? (
-                <div className="flex items-center gap-3">
-                  <span className="rounded-xl border-2 border-brand-sand/60 bg-brand-sand/20 px-4 py-3 text-sm font-medium text-brand-text">
-                    {birthDateDisplay}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setBirthDateEditing(true)}
-                    className="text-xs font-medium text-brand-forest underline underline-offset-2 hover:text-brand-forest-dark"
-                  >
-                    Alterar
-                  </button>
-                  <input type="hidden" {...register("birthDate")} />
-                </div>
-              ) : (
-                <input
-                  id="birthDate"
-                  type="date"
-                  {...register("birthDate")}
-                  className={cn(inputClass(!!errors.birthDate), "max-w-xs")}
-                />
-              )}
-              <FieldError message={errors.birthDate?.message} />
-            </div>
-          </div>
-        </div>
-
-        <div className="h-px bg-brand-sand/40" />
-
-        {/* Section 2: Address */}
-        <div>
-          <SectionTitle>Endereço</SectionTitle>
-          <div className="space-y-4">
-            <div className="max-w-xs">
-              <Label htmlFor="cep" required>CEP</Label>
-              <div className="relative">
-                <input
-                  id="cep"
-                  inputMode="numeric"
-                  {...register("cep", {
-                    onChange: (e) => { e.target.value = maskCep(e.target.value); },
-                    onBlur: handleCepBlur,
-                  })}
-                  placeholder="00000-000"
-                  className={inputClass(!!errors.cep)}
-                />
-                {cepLoading && (
-                  <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-brand-forest-light" />
+                {lightFormEnabled && (
+                  <p className="mt-1.5 text-xs text-brand-text-muted">
+                    Precisamos do seu CPF para gerar o seu agendamento.
+                  </p>
                 )}
               </div>
-              <FieldError message={errors.cep?.message} />
+              {!lightFormEnabled && (
+                <div>
+                  <Label htmlFor="rg" required>RG</Label>
+                  <input id="rg" {...register("rg")} placeholder="Número do RG" className={inputClass(!!errors.rg)} />
+                  <FieldError message={errors.rg?.message} />
+                </div>
+              )}
             </div>
-            <div>
-              <Label htmlFor="street" required>Rua</Label>
-              <input id="street" {...register("street")} placeholder="Rua, avenida..." className={inputClass(!!errors.street)} />
-              <FieldError message={errors.street?.message} />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-3">
+            {!lightFormEnabled && (
               <div>
-                <Label htmlFor="number" required>Número</Label>
-                <input id="number" {...register("number")} placeholder="Nº" className={inputClass(!!errors.number)} />
-                <FieldError message={errors.number?.message} />
+                <Label htmlFor="birthDate" required>Data de nascimento</Label>
+                {birthDateDisplay && !birthDateEditing ? (
+                  <div className="flex items-center gap-3">
+                    <span className="rounded-xl border-2 border-brand-sand/60 bg-brand-sand/20 px-4 py-3 text-sm font-medium text-brand-text">
+                      {birthDateDisplay}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setBirthDateEditing(true)}
+                      className="text-xs font-medium text-brand-forest underline underline-offset-2 hover:text-brand-forest-dark"
+                    >
+                      Alterar
+                    </button>
+                    <input type="hidden" {...register("birthDate")} />
+                  </div>
+                ) : (
+                  <input
+                    id="birthDate"
+                    type="date"
+                    {...register("birthDate")}
+                    className={cn(inputClass(!!errors.birthDate), "max-w-xs")}
+                  />
+                )}
+                <FieldError message={errors.birthDate?.message} />
               </div>
-              <div className="sm:col-span-2">
-                <Label htmlFor="complement">Complemento</Label>
-                <input id="complement" {...register("complement")} placeholder="Apto, sala..." className={inputClass()} />
-              </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div>
-                <Label htmlFor="district" required>Bairro</Label>
-                <input id="district" {...register("district")} placeholder="Bairro" className={inputClass(!!errors.district)} />
-                <FieldError message={errors.district?.message} />
-              </div>
-              <div>
-                <Label htmlFor="city" required>Cidade</Label>
-                <input id="city" {...register("city")} placeholder="Cidade" className={inputClass(!!errors.city)} />
-                <FieldError message={errors.city?.message} />
-              </div>
-              <div>
-                <Label htmlFor="state" required>Estado</Label>
-                <select id="state" {...register("state")} className={inputClass(!!errors.state)}>
-                  <option value="">UF</option>
-                  {UF_OPTIONS.map((uf) => (
-                    <option key={uf} value={uf}>{uf}</option>
-                  ))}
-                </select>
-                <FieldError message={errors.state?.message} />
-              </div>
-            </div>
+            )}
           </div>
         </div>
+
+        {!lightFormEnabled && (
+          <>
+            <div className="h-px bg-brand-sand/40" />
+
+            {/* Section 2: Address — moves to the prontuário (Entrega 2) under LIGHT_FORM_ENABLED */}
+            <div>
+              <SectionTitle>Endereço</SectionTitle>
+              <div className="space-y-4">
+                <div className="max-w-xs">
+                  <Label htmlFor="cep" required>CEP</Label>
+                  <div className="relative">
+                    <input
+                      id="cep"
+                      inputMode="numeric"
+                      {...register("cep", {
+                        onChange: (e) => { e.target.value = maskCep(e.target.value); },
+                        onBlur: handleCepBlur,
+                      })}
+                      placeholder="00000-000"
+                      className={inputClass(!!errors.cep)}
+                    />
+                    {cepLoading && (
+                      <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-brand-forest-light" />
+                    )}
+                  </div>
+                  <FieldError message={errors.cep?.message} />
+                </div>
+                <div>
+                  <Label htmlFor="street" required>Rua</Label>
+                  <input id="street" {...register("street")} placeholder="Rua, avenida..." className={inputClass(!!errors.street)} />
+                  <FieldError message={errors.street?.message} />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div>
+                    <Label htmlFor="number" required>Número</Label>
+                    <input id="number" {...register("number")} placeholder="Nº" className={inputClass(!!errors.number)} />
+                    <FieldError message={errors.number?.message} />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label htmlFor="complement">Complemento</Label>
+                    <input id="complement" {...register("complement")} placeholder="Apto, sala..." className={inputClass()} />
+                  </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div>
+                    <Label htmlFor="district" required>Bairro</Label>
+                    <input id="district" {...register("district")} placeholder="Bairro" className={inputClass(!!errors.district)} />
+                    <FieldError message={errors.district?.message} />
+                  </div>
+                  <div>
+                    <Label htmlFor="city" required>Cidade</Label>
+                    <input id="city" {...register("city")} placeholder="Cidade" className={inputClass(!!errors.city)} />
+                    <FieldError message={errors.city?.message} />
+                  </div>
+                  <div>
+                    <Label htmlFor="state" required>Estado</Label>
+                    <select id="state" {...register("state")} className={inputClass(!!errors.state)}>
+                      <option value="">UF</option>
+                      {UF_OPTIONS.map((uf) => (
+                        <option key={uf} value={uf}>{uf}</option>
+                      ))}
+                    </select>
+                    <FieldError message={errors.state?.message} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
 
         <div className="h-px bg-brand-sand/40" />
 
