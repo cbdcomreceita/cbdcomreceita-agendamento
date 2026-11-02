@@ -1,6 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
+import { randomBytes } from "node:crypto";
 import { createServiceClient } from "@/lib/supabase/server";
 import { createMpPayment, isMpConfigured } from "@/lib/mercadopago/client";
 import { logError } from "@/lib/audit/log-error";
@@ -120,7 +121,7 @@ export async function generatePix(input: GeneratePixInput): Promise<GeneratePixR
 
     const { data: existingPayment } = await supabase
       .from("payments")
-      .select("id, status")
+      .select("id, status, payment_token")
       .eq("booking_id", bookingId)
       .maybeSingle();
 
@@ -178,6 +179,13 @@ export async function generatePix(input: GeneratePixInput): Promise<GeneratePixR
         "00020126580014br.gov.bcb.pix0136mock-pix-key-cbd-com-receita-dev5204000053039865802BR5925CBD COM RECEITA6009SAO PAULO62070503***6304MOCK";
     }
 
+    // Stable across regenerations of the SAME payment row (update branch
+    // below) — a /pagamento/[token] link sent earlier keeps working and
+    // shows the freshly-regenerated QR code, never a stale one, because
+    // it's the same row being updated in place. Only a brand-new payment
+    // row (insert branch) gets a brand-new token.
+    const paymentToken = existingPayment?.payment_token ?? randomBytes(24).toString("base64url");
+
     const paymentPayload = {
       booking_id: bookingId,
       amount_cents: amountCents,
@@ -190,6 +198,7 @@ export async function generatePix(input: GeneratePixInput): Promise<GeneratePixR
       mp_ticket_url: ticketUrl,
       external_reference: bookingId,
       expires_at: expiresAt,
+      payment_token: paymentToken,
     };
 
     let dbPayment;
