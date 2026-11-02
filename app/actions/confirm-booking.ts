@@ -15,6 +15,7 @@ import {
   INLINE_DISPATCH_TIMEOUT_MS,
 } from "@/lib/whatsapp/config";
 import { sendWhatsappAlert } from "@/lib/resend/send-whatsapp-alert";
+import { sendPaymentAfterExpiryAlert } from "@/lib/resend/send-payment-after-expiry-alert";
 import { sendMetaConversionEvent } from "@/lib/analytics/meta-conversions-api";
 import type { Doctor } from "@/lib/types/doctor";
 import { formatDateLong, formatDateBR, formatTimeH } from "@/lib/utils/datetime";
@@ -189,6 +190,63 @@ export async function confirmBooking(
         entityId: bookingId,
       });
       return { success: false, error: "Paciente não encontrado" };
+    }
+
+    // 3b. Late approval after expiry: the funnel cron (app/api/cron/funnel)
+    // may have already marked this booking `expired` before Mercado Pago's
+    // webhook got around to reporting it approved. If some OTHER booking
+    // already holds a `confirmed` slot for the same doctor+scheduled_at in
+    // the meantime, blindly continuing here would double-book the doctor
+    // (step 6 below creates a brand-new Cal.com event unconditionally).
+    // Our own bookings table is the source of truth for which slots we've
+    // actually committed to Cal.com — checking Cal.com's live availability
+    // instead would be both less reliable (its slots list doesn't reflect
+    // bookings we haven't created yet) and racier.
+    //
+    // The payment is real regardless of the outcome below, so it is always
+    // recorded as approved. Only the automated confirmation (Cal.com event,
+    // patient email, WhatsApp) is withheld when there's a conflict — a
+    // human resolves it via the TEAM_EMAIL alert.
+    if (booking.status === "expired") {
+      const { data: conflicting } = await supabase
+        .from("bookings")
+        .select("id")
+        .eq("doctor_id", booking.doctor_id)
+        .eq("scheduled_at", booking.scheduled_at)
+        .eq("status", "confirmed")
+        .neq("id", bookingId)
+        .maybeSingle();
+
+      if (conflicting) {
+        if (payment) {
+          await supabase
+            .from("payments")
+            .update({ status: "approved", paid_at: new Date().toISOString() })
+            .eq("id", payment.id);
+        }
+        await supabase.from("audit_events").insert({
+          event_type: "payment_after_expiry",
+          entity_type: "booking",
+          entity_id: bookingId,
+          metadata: { source, conflictingBookingId: conflicting.id, paymentId: payment?.id ?? null },
+        });
+        await sendPaymentAfterExpiryAlert({
+          bookingId,
+          conflictingBookingId: conflicting.id,
+          paymentId: payment?.id ?? null,
+          patientName: patient.full_name,
+          patientEmail: patient.email,
+          patientPhone: patient.phone,
+          doctorName: doctor.name,
+          dateBR: formatDateBR(booking.scheduled_at),
+          timeH: formatTimeH(booking.scheduled_at),
+          amountFormatted: formatCentsToBRL(payment?.amount_cents ?? 4990),
+        });
+        return { success: false, error: "payment_after_expiry_slot_taken" };
+      }
+      // No conflict — the slot is still effectively free. Fall through to
+      // the normal confirm flow below exactly as if booking.status were
+      // still awaiting_payment.
     }
 
     // 5. Mark booking confirmed and payment approved

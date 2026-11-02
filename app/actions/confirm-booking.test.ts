@@ -36,12 +36,18 @@ vi.mock("@/lib/mercadopago/client", () => ({ getMpPayment: vi.fn() }));
 vi.mock("@/lib/analytics/meta-conversions-api", () => ({
   sendMetaConversionEvent: vi.fn().mockResolvedValue(undefined),
 }));
+const sendPaymentAfterExpiryAlert = vi.fn();
+vi.mock("@/lib/resend/send-payment-after-expiry-alert", () => ({
+  sendPaymentAfterExpiryAlert: (...a: unknown[]) => sendPaymentAfterExpiryAlert(...a),
+}));
 
-function makeSupabaseMock(bookingRow: unknown) {
+function makeSupabaseMock(bookingRow: unknown, conflictingBooking: { id: string } | null) {
   const chain = {
     select: vi.fn(() => chain),
     eq: vi.fn(() => chain),
+    neq: vi.fn(() => chain),
     single: vi.fn(async () => ({ data: bookingRow, error: null })),
+    maybeSingle: vi.fn(async () => ({ data: conflictingBooking, error: null })),
     update: vi.fn(() => chain),
     insert: vi.fn(async () => ({ data: null, error: null })),
   };
@@ -49,9 +55,10 @@ function makeSupabaseMock(bookingRow: unknown) {
 }
 
 let currentBookingRow: Record<string, unknown>;
+let currentConflictingBooking: { id: string } | null = null;
 
 vi.mock("@/lib/supabase/server", () => ({
-  createServiceClient: () => makeSupabaseMock(currentBookingRow),
+  createServiceClient: () => makeSupabaseMock(currentBookingRow, currentConflictingBooking),
 }));
 
 const { confirmBooking } = await import("./confirm-booking");
@@ -107,10 +114,45 @@ beforeEach(() => {
   sendWhatsappAlert.mockReset();
   dispatchPostPaymentSideEffects.mockReset();
   logError.mockReset();
+  sendPaymentAfterExpiryAlert.mockReset();
   dispatchPostPaymentSideEffects.mockResolvedValue(undefined);
   getConfirmationMode.mockReturnValue("off");
   getDispatchMode.mockReturnValue("qstash");
   currentBookingRow = baseBookingRow();
+  currentConflictingBooking = null;
+});
+
+describe("confirmBooking — late approval after the funnel cron marked the booking expired", () => {
+  it("confirms normally when no other booking has already taken the slot", async () => {
+    currentBookingRow = baseBookingRow({ status: "expired" });
+    currentConflictingBooking = null;
+
+    const result = await confirmBooking({ bookingId: "booking-1", source: "webhook" });
+
+    expect(result.success).toBe(true);
+    expect(sendPaymentAfterExpiryAlert).not.toHaveBeenCalled();
+  });
+
+  it("refuses to auto-confirm, records the payment as approved, and alerts the team when the slot was already taken", async () => {
+    currentBookingRow = baseBookingRow({ status: "expired" });
+    currentConflictingBooking = { id: "booking-2" };
+
+    const result = await confirmBooking({ bookingId: "booking-1", source: "webhook" });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("payment_after_expiry_slot_taken");
+    expect(sendPaymentAfterExpiryAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bookingId: "booking-1",
+        conflictingBookingId: "booking-2",
+        patientName: "Maria Silva",
+        doctorName: "Dra. Ana Costa",
+      })
+    );
+    // dispatchPostPaymentSideEffects (Cal.com, e-mails, Sheets) must never
+    // run for the conflicting path — the appointment was never confirmed.
+    expect(dispatchPostPaymentSideEffects).not.toHaveBeenCalled();
+  });
 });
 
 describe("confirmBooking — dispatchPostPaymentSideEffects failure isolation", () => {
