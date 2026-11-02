@@ -1,6 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/server";
-import { NEXTALK_TEMPLATE_NAME } from "./config";
-import type { WhatsappNotificationRow } from "./types";
+import type { WhatsappNotificationRow, WhatsappNotificationType } from "./types";
 
 const UNIQUE_VIOLATION = "23505";
 
@@ -8,6 +7,9 @@ export interface ReserveInput {
   bookingId: string;
   patientId: string | null;
   recipient: string;
+  /** DB enum value — "booking_confirmation" (confirmacao_consulta) or "payment_pending" (pix_pendente). */
+  type: WhatsappNotificationType;
+  templateName: string;
   payload: Record<string, unknown>;
 }
 
@@ -18,11 +20,16 @@ export interface ReserveResult {
 }
 
 /**
- * Reserves this booking's WhatsApp-confirmation slot via a plain insert,
- * relying on the partial unique index on (booking_id, type) WHERE
- * channel='whatsapp' (migration 0011) to reject a second row. Deliberately
- * NOT using supabase-js `.upsert({onConflict})` — that requires a full
- * unique/exclusion constraint and doesn't support partial indexes.
+ * Reserves this booking's WhatsApp slot (one per booking_id + type) via a
+ * plain insert, relying on the partial unique index on (booking_id, type)
+ * WHERE channel='whatsapp' (migration 0011) to reject a second row.
+ * Deliberately NOT using supabase-js `.upsert({onConflict})` — that
+ * requires a full unique/exclusion constraint and doesn't support partial
+ * indexes.
+ *
+ * This only guards a single booking_id. A caller that must also dedupe
+ * across booking_id (e.g. the PIX reminder, scoped to patient+scheduled_at
+ * per product decision) needs its own pre-check before calling this.
  */
 export async function reserveNotification(input: ReserveInput): Promise<ReserveResult> {
   const supabase = createServiceClient();
@@ -33,10 +40,10 @@ export async function reserveNotification(input: ReserveInput): Promise<ReserveR
       booking_id: input.bookingId,
       patient_id: input.patientId,
       channel: "whatsapp",
-      type: "booking_confirmation",
+      type: input.type,
       status: "queued",
       recipient: input.recipient,
-      template_name: NEXTALK_TEMPLATE_NAME,
+      template_name: input.templateName,
       payload: input.payload,
     })
     .select()
@@ -55,7 +62,7 @@ export async function reserveNotification(input: ReserveInput): Promise<ReserveR
     .select()
     .eq("booking_id", input.bookingId)
     .eq("channel", "whatsapp")
-    .eq("type", "booking_confirmation")
+    .eq("type", input.type)
     .single();
 
   if (selectError || !existing) {
