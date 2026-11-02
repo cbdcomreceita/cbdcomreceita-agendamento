@@ -172,39 +172,79 @@ export async function createBooking(
       return { success: false, error: "invalid_doctor_session" };
     }
 
-    // 3. Insert booking (status='awaiting_payment')
-    const { data: dbBooking, error: bookingError } = await supabase
-      .from("bookings")
-      .insert({
-        patient_id: dbPatient.id,
-        doctor_id: doctor.id,
-        status: "awaiting_payment",
-        scheduled_at: booking.scheduledAt,
-        scheduled_end_at: booking.scheduledEndAt,
-        triage_data: {
-          symptoms: triage.selectedSymptoms,
-          duration: triage.duration,
-          priorTreatment: triage.priorTreatment,
-          priorTreatmentDetails: triage.priorTreatmentDetails,
-          priorCbdUse: triage.priorCbdUse,
-          isMinor: triage.isMinor,
-          isElderly: triage.isElderly,
-        },
-      })
-      .select()
-      .single();
+    const triageDataPayload = {
+      symptoms: triage.selectedSymptoms,
+      duration: triage.duration,
+      priorTreatment: triage.priorTreatment,
+      priorTreatmentDetails: triage.priorTreatmentDetails,
+      priorCbdUse: triage.priorCbdUse,
+      isMinor: triage.isMinor,
+      isElderly: triage.isElderly,
+    };
 
-    if (bookingError) {
-      await logError({
-        scope: "create",
-        message: "Booking insert failed",
-        metadata: { error: bookingError, patientId: dbPatient.id, doctorId: doctor.id },
-        entityType: "booking",
-      });
-      return {
-        success: false,
-        error: `Erro ao criar agendamento: ${bookingError.message}`,
-      };
+    // 3. Reuse an existing awaiting_payment booking for the same
+    // patient+doctor+slot if one already exists (idx_bookings_dedupe) —
+    // otherwise every /pagamento refresh inserted a brand-new orphaned
+    // booking row. Refreshes triage_data so a change made before the
+    // retry (e.g. a different symptom selection) isn't lost.
+    const { data: existingBooking } = await supabase
+      .from("bookings")
+      .select("id")
+      .eq("patient_id", dbPatient.id)
+      .eq("doctor_id", doctor.id)
+      .eq("scheduled_at", booking.scheduledAt)
+      .eq("status", "awaiting_payment")
+      .maybeSingle();
+
+    let dbBooking;
+    if (existingBooking) {
+      const { data, error } = await supabase
+        .from("bookings")
+        .update({
+          scheduled_end_at: booking.scheduledEndAt,
+          triage_data: triageDataPayload,
+        })
+        .eq("id", existingBooking.id)
+        .select()
+        .single();
+      if (error) {
+        await logError({
+          scope: "create",
+          message: "Booking reuse (update) failed",
+          metadata: { error, bookingId: existingBooking.id },
+          entityType: "booking",
+          entityId: existingBooking.id,
+        });
+        return { success: false, error: `Erro ao retomar agendamento: ${error.message}` };
+      }
+      dbBooking = data;
+    } else {
+      const { data, error } = await supabase
+        .from("bookings")
+        .insert({
+          patient_id: dbPatient.id,
+          doctor_id: doctor.id,
+          status: "awaiting_payment",
+          scheduled_at: booking.scheduledAt,
+          scheduled_end_at: booking.scheduledEndAt,
+          triage_data: triageDataPayload,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        await logError({
+          scope: "create",
+          message: "Booking insert failed",
+          metadata: { error, patientId: dbPatient.id, doctorId: doctor.id },
+          entityType: "booking",
+        });
+        return {
+          success: false,
+          error: `Erro ao criar agendamento: ${error.message}`,
+        };
+      }
+      dbBooking = data;
     }
 
     await supabase.from("audit_events").insert({
