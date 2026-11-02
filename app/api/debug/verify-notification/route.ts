@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { verifyDelivery } from "@/lib/whatsapp/verify-delivery";
+import { nextalkGet } from "@/lib/whatsapp/nextalk-client";
 
 /**
  * TEMPORARY — investigating a non-delivered pix_pendente reminder.
@@ -24,5 +25,9 @@ export async function GET(req: NextRequest) {
 
   const { data: after } = await supabase.from("notifications_log").select("*").eq("id", id).maybeSingle();
 
-  return NextResponse.json({ before, after });
+  const raw = after?.nextalk_conversation_display_id
+    ? await nextalkGet<unknown>(`/conversations/${after.nextalk_conversation_display_id}/messages`)
+    : null;
+
+  return NextResponse.json({ before, after, raw });
 }
