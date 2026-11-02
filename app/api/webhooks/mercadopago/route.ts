@@ -162,14 +162,18 @@ export async function POST(req: NextRequest) {
     }
 
     if (mpPayment.status === "rejected" || mpPayment.status === "cancelled") {
-      const status = mpPayment.status === "rejected" ? "rejected" : "expired";
+      // "cancelled" is MP's own PIX expiration (24h untouched) — distinct
+      // from "rejected" (the bank actively refused it). The booking status
+      // mirrors that distinction: expired (inaction) vs cancelled (refusal).
+      const isExpiration = mpPayment.status === "cancelled";
+      const status = isExpiration ? "expired" : "rejected";
       await supabase
         .from("payments")
         .update({ status, raw_webhook_data: body })
         .eq("id", payment.id);
       await supabase
         .from("bookings")
-        .update({ status: "cancelled" })
+        .update({ status: isExpiration ? "expired" : "cancelled" })
         .eq("id", payment.booking_id);
     }
 
