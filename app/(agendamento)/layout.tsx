@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { WhatsAppButton } from "@/components/brand/whatsapp-button";
 
 export default function AgendamentoLayout({
   children,
@@ -24,6 +25,7 @@ export default function AgendamentoLayout({
         </div>
       </header>
       <main className="flex flex-1 flex-col">{children}</main>
+      <WhatsAppButton />
     </div>
   );
 }
