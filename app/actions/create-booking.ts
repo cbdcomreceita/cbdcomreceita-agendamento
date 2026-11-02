@@ -78,8 +78,13 @@ export async function createBooking(
 
   try {
     const cpfClean = patient.cpf.replace(/\D/g, "");
-    const phoneClean = patient.phone.replace(/\D/g, "");
-    const cepClean = patient.cep.replace(/\D/g, "");
+    // patient.phone arrives already in E.164 (converted client-side via
+    // patientPhoneE164 right after Zod validation) — must NOT run through
+    // a digit-stripping replace here, or the leading "+" is lost and
+    // normalizePhoneToVariants can no longer tell it apart from the legacy
+    // digits-only shape.
+    const phoneClean = patient.phone;
+    const cepClean = patient.cep ? patient.cep.replace(/\D/g, "") : null;
     const birthDate = patient.birthDate?.slice(0, 10) || null;
 
     const patientPayload = {
@@ -87,15 +92,16 @@ export async function createBooking(
       email: patient.email,
       phone: phoneClean,
       cpf: cpfClean,
-      rg: patient.rg,
+      rg: patient.rg || null,
       birth_date: birthDate,
-      address_street: patient.street,
-      address_number: patient.number,
+      address_street: patient.street || null,
+      address_number: patient.number || null,
       address_complement: patient.complement || null,
-      address_district: patient.district,
-      address_city: patient.city,
-      address_state: patient.state,
+      address_district: patient.district || null,
+      address_city: patient.city || null,
+      address_state: patient.state || null,
       address_zipcode: cepClean,
+      whatsapp_consent: patient.whatsappConsent === true,
       selected_symptoms: triage.selectedSymptoms || [],
       has_current_medication: patient.hasCurrentMedication || false,
       current_medications: patient.currentMedications || null,

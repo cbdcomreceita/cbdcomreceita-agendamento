@@ -12,17 +12,9 @@ import {
 } from "@/lib/rate-limit";
 import { validateCoupon, computeAmountCents, couponErrorMessage } from "@/lib/coupon/validate";
 import { toMpExpirationIso } from "@/lib/utils/datetime";
+import { getPixExpirationMinutes } from "@/lib/pix/config";
 
 const BASE_PRICE_CENTS = Number(process.env.NEXT_PUBLIC_CONSULTATION_PRICE ?? "4990");
-
-/** Baseline (2026-11): 100% of real payments confirm within ~4 minutes of
- * PIX creation (see scripts/funnel-snapshot.ts) — 120 is generous headroom,
- * not a guess. Kept as an env var instead of a constant so it can be
- * retuned without a deploy if that distribution shifts. */
-export function getPixExpirationMinutes(): number {
-  const raw = Number(process.env.PIX_EXPIRATION_MINUTES);
-  return Number.isFinite(raw) && raw > 0 ? raw : 120;
-}
 
 export interface GeneratePixInput {
   bookingId: string;

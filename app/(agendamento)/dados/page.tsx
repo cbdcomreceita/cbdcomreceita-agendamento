@@ -17,7 +17,8 @@ import { loadTriageData, saveTriageData } from "@/lib/triagem/storage";
 import type { TriageData } from "@/lib/triagem/schemas";
 import { loadBookingData } from "@/lib/calcom/storage";
 import { savePatientData, loadPatientData } from "@/lib/validation/patient-storage";
-import { patientSchema, UF_OPTIONS, type PatientFormData } from "@/lib/validation/patient";
+import { patientSchema, patientPhoneE164, UF_OPTIONS, type PatientFormData } from "@/lib/validation/patient";
+import { COUNTRY_OPTIONS, DEFAULT_COUNTRY } from "@/lib/validation/phone";
 import { fetchCep } from "@/lib/utils/viacep";
 import { maskCpf, maskPhone, maskCep } from "@/lib/utils/masks";
 import { getDoctorById } from "@/app/actions/get-doctors";
@@ -135,9 +136,11 @@ export default function DadosPage() {
     formState: { errors: rhfErrors },
   } = useForm<PatientFormData>({
     defaultValues: {
+      phoneCountry: DEFAULT_COUNTRY,
       hasCurrentMedication: false,
       lgpdConsent: false as unknown as true,
       termsConsent: false as unknown as true,
+      whatsappConsent: false as unknown as true,
     },
   });
 
@@ -188,7 +191,7 @@ export default function DadosPage() {
     // Load saved patient data if any
     const saved = loadPatientData();
     if (saved) {
-      const fields = ["fullName", "email", "phone", "cpf", "rg", "cep", "street", "number", "complement", "district", "city", "state"] as const;
+      const fields = ["fullName", "email", "phoneCountry", "phone", "cpf", "rg", "cep", "street", "number", "complement", "district", "city", "state"] as const;
       for (const f of fields) {
         if (saved[f]) setValue(f, saved[f] as string);
       }
@@ -216,6 +219,8 @@ export default function DadosPage() {
   const hasMed = watch("hasCurrentMedication");
   const lgpdChecked = watch("lgpdConsent");
   const termsChecked = watch("termsConsent");
+  const whatsappConsentChecked = watch("whatsappConsent");
+  const phoneCountry = watch("phoneCountry") || DEFAULT_COUNTRY;
 
   async function onSubmit(data: PatientFormData) {
     setFieldErrors({});
@@ -243,7 +248,9 @@ export default function DadosPage() {
 
     setSubmitting(true);
     trackEvent({ name: "form_submitted", doctor: doctor?.name ?? "" });
-    savePatientData(result.data);
+    // Store the phone already in E.164 — everything downstream (NexTalk,
+    // confirm-booking, dispatch) expects that shape for new patients.
+    savePatientData({ ...result.data, phone: patientPhoneE164(result.data) });
     saveTriageData({ duration, priorCbdUse });
     router.push("/pagamento");
   }
@@ -294,17 +301,36 @@ export default function DadosPage() {
                 <FieldError message={errors.email?.message} />
               </div>
               <div>
-                <Label htmlFor="phone" required>Telefone / WhatsApp</Label>
-                <input
-                  id="phone"
-                  type="tel"
-                  inputMode="numeric"
-                  {...register("phone", {
-                    onChange: (e) => { e.target.value = maskPhone(e.target.value); },
-                  })}
-                  placeholder="(84) 99999-9999"
-                  className={inputClass(!!errors.phone)}
-                />
+                <Label htmlFor="phone" required>Celular com WhatsApp</Label>
+                <div className="flex gap-2">
+                  <select
+                    id="phoneCountry"
+                    {...register("phoneCountry", {
+                      onChange: () => setValue("phone", ""),
+                    })}
+                    className={cn(inputClass(), "w-[6.5rem] shrink-0 px-2")}
+                  >
+                    {COUNTRY_OPTIONS.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        +{c.callingCode} {c.code}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    id="phone"
+                    type="tel"
+                    inputMode="numeric"
+                    {...register("phone", {
+                      onChange: (e) => {
+                        if (phoneCountry === DEFAULT_COUNTRY) {
+                          e.target.value = maskPhone(e.target.value);
+                        }
+                      },
+                    })}
+                    placeholder={phoneCountry === DEFAULT_COUNTRY ? "(84) 99999-9999" : "Número"}
+                    className={cn(inputClass(!!errors.phone), "flex-1")}
+                  />
+                </div>
                 <FieldError message={errors.phone?.message} />
               </div>
             </div>
@@ -563,6 +589,23 @@ export default function DadosPage() {
               </div>
             </div>
             <FieldError message={errors.lgpdConsent?.message} />
+
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="whatsappConsent"
+                checked={whatsappConsentChecked}
+                onCheckedChange={(checked) => {
+                  setValue("whatsappConsent", checked === true ? true : false as unknown as true);
+                  if (checked) setValue("whatsappConsentAt", new Date().toISOString());
+                }}
+                className="mt-0.5"
+              />
+              <label htmlFor="whatsappConsent" className="text-sm text-brand-text">
+                Aceito receber mensagens no WhatsApp sobre o meu agendamento e a minha consulta.{" "}
+                <span className="text-brand-error/60">*</span>
+              </label>
+            </div>
+            <FieldError message={errors.whatsappConsent?.message} />
           </div>
         </div>
 
@@ -644,7 +687,7 @@ export default function DadosPage() {
         {/* Submit */}
         <Button
           type="submit"
-          disabled={submitting || !lgpdChecked || !termsChecked}
+          disabled={submitting || !lgpdChecked || !termsChecked || !whatsappConsentChecked}
           className="w-full bg-brand-forest text-brand-cream hover:bg-brand-forest-hover font-semibold py-6 text-base shadow-lg shadow-brand-forest/20 transition-all duration-500 disabled:opacity-50"
           data-track="form_completed"
         >
