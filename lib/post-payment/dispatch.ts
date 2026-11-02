@@ -27,17 +27,21 @@ export interface PostPaymentInput {
   patient: {
     full_name: string;
     email: string;
-    phone: string;        // digits only (raw)
-    cpf: string;          // digits only (raw)
-    rg: string;
-    birth_date: string;   // YYYY-MM-DD
-    address_street: string;
-    address_number: string;
+    phone: string;        // E.164 for new patients, digits only (raw) for pre-Entrega-1 ones
+    cpf: string;          // digits only (raw) — always required, never pending
+    // The six fields below are null when LIGHT_FORM_ENABLED was on at
+    // booking time — the patient hasn't filled the prontuário yet
+    // (Entrega 2). Every consumer below must show "Pendente" instead of
+    // crashing on an empty/invalid value.
+    rg: string | null;
+    birth_date: string | null; // YYYY-MM-DD
+    address_street: string | null;
+    address_number: string | null;
     address_complement?: string | null;
-    address_district: string;
-    address_city: string;
-    address_state: string;
-    address_zipcode: string; // digits only (raw)
+    address_district: string | null;
+    address_city: string | null;
+    address_state: string | null;
+    address_zipcode: string | null; // digits only (raw)
     selected_symptoms: string[];
     has_current_medication: boolean;
     current_medications?: string | null;
@@ -77,10 +81,11 @@ export async function dispatchPostPaymentSideEffects(
   const dateBRShort = formatDateBRShort(booking.scheduled_at);
 
   // Birth date is a date-only string (YYYY-MM-DD) — append T12:00:00 to
-  // anchor it at noon so timezone shifts can't cross day boundaries.
-  const birthAnchored = `${patient.birth_date}T12:00:00`;
-  const birthBR = formatDateBR(birthAnchored);
-  const age = calculateAge(parseISO(birthAnchored));
+  // anchor it at noon so timezone shifts can't cross day boundaries. Null
+  // under LIGHT_FORM_ENABLED (not collected yet — pending the prontuário).
+  const birthAnchored = patient.birth_date ? `${patient.birth_date}T12:00:00` : null;
+  const birthBR = birthAnchored ? formatDateBR(birthAnchored) : "Pendente";
+  const age = birthAnchored ? calculateAge(parseISO(birthAnchored)) : null;
 
   const symptomsLabels = getSymptomLabels(patient.selected_symptoms);
   const symptomsJoined = symptomsLabels.join(", ") || "—";
@@ -98,7 +103,13 @@ export async function dispatchPostPaymentSideEffects(
 
   const cpfFmt = maskCpf(patient.cpf);
   const phoneFmt = maskPhone(patient.phone);
-  const cepFmt = maskCep(patient.address_zipcode);
+  const cepFmt = patient.address_zipcode ? maskCep(patient.address_zipcode) : "Pendente";
+  const rgFmt = patient.rg || "Pendente";
+  const addressStreetFmt = patient.address_street || "Pendente";
+  const addressNumberFmt = patient.address_number || "Pendente";
+  const addressDistrictFmt = patient.address_district || "Pendente";
+  const addressCityFmt = patient.address_city || "Pendente";
+  const addressStateFmt = patient.address_state || "Pendente";
 
   const crmFull = `CRM ${doctor.crm}/${doctor.crmUf}`;
   const meetLink = booking.meet_link ?? undefined;
@@ -119,13 +130,10 @@ export async function dispatchPostPaymentSideEffects(
   const amountFormatted = formatCentsToBRL(payment.amount_cents);
   const statusLabel = payment.status === "approved" ? "Aprovado" : payment.status;
 
-  const addressLine = [
-    patient.address_street,
-    patient.address_number,
-    patient.address_complement,
-  ]
-    .filter(Boolean)
-    .join(", ");
+  const addressLine =
+    [patient.address_street, patient.address_number, patient.address_complement]
+      .filter(Boolean)
+      .join(", ") || "Pendente";
 
   const failures: DispatchFailure[] = [];
 
@@ -168,17 +176,17 @@ export async function dispatchPostPaymentSideEffects(
     meetLink,
     patientName: patient.full_name,
     patientCpf: cpfFmt,
-    patientRg: patient.rg,
+    patientRg: rgFmt,
     patientBirthDate: birthBR,
     patientAge: age,
     patientEmail: patient.email,
     patientPhone: phoneFmt,
-    addressStreet: patient.address_street,
-    addressNumber: patient.address_number,
+    addressStreet: addressStreetFmt,
+    addressNumber: addressNumberFmt,
     addressComplement: patient.address_complement ?? undefined,
-    addressDistrict: patient.address_district,
-    addressCity: patient.address_city,
-    addressState: patient.address_state,
+    addressDistrict: addressDistrictFmt,
+    addressCity: addressCityFmt,
+    addressState: addressStateFmt,
     addressZipcode: cepFmt,
     symptoms: symptomsJoined,
     duration: durationLabel,
@@ -215,13 +223,13 @@ export async function dispatchPostPaymentSideEffects(
     CRM: crmFull,
     Paciente: patient.full_name,
     CPF: cpfFmt,
-    RG: patient.rg,
+    RG: rgFmt,
     "Data Nascimento": birthBR,
     Email: patient.email,
     Telefone: phoneFmt,
     Endereco: addressLine,
-    Cidade: patient.address_city,
-    Estado: patient.address_state,
+    Cidade: addressCityFmt,
+    Estado: addressStateFmt,
     CEP: cepFmt,
     Sintomas: symptomsJoined,
     "Ha quanto tempo": durationLabel,

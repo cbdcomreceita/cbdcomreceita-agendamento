@@ -12,7 +12,7 @@ export interface DoctorIntakeParams {
   doctorEmail: string;
   patientName: string;
   patientCpf: string;
-  patientAge: number;
+  patientAge: number | null;
   patientPhone: string;
   symptoms: string;
   currentMedications: string;
@@ -83,7 +83,7 @@ export interface TeamIntakeParams {
   patientCpf: string;
   patientRg: string;
   patientBirthDate: string;
-  patientAge: number;
+  patientAge: number | null;
   patientEmail: string;
   patientPhone: string;
   // Endereço

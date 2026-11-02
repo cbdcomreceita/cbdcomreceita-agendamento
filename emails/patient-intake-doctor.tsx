@@ -6,7 +6,7 @@ export interface PatientIntakeDoctorProps {
   doctorName: string;
   patientName: string;
   patientCpf: string;
-  patientAge: number;
+  patientAge: number | null;
   patientPhone: string;
   symptoms: string;
   currentMedications: string;
@@ -38,7 +38,7 @@ export function PatientIntakeDoctorEmail(props: PatientIntakeDoctorProps) {
             <Section style={cardStyle}>
               <Row label="Nome" value={props.patientName} />
               <Row label="CPF" value={props.patientCpf} />
-              <Row label="Idade" value={`${props.patientAge} anos`} />
+              <Row label="Idade" value={props.patientAge !== null ? `${props.patientAge} anos` : "Pendente"} />
               <Row label="Sintomas" value={props.symptoms} />
               <Row label="Medicamentos em uso" value={props.currentMedications} />
               <Row label="Histórico CBD" value={props.priorCbdUse} />

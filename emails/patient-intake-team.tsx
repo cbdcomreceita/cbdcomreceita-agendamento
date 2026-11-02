@@ -14,7 +14,7 @@ export interface PatientIntakeTeamProps {
   patientCpf: string;
   patientRg: string;
   patientBirthDate: string;
-  patientAge: number;
+  patientAge: number | null;
   patientEmail: string;
   patientPhone: string;
   // Endereço
@@ -90,7 +90,7 @@ export function PatientIntakeTeamEmail(props: PatientIntakeTeamProps) {
               <Row label="CPF" value={props.patientCpf} />
               <Row label="RG" value={props.patientRg} />
               <Row label="Data de nascimento" value={props.patientBirthDate} />
-              <Row label="Idade" value={`${props.patientAge} anos`} />
+              <Row label="Idade" value={props.patientAge !== null ? `${props.patientAge} anos` : "Pendente"} />
               <Row label="E-mail" value={props.patientEmail} />
               <Row label="Telefone" value={props.patientPhone} />
             </Section>

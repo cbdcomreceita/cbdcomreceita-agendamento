@@ -161,15 +161,17 @@ export async function confirmBooking(
       email: string;
       phone: string;
       cpf: string;
-      rg: string;
-      birth_date: string;
-      address_street: string;
-      address_number: string;
+      // Null when the patient came through the LIGHT_FORM_ENABLED version
+      // of /dados — collected later in the prontuário (Entrega 2).
+      rg: string | null;
+      birth_date: string | null;
+      address_street: string | null;
+      address_number: string | null;
       address_complement: string | null;
-      address_district: string;
-      address_city: string;
-      address_state: string;
-      address_zipcode: string;
+      address_district: string | null;
+      address_city: string | null;
+      address_state: string | null;
+      address_zipcode: string | null;
       selected_symptoms: string[] | null;
       has_current_medication: boolean | null;
       current_medications: string | null;
