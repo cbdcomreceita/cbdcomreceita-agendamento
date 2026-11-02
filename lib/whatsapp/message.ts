@@ -2,6 +2,8 @@ import { nextalkPostCreate } from "./nextalk-client";
 import { readNumericField, unwrapNextalkObject } from "./nextalk-response";
 import type { TemplateInput } from "./template";
 import { buildContent, buildTemplateParams } from "./template";
+import type { PixReminderTemplateInput } from "./pix-reminder-template";
+import { buildPixReminderContent, buildPixReminderTemplateParams } from "./pix-reminder-template";
 
 export interface SendMessageResult {
   id: number;
@@ -30,6 +32,25 @@ export async function sendConfirmationMessage(
     template_params: buildTemplateParams(input),
   });
   const context = "POST /conversations/{id}/messages";
+  const obj = unwrapNextalkObject(raw, "id", context);
+  const id = readNumericField(obj, "id", context, raw);
+  const status = typeof obj.status === "string" ? obj.status : "sent";
+  const external_error = typeof obj.external_error === "string" ? obj.external_error : null;
+  return { id, status, external_error };
+}
+
+/** Same shape as sendConfirmationMessage, for the pix_pendente template instead. */
+export async function sendPixReminderMessage(
+  conversationDisplayId: number,
+  input: PixReminderTemplateInput
+): Promise<SendMessageResult> {
+  const raw = await nextalkPostCreate<unknown>(`/conversations/${conversationDisplayId}/messages`, {
+    content: buildPixReminderContent(input),
+    message_type: "outgoing",
+    private: false,
+    template_params: buildPixReminderTemplateParams(input),
+  });
+  const context = "POST /conversations/{id}/messages (pix_pendente)";
   const obj = unwrapNextalkObject(raw, "id", context);
   const id = readNumericField(obj, "id", context, raw);
   const status = typeof obj.status === "string" ? obj.status : "sent";

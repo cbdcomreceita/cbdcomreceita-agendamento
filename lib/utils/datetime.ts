@@ -59,3 +59,8 @@ export function formatDateTimeBR(iso: string | Date): string {
 export function toMpExpirationIso(date: Date): string {
   return formatInTimeZone(date, TIMEZONE, "yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
 }
+
+/** "02/11, segunda-feira" — pix_pendente WhatsApp template's {{3}}. */
+export function formatDateDDMMWeekday(iso: string | Date): string {
+  return formatInTimeZone(iso, TIMEZONE, "dd/MM, EEEE", { locale: ptBR });
+}
