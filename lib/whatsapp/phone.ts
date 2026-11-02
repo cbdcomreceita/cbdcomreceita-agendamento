@@ -1,16 +1,26 @@
 /**
- * Brazilian phone normalization for NexTalk (E.164, no mask).
+ * Phone normalization for NexTalk (E.164, no mask).
  *
- * `patients.phone` is stored as digits-only (see lib/validation/patient.ts:
- * `phone.replace(/\D/g, "")`, min 10 / max 11), never with `+55` or a mask.
+ * Two input shapes exist in `patients.phone`, and both must keep working:
  *
- * - 11 digits: DDD + 9 + 8-digit subscriber (modern format, has the 9th digit).
- * - 10 digits, subscriber starts with 6/7/8/9: legacy mobile, missing the 9th
- *   digit. Search BOTH variants (with 9 first, per the PDF's documented
- *   search order), create using the WITH-9 variant.
- * - 10 digits, subscriber starts with 2-5: landline. Single variant, no
- *   9-insertion — landlines never had a 9th digit.
- * - Anything else: invalid, caller should alert instead of sending.
+ * 1. Legacy rows (saved before the Entrega 1 phone validation): digits-only,
+ *    no `+`, no DDI, assumed Brazilian — min 10 / max 11 digits.
+ *      - 11 digits: DDD + 9 + 8-digit subscriber (modern format, has the 9th
+ *        digit).
+ *      - 10 digits, subscriber starts with 6/7/8/9: legacy mobile, missing
+ *        the 9th digit. Search BOTH variants (with 9 first, per the PDF's
+ *        documented search order), create using the WITH-9 variant.
+ *      - 10 digits, subscriber starts with 2-5: landline. Single variant,
+ *        no 9-insertion — landlines never had a 9th digit.
+ * 2. New rows (saved by the country-aware /dados phone field): full E.164,
+ *    leading `+`.
+ *      - `+55...`: same BR dual-variant logic as above, applied to the
+ *        national significant number (digits after the `+55`).
+ *      - Any other country code: NexTalk has no 9th-digit concept outside
+ *        Brazil — single variant, used as-is.
+ *
+ * Anything that fits neither shape is invalid; the caller alerts instead of
+ * sending.
  */
 
 export interface PhoneVariants {
@@ -22,9 +32,8 @@ export interface PhoneVariants {
 
 const MOBILE_LEGACY_PREFIXES = new Set(["6", "7", "8", "9"]);
 
-export function normalizePhoneToVariants(rawPhone: string): PhoneVariants | null {
-  const digits = rawPhone.replace(/\D/g, "");
-
+/** BR dual-variant logic, shared by legacy digits-only input and +55 E.164 input. */
+function brVariantsFromNationalNumber(digits: string): PhoneVariants | null {
   if (digits.length === 11) {
     const ddd = digits.slice(0, 2);
     const subscriber = digits.slice(2); // 9 digits
@@ -55,6 +64,28 @@ export function normalizePhoneToVariants(rawPhone: string): PhoneVariants | null
   }
 
   return null;
+}
+
+/** E.164 total length (country code + national number) is capped at 15 digits (ITU). */
+const E164_RE = /^\+[1-9]\d{7,14}$/;
+
+export function normalizePhoneToVariants(rawPhone: string): PhoneVariants | null {
+  const trimmed = rawPhone.trim();
+
+  if (trimmed.startsWith("+")) {
+    if (!E164_RE.test(trimmed)) return null;
+
+    if (trimmed.startsWith("+55")) {
+      return brVariantsFromNationalNumber(trimmed.slice(3));
+    }
+
+    // Non-Brazilian E.164 — no 9th-digit concept, single variant as-is.
+    return { primary: trimmed };
+  }
+
+  // Legacy shape: digits-only (possibly masked), assumed Brazilian.
+  const digits = trimmed.replace(/\D/g, "");
+  return brVariantsFromNationalNumber(digits);
 }
 
 /** Ordered list of variants to try when searching NexTalk for an existing contact. */
