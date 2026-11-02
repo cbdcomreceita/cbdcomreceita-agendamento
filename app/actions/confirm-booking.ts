@@ -249,12 +249,56 @@ export async function confirmBooking(
       // still awaiting_payment.
     }
 
-    // 5. Mark booking confirmed and payment approved
+    // 5. Atomically claim the booking before any side effect runs.
+    //
+    // The step-2 idempotency check above reads `booking.status`, but reading
+    // and then writing are two separate round trips — nothing stopped two
+    // concurrent invocations (e.g. the client's polling tick and Mercado
+    // Pago's webhook, both racing in after the same approval) from each
+    // reading "not confirmed yet" and both proceeding. That's exactly what
+    // happened in production on 2026-11-02 (booking d27321b8-75ee-4bd7-ba3b-
+    // 6c0d27566d97): both ran Cal.com, patient/doctor/team e-mails and
+    // Sheets — one Cal.com attempt collided and failed, but e-mails and
+    // Sheets have no such collision and silently doubled.
+    //
+    // This UPDATE is the actual lock: Postgres serializes concurrent UPDATEs
+    // on the same row, so only the first to commit can still match
+    // `status IN (awaiting_payment, expired)` — by the time the second one's
+    // UPDATE runs, the row already reads 'confirmed' and the WHERE no longer
+    // matches, so `.select()` returns zero rows for it. No new intermediate
+    // status/migration needed: 'confirmed' already meant "the authoritative
+    // decision was made" in this codebase (side effects below were never
+    // required to finish for status to say 'confirmed'), so using it as the
+    // compare-and-swap target preserves that meaning exactly.
     const paidAt = new Date().toISOString();
-    await supabase
+    const { data: claimed } = await supabase
       .from("bookings")
       .update({ status: "confirmed" })
-      .eq("id", bookingId);
+      .eq("id", bookingId)
+      .in("status", ["awaiting_payment", "expired"])
+      .select("id")
+      .maybeSingle();
+
+    if (!claimed) {
+      // Lost the race — another concurrent call is doing (or just did) the
+      // real work. Re-read so a fast winner's meetLink is still returned.
+      const { data: current } = await supabase
+        .from("bookings")
+        .select("meet_link")
+        .eq("id", bookingId)
+        .maybeSingle();
+      await supabase.from("audit_events").insert({
+        event_type: "payment_confirm_idempotent_skip",
+        entity_type: "booking",
+        entity_id: bookingId,
+        metadata: { source, status: "lost_atomic_claim" },
+      });
+      return {
+        success: true,
+        alreadyProcessed: true,
+        meetLink: current?.meet_link ?? undefined,
+      };
+    }
 
     if (payment) {
       await supabase
