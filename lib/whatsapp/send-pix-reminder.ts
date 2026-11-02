@@ -6,6 +6,7 @@ import { reserveNotification, updateNotificationLog } from "./notification-log";
 import { normalizePhoneToVariants } from "./phone";
 import { PIX_REMINDER_TEMPLATE_NAME } from "./pix-reminder-template";
 import type { PixReminderTemplateInput } from "./pix-reminder-template";
+import { publishVerifyDelivery } from "./qstash";
 
 export interface SendPixReminderInput {
   bookingId: string;
@@ -76,18 +77,32 @@ export async function sendPixReminder(input: SendPixReminderInput): Promise<Send
   };
 
   try {
-    const { contact } = await findOrCreateContact(variants, input.patientFullName, input.patientEmail);
-    await updateNotificationLog(row.id, { nextalk_contact_id: String(contact.id) });
+    const providerResponse: Record<string, unknown> = {};
+
+    const { contact, createRaw: contactRaw } = await findOrCreateContact(
+      variants,
+      input.patientFullName,
+      input.patientEmail
+    );
+    if (contactRaw !== null) providerResponse.contact_create = contactRaw;
+    await updateNotificationLog(row.id, {
+      nextalk_contact_id: String(contact.id),
+      ...(contactRaw !== null ? { provider_response: providerResponse } : {}),
+    });
 
     await ensureContactInbox(contact.id);
 
-    const { displayId } = await findOrCreateConversation(contact.id, {
+    const { displayId, createRaw: conversationRaw } = await findOrCreateConversation(contact.id, {
       bookingId: input.bookingId,
       dateBR: input.dateBR,
       timeH: input.timeH,
       doctorName: input.doctorName,
     });
-    await updateNotificationLog(row.id, { nextalk_conversation_display_id: String(displayId) });
+    if (conversationRaw !== null) providerResponse.conversation_create = conversationRaw;
+    await updateNotificationLog(row.id, {
+      nextalk_conversation_display_id: String(displayId),
+      ...(conversationRaw !== null ? { provider_response: providerResponse } : {}),
+    });
 
     const message = await sendPixReminderMessage(displayId, templateInput);
     const failed = message.status === "failed";
@@ -101,6 +116,26 @@ export async function sendPixReminder(input: SendPixReminderInput): Promise<Send
     if (failed) {
       return { status: "failed", error: message.external_error ?? "NexTalk retornou status failed" };
     }
+
+    // NexTalk's synchronous response here only confirms it accepted the
+    // send — Meta's actual accept/reject (e.g. the #132000 param-count
+    // rejection found in production on 2026-11-02) arrives later and never
+    // reaches us unless something polls for it. Same follow-up
+    // orchestrateConfirmation already schedules for confirmacao_consulta;
+    // skipped only if QStash isn't configured (e.g. local/preview without
+    // those env vars) — never fails the send itself over this.
+    try {
+      await publishVerifyDelivery(row.id);
+    } catch (err) {
+      await logError({
+        scope: "whatsapp",
+        message: "sendPixReminder: failed to schedule delivery verification",
+        metadata: { error: String(err), bookingId: input.bookingId, notificationLogId: row.id },
+        entityType: "booking",
+        entityId: input.bookingId,
+      });
+    }
+
     return { status: "sent" };
   } catch (err) {
     await updateNotificationLog(row.id, {
