@@ -12,6 +12,14 @@ export const NEXTALK_BASE_URL = "https://portal.nextalk.ai/api/v1/accounts/5";
 export const NEXTALK_INBOX_ID = 13;
 export const NEXTALK_FUNNEL_ID = 1;
 export const NEXTALK_TARGET_STAGE = "consulta_agendada";
+/**
+ * Target stage for the pix_pendente reminder — confirmed live via GET
+ * /funnels on 2026-11-02: stage slug `pagto_consulta` displays today as
+ * "Agendamento pendente" in the NexTalk UI (renamed at some point from the
+ * PDF's "Pagto Consulta" — the PDF's own example already used this exact
+ * slug for this exact "reminder before payment" scenario).
+ */
+export const NEXTALK_PIX_REMINDER_STAGE = "pagto_consulta";
 export const NEXTALK_OFFER_ID = 1;
 export const NEXTALK_OFFER_DESCRIPTION = "Consulta Padrão";
 export const NEXTALK_TEMPLATE_NAME = "confirmacao_consulta";

@@ -7,6 +7,8 @@ import { normalizePhoneToVariants } from "./phone";
 import { PIX_REMINDER_TEMPLATE_NAME } from "./pix-reminder-template";
 import type { PixReminderTemplateInput } from "./pix-reminder-template";
 import { publishVerifyDelivery } from "./qstash";
+import { upsertKanbanCard } from "./kanban";
+import { NEXTALK_PIX_REMINDER_STAGE } from "./config";
 
 export interface SendPixReminderInput {
   bookingId: string;
@@ -20,6 +22,7 @@ export interface SendPixReminderInput {
   timeH: string;
   expirationTimeH: string;
   paymentToken: string;
+  amountCents: number;
 }
 
 export type SendPixReminderResult =
@@ -112,6 +115,33 @@ export async function sendPixReminder(input: SendPixReminderInput): Promise<Send
       external_error: message.external_error ?? null,
       sent_at: failed ? null : new Date().toISOString(),
     });
+
+    // Runs regardless of message outcome, as long as a conversation exists —
+    // same rule orchestrateConfirmation follows for the post-payment card.
+    try {
+      const kanbanResult = await upsertKanbanCard({
+        patientFullName: input.patientFullName,
+        dateBR: input.dateBR,
+        timeH: input.timeH,
+        doctorName: input.doctorName,
+        conversationDisplayId: displayId,
+        amountPaid: input.amountCents / 100,
+        targetStage: NEXTALK_PIX_REMINDER_STAGE,
+        description: `PIX gerado para ${input.dateBR} às ${input.timeH} com ${input.doctorName}, pagamento pendente (site)`,
+      });
+      await updateNotificationLog(row.id, {
+        nextalk_kanban_card_id: String(kanbanResult.cardId),
+        nextalk_kanban_action: kanbanResult.action,
+      });
+    } catch (err) {
+      await logError({
+        scope: "whatsapp",
+        message: "sendPixReminder: kanban step failed",
+        metadata: { error: String(err), bookingId: input.bookingId },
+        entityType: "booking",
+        entityId: input.bookingId,
+      });
+    }
 
     if (failed) {
       return { status: "failed", error: message.external_error ?? "NexTalk retornou status failed" };

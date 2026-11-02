@@ -22,6 +22,7 @@ type PendingPayment = {
   created_at: string;
   expires_at: string | null;
   payment_token: string | null;
+  amount_cents: number;
   bookings: {
     id: string;
     patient_id: string;
@@ -104,7 +105,7 @@ async function sendPixReminders(
   const { data: payments, error } = await supabase
     .from("payments")
     .select(
-      "id, booking_id, created_at, expires_at, payment_token, bookings(id, patient_id, scheduled_at, status, doctors(name), patients(full_name, phone, email, whatsapp_consent))"
+      "id, booking_id, created_at, expires_at, payment_token, amount_cents, bookings(id, patient_id, scheduled_at, status, doctors(name), patients(full_name, phone, email, whatsapp_consent))"
     )
     .eq("status", "pending")
     .lte("created_at", cutoff);
@@ -202,6 +203,7 @@ async function sendPixReminders(
       timeH,
       expirationTimeH,
       paymentToken: payment.payment_token,
+      amountCents: payment.amount_cents,
     });
 
     remindedSlots.add(slotKey);
