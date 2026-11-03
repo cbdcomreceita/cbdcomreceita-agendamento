@@ -235,6 +235,16 @@ export async function createBooking(
       // intake_token is how /prontuario/[token] finds this booking later.
       // Resolved server-side (never trusts which schema the client actually
       // validated against), same pattern as getPixExpirationMinutes() etc.
+      //
+      // intake_required/intake_token are only ever added to the insert
+      // payload when lightForm is true — NOT just set to false/null when
+      // it's false. A plain `false`/`null` value still names the column,
+      // and PostgREST rejects an insert that names a column the live
+      // schema doesn't have yet (42703/PGRST204) — these two columns only
+      // exist once migrations 0014/0015 are applied, which LIGHT_FORM_ENABLED
+      // being off doesn't guarantee by itself. Omitting the keys entirely
+      // when lightForm is false keeps every insert schema-safe regardless
+      // of migration status, exactly like every other flagged feature here.
       const lightForm = await isLightFormEnabled();
       const { data, error } = await supabase
         .from("bookings")
@@ -245,8 +255,9 @@ export async function createBooking(
           scheduled_at: booking.scheduledAt,
           scheduled_end_at: booking.scheduledEndAt,
           triage_data: triageDataPayload,
-          intake_required: lightForm,
-          intake_token: lightForm ? randomBytes(24).toString("base64url") : null,
+          ...(lightForm
+            ? { intake_required: true, intake_token: randomBytes(24).toString("base64url") }
+            : {}),
         })
         .select()
         .single();
