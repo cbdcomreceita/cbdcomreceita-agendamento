@@ -2,6 +2,7 @@
 
 import { createServiceClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/audit/log-error";
+import { stripPaymentTokenPrefix } from "@/lib/utils/payment-token";
 
 export interface PaymentByTokenResult {
   found: boolean;
@@ -27,8 +28,9 @@ export interface PaymentByTokenResult {
  * ever calling generatePix again. Read-only: never mutates state, never
  * calls Mercado Pago.
  */
-export async function getPaymentByToken(token: string): Promise<PaymentByTokenResult> {
-  if (!token.trim()) return { found: false };
+export async function getPaymentByToken(rawToken: string): Promise<PaymentByTokenResult> {
+  const token = stripPaymentTokenPrefix(rawToken.trim());
+  if (!token) return { found: false };
 
   const supabase = createServiceClient();
 
