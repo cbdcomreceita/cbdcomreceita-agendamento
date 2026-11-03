@@ -7,10 +7,14 @@ import { loadTriageData } from "@/lib/triagem/storage";
 import { saveBookingData } from "@/lib/calcom/storage";
 import { trackEvent } from "@/lib/analytics/track";
 import { getDoctorById } from "@/app/actions/get-doctors";
+import { isAgenda3NextEnabled } from "@/app/actions/feature-flags";
+import type { AgendaBlock } from "@/app/actions/get-next-agenda-blocks";
 import type { Doctor } from "@/lib/types/doctor";
+import type { ScheduleSlot } from "@/lib/types/availability";
 import { FlowBreadcrumb } from "@/components/fluxo/flow-breadcrumb";
 import { DoctorSummary } from "@/components/fluxo/doctor-summary";
 import { SlotPicker } from "@/components/fluxo/slot-picker";
+import { AgendaBlocksPicker } from "@/components/fluxo/agenda-blocks-picker";
 
 const ALT_SLOT_WHATSAPP = `https://wa.me/5584997048210?text=${encodeURIComponent(
   "Olá! Vi os horários disponíveis no site mas nenhum funciona pra mim. Seria possível verificar uma agenda alternativa?"
@@ -20,21 +24,47 @@ export default function AgendaPage() {
   const router = useRouter();
   const [doctor, setDoctor] = useState<Doctor | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [agenda3, setAgenda3] = useState(false);
+  const [triageForBlocks, setTriageForBlocks] = useState<{
+    scheduleSlots: ScheduleSlot[];
+    symptoms: string[];
+    isMinor: boolean;
+  } | null>(null);
 
   useEffect(() => {
     const data = loadTriageData();
-    // scheduleSlots confirms the user went through the new schedule step
-    if (!data.matchedDoctorId || !data.scheduleSlots?.length) {
-      router.replace("/triagem");
-      return;
-    }
-    getDoctorById(data.matchedDoctorId).then((matched) => {
-      if (!matched) {
+
+    isAgenda3NextEnabled().then((enabled) => {
+      if (enabled) {
+        // Entrega 3: no single matchedDoctorId — just needs the schedule
+        // step to have run (same guard the old flow used).
+        if (!data.scheduleSlots?.length) {
+          router.replace("/triagem");
+          return;
+        }
+        setAgenda3(true);
+        setTriageForBlocks({
+          scheduleSlots: data.scheduleSlots,
+          symptoms: data.selectedSymptoms ?? [],
+          isMinor: data.isMinor ?? false,
+        });
+        setLoaded(true);
+        return;
+      }
+
+      // scheduleSlots confirms the user went through the new schedule step
+      if (!data.matchedDoctorId || !data.scheduleSlots?.length) {
         router.replace("/triagem");
         return;
       }
-      setDoctor(matched);
-      setLoaded(true);
+      getDoctorById(data.matchedDoctorId).then((matched) => {
+        if (!matched) {
+          router.replace("/triagem");
+          return;
+        }
+        setDoctor(matched);
+        setLoaded(true);
+      });
     });
   }, [router]);
 
@@ -57,7 +87,41 @@ export default function AgendaPage() {
     [doctor, router]
   );
 
-  if (!loaded || !doctor) return null;
+  const handleBlockConfirm = useCallback(
+    (block: AgendaBlock, time: string) => {
+      trackEvent({ name: "slot_selected", doctor: block.doctor.name, date: time });
+
+      const startMs = new Date(time).getTime();
+      saveBookingData({
+        doctorId: block.doctor.id,
+        doctorName: block.doctor.name,
+        scheduledAt: time,
+        scheduledEndAt: new Date(startMs + 25 * 60 * 1000).toISOString(),
+        duration: 25,
+      });
+
+      router.push("/dados");
+    },
+    [router]
+  );
+
+  if (!loaded) return null;
+
+  if (agenda3 && triageForBlocks) {
+    return (
+      <div className="mx-auto w-full max-w-4xl flex-1 px-5 py-8 sm:px-8 sm:py-12">
+        <FlowBreadcrumb currentStep="agenda" />
+        <AgendaBlocksPicker
+          scheduleSlots={triageForBlocks.scheduleSlots}
+          symptoms={triageForBlocks.symptoms}
+          isMinor={triageForBlocks.isMinor}
+          onConfirm={handleBlockConfirm}
+        />
+      </div>
+    );
+  }
+
+  if (!doctor) return null;
 
   const hasCalcom = !!doctor.calcom_event_type_id;
 

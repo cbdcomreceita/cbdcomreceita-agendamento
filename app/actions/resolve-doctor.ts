@@ -2,14 +2,12 @@
 
 import { getDoctorCandidatesForSchedule, getActiveDoctors } from "@/app/actions/get-doctors";
 import { getAvailableSlots } from "@/lib/calcom/availability";
+import { AUTISM_EXCLUDED_DOCTOR_IDS } from "@/lib/doctors/special-rules";
 import type { Doctor } from "@/lib/types/doctor";
 import type { ScheduleSlot } from "@/lib/types/availability";
 
 /** How far ahead a candidate needs a free slot to be presented immediately. */
 const AVAILABILITY_HORIZON_DAYS = 14;
-
-/** Dra. Carolina Lopes — excluded from routing when the patient flagged "autismo". */
-const AUTISM_EXCLUDED_DOCTOR_IDS = ["7b74694a-b8f5-462a-9da2-75ce207ea786"];
 
 export interface ResolveDoctorResult {
   /** The doctor to present, already confirmed to have a slot. Null if nobody does. */

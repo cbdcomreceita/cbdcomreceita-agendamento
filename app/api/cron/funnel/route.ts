@@ -5,6 +5,8 @@ import { sendPixReminder } from "@/lib/whatsapp/send-pix-reminder";
 import { sendIntakeReminder } from "@/lib/whatsapp/send-intake-reminder";
 import { sendIntakePendingAlert } from "@/lib/resend/send-intake-pending-alert";
 import { isIntakeReminderEnabled } from "@/lib/whatsapp/config";
+import { isAgenda3NextEnabled } from "@/app/actions/feature-flags";
+import { releaseCalcomSlot } from "@/lib/calcom/reservations";
 import { formatDateBR, formatDateDDMMWeekday, formatTimeH } from "@/lib/utils/datetime";
 
 const REMINDER_DELAY_MS = 10 * 60 * 1000;
@@ -66,6 +68,10 @@ async function expireOverduePix(
     return { expired: 0 };
   }
 
+  // Entrega 3, item 4: "PIX expirado: apague a reserva". Resolved once per
+  // tick, not per payment — same reasoning as every other flag check here.
+  const agenda3Enabled = await isAgenda3NextEnabled();
+
   let expired = 0;
   for (const payment of overdue ?? []) {
     const { error: paymentError } = await supabase
@@ -87,6 +93,21 @@ async function expireOverduePix(
       .update({ status: "expired" })
       .eq("id", payment.booking_id)
       .eq("status", "awaiting_payment");
+
+    // Isolated lookup (not part of the main query above) so a missing
+    // calcom_reservation_uid column — e.g. migration 0016 not applied yet —
+    // can never affect the PIX-expiry path itself, only this one booking's
+    // release attempt. Best-effort: the hold expires on its own regardless.
+    if (agenda3Enabled) {
+      const { data: bookingRow, error: lookupError } = await supabase
+        .from("bookings")
+        .select("calcom_reservation_uid")
+        .eq("id", payment.booking_id)
+        .maybeSingle();
+      if (!lookupError && bookingRow?.calcom_reservation_uid) {
+        await releaseCalcomSlot(bookingRow.calcom_reservation_uid);
+      }
+    }
 
     await supabase.from("audit_events").insert({
       event_type: "pix_expired",

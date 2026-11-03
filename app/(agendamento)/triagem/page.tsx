@@ -9,6 +9,7 @@ import { saveTriageData, loadTriageData } from "@/lib/triagem/storage";
 import { loadEntenderRespostas, clearEntenderRespostas } from "@/lib/entender/storage";
 import { getScheduleOptions } from "@/app/actions/get-doctors";
 import { resolveDoctorForSchedule, type ResolveDoctorResult } from "@/app/actions/resolve-doctor";
+import { isAgenda3NextEnabled } from "@/app/actions/feature-flags";
 import { formatDateLongNoTime } from "@/lib/utils/datetime";
 import { trackEvent } from "@/lib/analytics/track";
 import { StepSymptoms } from "@/components/fluxo/step-symptoms";
@@ -77,6 +78,16 @@ export default function TriagemPage() {
     setNoSlots(null);
     setRouting(true);
     try {
+      // Entrega 3: /agenda itself resolves the 3 nearest (médico, dia,
+      // período) blocks from triage data (selectedSymptoms, scheduleSlots,
+      // isMinor) — there's no single doctor to pre-resolve here, and no
+      // "no slots at all" case that blocks navigation (item 2's fallback
+      // handles that on the agenda page instead).
+      if (await isAgenda3NextEnabled()) {
+        router.push("/agenda");
+        return;
+      }
+
       const result = await resolveDoctorForSchedule(data.scheduleSlots ?? [], data.selectedSymptoms ?? []);
 
       if (!result.doctor) {

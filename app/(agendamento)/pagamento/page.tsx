@@ -43,6 +43,8 @@ interface PixData {
   isMock: boolean;
   amountCents: number;
   couponApplied: string | null;
+  /** Entrega 3 — set only when AGENDA_3_NEXT_ENABLED actually reserved the slot on Cal.com. */
+  reservedUntil?: string;
 }
 
 const POLL_INTERVAL = 5000;
@@ -116,6 +118,7 @@ export default function PagamentoPage() {
         isMock: result.isMock ?? false,
         amountCents: result.amountCents,
         couponApplied: result.couponApplied ?? null,
+        reservedUntil: result.reservedUntil,
       });
       setState("awaiting");
       trackEvent({
@@ -453,6 +456,7 @@ export default function PagamentoPage() {
                 amountCents={pixData.amountCents}
                 expiresAt={pixData.expiresAt}
                 countdown={countdown}
+                reservedUntil={pixData.reservedUntil}
               />
             </motion.div>
           )}

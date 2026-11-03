@@ -14,10 +14,12 @@ export interface PixPendingCardProps {
   amountCents: number;
   expiresAt: string;
   countdown: string;
+  /** Entrega 3 — set only when the slot was actually reserved on Cal.com (AGENDA_3_NEXT_ENABLED). */
+  reservedUntil?: string;
 }
 
 /** Shared PIX-awaiting visuals — used by /pagamento (right after generating) and /pagamento/[token] (reopened via WhatsApp link). Approved copy, do not reword without checking with the team. */
-export function PixPendingCard({ qrCode, qrCodeBase64, amountCents, expiresAt, countdown }: PixPendingCardProps) {
+export function PixPendingCard({ qrCode, qrCodeBase64, amountCents, expiresAt, countdown, reservedUntil }: PixPendingCardProps) {
   async function copyCode() {
     await navigator.clipboard.writeText(qrCode);
     toast.success("Código PIX copiado!");
@@ -34,6 +36,11 @@ export function PixPendingCard({ qrCode, qrCodeBase64, amountCents, expiresAt, c
       <p className="mt-1 text-center text-lg font-medium text-brand-text">
         A consulta só é confirmada após o pagamento.
       </p>
+      {reservedUntil && (
+        <p className="mt-1 text-center text-lg text-brand-forest">
+          Seu horário está reservado até {formatTime(reservedUntil)}.
+        </p>
+      )}
 
       <div className="mx-auto mt-6 flex items-center justify-center">
         {qrCodeBase64 ? (
