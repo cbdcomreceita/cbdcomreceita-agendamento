@@ -1,6 +1,5 @@
 import { firstName } from "./template";
-
-export const PIX_REMINDER_TEMPLATE_NAME = "pix_pendente";
+import { getPixReminderTemplateName } from "./config";
 
 export interface PixReminderTemplateInput {
   patientFullName: string;
@@ -13,7 +12,7 @@ export interface PixReminderTemplateInput {
 
 export function buildPixReminderTemplateParams(input: PixReminderTemplateInput) {
   return {
-    name: PIX_REMINDER_TEMPLATE_NAME,
+    name: getPixReminderTemplateName(),
     category: "UTILITY" as const,
     language: "pt_BR" as const,
     processed_params: {

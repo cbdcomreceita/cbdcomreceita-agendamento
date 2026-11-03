@@ -4,11 +4,10 @@ import { findOrCreateConversation } from "./conversation";
 import { sendPixReminderMessage } from "./message";
 import { reserveNotification, updateNotificationLog } from "./notification-log";
 import { normalizePhoneToVariants } from "./phone";
-import { PIX_REMINDER_TEMPLATE_NAME } from "./pix-reminder-template";
 import type { PixReminderTemplateInput } from "./pix-reminder-template";
 import { publishVerifyDelivery } from "./qstash";
 import { upsertKanbanCard } from "./kanban";
-import { NEXTALK_PIX_REMINDER_STAGE } from "./config";
+import { NEXTALK_PIX_REMINDER_STAGE, getPixReminderTemplateName } from "./config";
 
 export interface SendPixReminderInput {
   bookingId: string;
@@ -60,7 +59,7 @@ export async function sendPixReminder(input: SendPixReminderInput): Promise<Send
     patientId: input.patientId,
     recipient: variants.primary,
     type: "payment_pending",
-    templateName: PIX_REMINDER_TEMPLATE_NAME,
+    templateName: getPixReminderTemplateName(),
     payload: { paymentToken: input.paymentToken },
   });
 

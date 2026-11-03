@@ -24,6 +24,25 @@ export const NEXTALK_OFFER_ID = 1;
 export const NEXTALK_OFFER_DESCRIPTION = "Consulta Padrão";
 export const NEXTALK_TEMPLATE_NAME = "confirmacao_consulta";
 
+/**
+ * The original `pix_pendente` template was approved by the Meta with a
+ * broken button URL (registered as
+ * ".../pagamento/%7B%7B1%7D%7D{{1}}" — a literal, URL-encoded "{{1}}"
+ * baked in before the real dynamic placeholder, confirmed via GET
+ * /inboxes/13/whatsapp_templates on 2026-11-03). `pix_pendente2` is its
+ * replacement, submitted directly in the Meta WhatsApp Manager with a
+ * clean single-placeholder button URL, same WABA, same UTILITY category,
+ * same 5 body variables in the same order (1=nome, 2=médico, 3=data,
+ * 4=hora, 5=validade) — in Meta review as of 2026-11-03.
+ *
+ * Kept as an env var (not a swap of the constant) so the active template
+ * can be flipped back without a deploy if pix_pendente2 is rejected or
+ * needs another revision.
+ */
+export function getPixReminderTemplateName(): string {
+  return process.env.WHATSAPP_PIX_REMINDER_TEMPLATE_NAME?.trim() || "pix_pendente2";
+}
+
 /** Funnel stage order for account 5's "Funil de Vendas" (funnel_id: 1). */
 export const FUNNEL_STAGE_ORDER = [
   "prospeccao",
