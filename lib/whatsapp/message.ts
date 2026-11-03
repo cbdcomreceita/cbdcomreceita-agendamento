@@ -4,6 +4,8 @@ import type { TemplateInput } from "./template";
 import { buildContent, buildTemplateParams } from "./template";
 import type { PixReminderTemplateInput } from "./pix-reminder-template";
 import { buildPixReminderContent, buildPixReminderTemplateParams } from "./pix-reminder-template";
+import type { IntakeReminderTemplateInput } from "./intake-reminder-template";
+import { buildIntakeReminderContent, buildIntakeReminderTemplateParams } from "./intake-reminder-template";
 
 export interface SendMessageResult {
   id: number;
@@ -51,6 +53,25 @@ export async function sendPixReminderMessage(
     template_params: buildPixReminderTemplateParams(input),
   });
   const context = "POST /conversations/{id}/messages (pix_pendente)";
+  const obj = unwrapNextalkObject(raw, "id", context);
+  const id = readNumericField(obj, "id", context, raw);
+  const status = typeof obj.status === "string" ? obj.status : "sent";
+  const external_error = typeof obj.external_error === "string" ? obj.external_error : null;
+  return { id, status, external_error };
+}
+
+/** Same shape as sendConfirmationMessage, for lembrete_prontuario_12h instead. */
+export async function sendIntakeReminderMessage(
+  conversationDisplayId: number,
+  input: IntakeReminderTemplateInput
+): Promise<SendMessageResult> {
+  const raw = await nextalkPostCreate<unknown>(`/conversations/${conversationDisplayId}/messages`, {
+    content: buildIntakeReminderContent(input),
+    message_type: "outgoing",
+    private: false,
+    template_params: buildIntakeReminderTemplateParams(input),
+  });
+  const context = "POST /conversations/{id}/messages (lembrete_prontuario_12h)";
   const obj = unwrapNextalkObject(raw, "id", context);
   const id = readNumericField(obj, "id", context, raw);
   const status = typeof obj.status === "string" ? obj.status : "sent";

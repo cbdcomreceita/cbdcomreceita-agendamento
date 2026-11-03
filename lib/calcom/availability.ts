@@ -10,6 +10,7 @@ import {
   maskIp,
   redis,
 } from "@/lib/rate-limit";
+import { MIN_LEAD_HOURS } from "./config";
 
 export interface TimeSlot {
   time: string; // ISO string
@@ -95,7 +96,9 @@ export async function getAvailableSlots(
     return [];
   }
 
-  const start = new Date().toISOString();
+  const minLeadMs = MIN_LEAD_HOURS * 60 * 60 * 1000;
+  const earliestBookable = new Date(Date.now() + minLeadMs);
+  const start = earliestBookable.toISOString();
   const end = addDays(new Date(), daysAhead).toISOString();
 
   const url = new URL("https://api.cal.com/v2/slots");
@@ -125,12 +128,16 @@ export async function getAvailableSlots(
     const slotsMap = json.data;
     if (!slotsMap) return [];
 
+    const earliestBookableIso = earliestBookable.toISOString();
     const result: DaySlots[] = [];
     for (const [date, slots] of Object.entries(slotsMap)) {
-      if (slots.length > 0) {
+      // Defensive — Cal.com buckets by calendar day, so the day containing
+      // `start` can still include slots just before the exact instant.
+      const futureEnough = slots.filter((s) => s.start >= earliestBookableIso);
+      if (futureEnough.length > 0) {
         result.push({
           date,
-          slots: slots.map((s) => ({ time: s.start })),
+          slots: futureEnough.map((s) => ({ time: s.start })),
         });
       }
     }

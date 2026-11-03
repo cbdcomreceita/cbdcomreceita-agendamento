@@ -21,6 +21,7 @@ export interface DoctorIntakeParams {
   timeFormatted: string;
   subjectDate: string; // dd/MM
   subjectTime: string; // HH:mm
+  intakePending?: boolean;
 }
 
 export async function sendDoctorIntake(
@@ -48,6 +49,7 @@ export async function sendDoctorIntake(
         priorCbdUse: params.priorCbdUse,
         dateFormatted: params.dateFormatted,
         timeFormatted: params.timeFormatted,
+        intakePending: params.intakePending,
       }),
     });
 

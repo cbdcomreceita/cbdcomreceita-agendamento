@@ -8,6 +8,9 @@ export interface BookingSummary {
   meetLink: string | null;
   status: string;
   doctorName: string | null;
+  intakeRequired: boolean;
+  intakeToken: string | null;
+  intakeCompletedAt: string | null;
 }
 
 /**
@@ -28,7 +31,9 @@ export async function getBookingSummary(
 
   const { data, error } = await supabase
     .from("bookings")
-    .select("scheduled_at, scheduled_end_at, meet_link, status, doctors(name)")
+    .select(
+      "scheduled_at, scheduled_end_at, meet_link, status, intake_required, intake_token, intake_completed_at, doctors(name)"
+    )
     .eq("id", bookingId)
     .maybeSingle();
 
@@ -47,5 +52,8 @@ export async function getBookingSummary(
     meetLink: (data.meet_link as string | null) ?? null,
     status: data.status as string,
     doctorName: doctor?.name ?? null,
+    intakeRequired: data.intake_required === true,
+    intakeToken: (data.intake_token as string | null) ?? null,
+    intakeCompletedAt: (data.intake_completed_at as string | null) ?? null,
   };
 }
