@@ -64,3 +64,13 @@ export function toMpExpirationIso(date: Date): string {
 export function formatDateDDMMWeekday(iso: string | Date): string {
   return formatInTimeZone(iso, TIMEZONE, "dd/MM, EEEE", { locale: ptBR });
 }
+
+/** "segunda-feira" — /confirmacao's {dia} placeholder. */
+export function formatWeekdayLong(iso: string | Date): string {
+  return formatInTimeZone(iso, TIMEZONE, "EEEE", { locale: ptBR });
+}
+
+/** "9 de novembro" — /confirmacao's {data} placeholder. */
+export function formatDayMonthLong(iso: string | Date): string {
+  return formatInTimeZone(iso, TIMEZONE, "d 'de' MMMM", { locale: ptBR });
+}

@@ -13,6 +13,10 @@ export interface PatientIntakeDoctorProps {
   priorCbdUse: string;
   dateFormatted: string;
   timeFormatted: string;
+  /** True on the payment-time send when the prontuário (RG/endereço) hasn't
+   * been filled yet (LIGHT_FORM_ENABLED was on). False — or omitted — on
+   * the second send, after the patient completes it. */
+  intakePending?: boolean;
 }
 
 export function PatientIntakeDoctorEmail(props: PatientIntakeDoctorProps) {
@@ -46,6 +50,14 @@ export function PatientIntakeDoctorEmail(props: PatientIntakeDoctorProps) {
             </Section>
 
             <Hr style={hrStyle} />
+
+            {props.intakePending && (
+              <Text style={pendingStyle}>
+                A ficha clínica completa (RG e endereço) ainda não foi preenchida
+                pelo paciente. Assim que chegar, você recebe um novo e-mail com
+                os dados completos.
+              </Text>
+            )}
 
             <Text style={noteStyle}>
               Acesse o Google Agenda ou o Cal.com para o link do Google Meet.
@@ -140,6 +152,16 @@ const cardValueStyle = {
 };
 
 const hrStyle = { borderColor: "#e5e0d4", margin: "24px 0" };
+
+const pendingStyle = {
+  color: "#9a6b1f",
+  backgroundColor: "#fdf3dd",
+  borderRadius: "8px",
+  padding: "10px 14px",
+  fontSize: "13px",
+  lineHeight: "1.6",
+  margin: "0 0 16px 0",
+};
 
 const noteStyle = {
   color: "#5c5c5c",

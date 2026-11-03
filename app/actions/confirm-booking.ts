@@ -366,6 +366,7 @@ export async function confirmBooking(
     try {
       await dispatchPostPaymentSideEffects({
         bookingId,
+        intakeRequired: booking.intake_required === true,
         patient: {
           full_name: patient.full_name,
           email: patient.email,

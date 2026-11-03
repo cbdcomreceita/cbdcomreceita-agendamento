@@ -84,6 +84,17 @@ export const rateLimiters = {
     analytics: true,
     prefix: "rl:slots",
   }),
+
+  // /prontuario/[token] — read (lookup) and write (submit) share this
+  // bucket. The token is a 24-byte random string (same strength as
+  // payment_token), so this is defense-in-depth against brute-force
+  // guessing, not the primary protection. 20/10min/IP.
+  intake: new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(20, "10 m"),
+    analytics: true,
+    prefix: "rl:intake",
+  }),
 };
 
 export type RateLimiterName = keyof typeof rateLimiters;

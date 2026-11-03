@@ -18,6 +18,7 @@ export default function robots(): MetadataRoute.Robots {
         "/dados/",
         "/pagamento/",
         "/confirmacao/",
+        "/prontuario/",
       ],
     },
     sitemap: `${baseUrl}/sitemap.xml`,

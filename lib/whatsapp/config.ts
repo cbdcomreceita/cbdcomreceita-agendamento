@@ -25,6 +25,36 @@ export const NEXTALK_OFFER_DESCRIPTION = "Consulta Padrão";
 export const NEXTALK_TEMPLATE_NAME = "confirmacao_consulta";
 
 /**
+ * Entrega 2 (prontuário): `confirmacao_consulta_v2` adds a second URL
+ * button for the prontuário link, submitted directly in the Meta WhatsApp
+ * Manager — not created by this codebase (see Parte 0 do relatório: o
+ * texto aprovado não estava disponível para a submissão automática).
+ * Defaults to the current, already-APPROVED template so behavior is
+ * unchanged until this is explicitly pointed at v2 post-approval.
+ */
+export function getConfirmationTemplateName(): string {
+  return process.env.WHATSAPP_CONFIRMATION_TEMPLATE_NAME?.trim() || NEXTALK_TEMPLATE_NAME;
+}
+
+/**
+ * Lembrete de prontuário pendente, 12h antes da consulta — WhatsApp,
+ * mesmo motivo acima: não registrado pela ausência do texto aprovado.
+ * Nome configurável para poder apontar sem novo deploy assim que o
+ * template for submetido e aprovado.
+ */
+export function getIntakeReminderTemplateName(): string {
+  return process.env.WHATSAPP_INTAKE_REMINDER_TEMPLATE_NAME?.trim() || "lembrete_prontuario_12h";
+}
+
+/**
+ * Desligado por padrão até `lembrete_prontuario_12h` estar APPROVED na
+ * Meta — com a flag desligada, o cron só audita o que enviaria.
+ */
+export function isIntakeReminderEnabled(): boolean {
+  return process.env.WHATSAPP_INTAKE_REMINDER_ENABLED?.trim().toLowerCase() === "true";
+}
+
+/**
  * The original `pix_pendente` template was approved by the Meta with a
  * broken button URL (registered as
  * ".../pagamento/%7B%7B1%7D%7D{{1}}" — a literal, URL-encoded "{{1}}"

@@ -1,5 +1,9 @@
-import { describe, expect, it } from "vitest";
-import { buildContent, buildTemplateParams, firstName, type TemplateInput } from "./template";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { buildContent, buildIntakeLink, buildTemplateParams, firstName, type TemplateInput } from "./template";
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 const input: TemplateInput = {
   patientFullName: "Maria Silva Santos",
@@ -42,6 +46,34 @@ describe("buildTemplateParams", () => {
   it("sets the button parameter to just the Meet code, not the full link", () => {
     const params = buildTemplateParams(input);
     expect(params.processed_params.buttons).toEqual([{ type: "url", parameter: "abc-defg-hij" }]);
+  });
+
+  it("adds a second url button with the intake link when intakeLink is set", () => {
+    const params = buildTemplateParams({
+      ...input,
+      intakeLink: "https://www.cbdcomreceita.com.br/prontuario/tok123",
+    });
+    expect(params.processed_params.buttons).toEqual([
+      { type: "url", parameter: "abc-defg-hij" },
+      { type: "url", parameter: "https://www.cbdcomreceita.com.br/prontuario/tok123" },
+    ]);
+  });
+
+  it("omits the second button when intakeLink is absent", () => {
+    const params = buildTemplateParams(input);
+    expect(params.processed_params.buttons).toHaveLength(1);
+  });
+});
+
+describe("buildIntakeLink", () => {
+  it("builds the /prontuario/[token] URL from NEXT_PUBLIC_SITE_URL", () => {
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://preview.example.com");
+    expect(buildIntakeLink("tok123")).toBe("https://preview.example.com/prontuario/tok123");
+  });
+
+  it("falls back to the production domain when unset", () => {
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "");
+    expect(buildIntakeLink("tok123")).toBe("https://www.cbdcomreceita.com.br/prontuario/tok123");
   });
 });
 

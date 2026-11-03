@@ -3,10 +3,16 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { formatDateLong } from "@/lib/utils/datetime";
+import {
+  formatDateLong,
+  formatWeekdayLong,
+  formatDayMonthLong,
+  formatTime,
+  formatDateBRShort,
+} from "@/lib/utils/datetime";
 import {
   CheckCircle2, CalendarCheck, Video, Clock, User,
-  ArrowRight, MessageCircle, CalendarPlus,
+  ArrowRight, MessageCircle, CalendarPlus, FileText,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { buttonVariants } from "@/components/ui/button";
@@ -33,6 +39,7 @@ export default function ConfirmacaoPage() {
   const [patientName, setPatientName] = useState("");
   const [bookingData, setBookingData] = useState<BookingData | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [intake, setIntake] = useState<{ required: boolean; token: string | null; completedAt: string | null } | null>(null);
 
   useEffect(() => {
     const triage = loadTriageData();
@@ -76,6 +83,13 @@ export default function ConfirmacaoPage() {
             : booking;
         if (next !== booking) saveBookingData(next);
         setBookingData(next);
+        if (summary) {
+          setIntake({
+            required: summary.intakeRequired,
+            token: summary.intakeToken,
+            completedAt: summary.intakeCompletedAt,
+          });
+        }
       })
       .catch((err) => {
         console.error("[Confirmacao] getBookingSummary failed:", err);
@@ -135,8 +149,42 @@ export default function ConfirmacaoPage() {
           </p>
         </div>
 
+        {/* Destaque 1 — confirmação com tolerância/canal de ajuda */}
+        <div className="mt-6 rounded-2xl border border-brand-forest/20 bg-brand-forest/5 p-5 sm:p-6">
+          <p className="text-sm leading-relaxed text-brand-forest-dark sm:text-base">
+            Sua consulta está confirmada para {formatWeekdayLong(bookingData.scheduledAt)},{" "}
+            {formatDayMonthLong(bookingData.scheduledAt)}, às {formatTime(bookingData.scheduledAt)} (horário de
+            Brasília), com {doctor.name}. Entre no link do Meet no horário marcado. A tolerância de atraso é de 10
+            minutos. Você vai receber a confirmação no seu WhatsApp. Se tiver qualquer dificuldade para entrar, é só
+            responder aquela mensagem que o nosso time te ajuda.
+          </p>
+        </div>
+
+        {/* Destaque 2 — prontuário pendente (Entrega 2, só quando intake_required) */}
+        {intake?.required && !intake.completedAt && intake.token && (
+          <div className="mt-4 rounded-2xl border border-amber-300/60 bg-amber-50 p-5 sm:p-6">
+            <p className="text-sm leading-relaxed text-amber-900 sm:text-base">
+              Falta só um passo: precisamos de mais alguns dados para abrir o seu prontuário e, se houver indicação,
+              emitir a sua receita durante a consulta. Preencha até{" "}
+              {formatDateBRShort(new Date(new Date(bookingData.scheduledAt).getTime() - 2 * 60 * 60 * 1000))} às{" "}
+              {formatTime(new Date(new Date(bookingData.scheduledAt).getTime() - 2 * 60 * 60 * 1000))} (2 horas antes
+              da consulta). Sem esses dados, a consulta poderá ser cancelada.
+            </p>
+            <Link
+              href={`/prontuario/${intake.token}`}
+              className={cn(
+                buttonVariants({ size: "lg" }),
+                "mt-4 w-full bg-amber-500 text-white hover:bg-amber-600 font-semibold sm:w-auto"
+              )}
+            >
+              <FileText className="mr-2 h-4 w-4" />
+              Preencher meus dados agora
+            </Link>
+          </div>
+        )}
+
         {/* Booking details */}
-        <div className="mt-8 space-y-4 rounded-2xl border border-brand-sand/60 border-l-4 border-l-brand-forest bg-white p-6 shadow-sm sm:p-8">
+        <div className="mt-6 space-y-4 rounded-2xl border border-brand-sand/60 border-l-4 border-l-brand-forest bg-white p-6 shadow-sm sm:p-8">
           <DoctorSummary doctor={doctor} />
 
           <div className="space-y-3 text-sm">

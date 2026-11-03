@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { checkWhatsappReadiness, getConfirmationMode } from "./config";
+import {
+  checkWhatsappReadiness,
+  getConfirmationMode,
+  getConfirmationTemplateName,
+  getIntakeReminderTemplateName,
+  isIntakeReminderEnabled,
+} from "./config";
 
 const ALL_REQUIRED_ENVS = {
   NEXTALK_API_TOKEN: "some-real-token",
@@ -36,6 +42,44 @@ describe("getConfirmationMode", () => {
     expect(getConfirmationMode()).toBe("team_only");
     vi.stubEnv("WHATSAPP_CONFIRMATION_MODE", "all");
     expect(getConfirmationMode()).toBe("all");
+  });
+});
+
+describe("getConfirmationTemplateName", () => {
+  it("defaults to confirmacao_consulta when unset", () => {
+    vi.stubEnv("WHATSAPP_CONFIRMATION_TEMPLATE_NAME", "");
+    expect(getConfirmationTemplateName()).toBe("confirmacao_consulta");
+  });
+
+  it("uses the env override when set (e.g. confirmacao_consulta_v2)", () => {
+    vi.stubEnv("WHATSAPP_CONFIRMATION_TEMPLATE_NAME", "confirmacao_consulta_v2");
+    expect(getConfirmationTemplateName()).toBe("confirmacao_consulta_v2");
+  });
+});
+
+describe("getIntakeReminderTemplateName", () => {
+  it("defaults to lembrete_prontuario_12h when unset", () => {
+    vi.stubEnv("WHATSAPP_INTAKE_REMINDER_TEMPLATE_NAME", "");
+    expect(getIntakeReminderTemplateName()).toBe("lembrete_prontuario_12h");
+  });
+
+  it("uses the env override when set", () => {
+    vi.stubEnv("WHATSAPP_INTAKE_REMINDER_TEMPLATE_NAME", "lembrete_prontuario_12h_v2");
+    expect(getIntakeReminderTemplateName()).toBe("lembrete_prontuario_12h_v2");
+  });
+});
+
+describe("isIntakeReminderEnabled", () => {
+  it("defaults to false", () => {
+    vi.stubEnv("WHATSAPP_INTAKE_REMINDER_ENABLED", "");
+    expect(isIntakeReminderEnabled()).toBe(false);
+  });
+
+  it("is true only for the literal string 'true'", () => {
+    vi.stubEnv("WHATSAPP_INTAKE_REMINDER_ENABLED", "true");
+    expect(isIntakeReminderEnabled()).toBe(true);
+    vi.stubEnv("WHATSAPP_INTAKE_REMINDER_ENABLED", "1");
+    expect(isIntakeReminderEnabled()).toBe(false);
   });
 });
 

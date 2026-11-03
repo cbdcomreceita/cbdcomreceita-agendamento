@@ -1,6 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
+import { randomBytes } from "node:crypto";
 import { createServiceClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/audit/log-error";
 import {
@@ -10,6 +11,7 @@ import {
   maskIp,
 } from "@/lib/rate-limit";
 import { getDoctorById } from "@/app/actions/get-doctors";
+import { isLightFormEnabled } from "@/app/actions/feature-flags";
 import type { PatientFormData } from "@/lib/validation/patient";
 import type { BookingData } from "@/lib/calcom/storage";
 import type { TriageData } from "@/lib/triagem/schemas";
@@ -204,6 +206,9 @@ export async function createBooking(
 
     let dbBooking;
     if (existingBooking) {
+      // intake_required/intake_token are NOT touched here on purpose — they're
+      // decided once, at creation (below), from the form variant active at
+      // that moment. A reused awaiting_payment row keeps whatever was set then.
       const { data, error } = await supabase
         .from("bookings")
         .update({
@@ -225,6 +230,12 @@ export async function createBooking(
       }
       dbBooking = data;
     } else {
+      // Entrega 2: bookings created while the light /dados form is active
+      // still owe RG/nascimento/endereço — intake_required flags that, and
+      // intake_token is how /prontuario/[token] finds this booking later.
+      // Resolved server-side (never trusts which schema the client actually
+      // validated against), same pattern as getPixExpirationMinutes() etc.
+      const lightForm = await isLightFormEnabled();
       const { data, error } = await supabase
         .from("bookings")
         .insert({
@@ -234,6 +245,8 @@ export async function createBooking(
           scheduled_at: booking.scheduledAt,
           scheduled_end_at: booking.scheduledEndAt,
           triage_data: triageDataPayload,
+          intake_required: lightForm,
+          intake_token: lightForm ? randomBytes(24).toString("base64url") : null,
         })
         .select()
         .single();

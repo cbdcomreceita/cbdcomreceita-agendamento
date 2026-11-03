@@ -24,6 +24,11 @@ import { formatCentsToBRL } from "@/lib/utils/currency";
 
 export interface PostPaymentInput {
   bookingId: string;
+  /** True when the booking came through the light /dados form and still
+   * needs the prontuário (RG/endereço) — Entrega 2. Adds a note to the
+   * doctor's intake e-mail; the complete ficha follows in a second send
+   * once /prontuario/[token] is submitted (see app/actions/submit-intake.ts). */
+  intakeRequired?: boolean;
   patient: {
     full_name: string;
     email: string;
@@ -73,7 +78,7 @@ export interface PostPaymentInput {
 export async function dispatchPostPaymentSideEffects(
   input: PostPaymentInput
 ): Promise<void> {
-  const { bookingId, patient, doctor, booking, payment } = input;
+  const { bookingId, patient, doctor, booking, payment, intakeRequired } = input;
 
   const dateFormatted = formatDateLongNoTime(booking.scheduled_at);
   const timeFormatted = formatTime(booking.scheduled_at);
@@ -153,6 +158,7 @@ export async function dispatchPostPaymentSideEffects(
     timeFormatted,
     subjectDate: dateBRShort,
     subjectTime: timeFormatted,
+    intakePending: intakeRequired === true,
   });
   if (!doctorIntakeResult.success) {
     const detail = doctorIntakeResult.error ?? "erro desconhecido";
@@ -216,6 +222,8 @@ export async function dispatchPostPaymentSideEffects(
 
   // 3. Google Sheets row
   const sheetResult = await appendToGoogleSheet({
+    Tipo: "Agendamento confirmado",
+    "Booking ID": bookingId,
     Nome: patient.full_name,
     "Data Agendamento": dateBR,
     Horario: timeFormatted,

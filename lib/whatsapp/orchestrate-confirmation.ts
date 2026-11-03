@@ -1,7 +1,7 @@
 import { logError } from "@/lib/audit/log-error";
 import type { WhatsappAlertReason } from "@/lib/resend/send-whatsapp-alert";
 import { alertForBooking as alert, loadBookingContext, type BookingContext } from "./booking-context";
-import { getConfirmationMode, getDispatchMode, getTeamNumbers, NEXTALK_TEMPLATE_NAME } from "./config";
+import { getConfirmationMode, getConfirmationTemplateName, getDispatchMode, getTeamNumbers } from "./config";
 import { NextalkApiError } from "./nextalk-client";
 import { extractMeetCode, isValidMeetLink, normalizePhoneToVariants, type PhoneVariants } from "./phone";
 import { findOrCreateContact, ensureContactInbox } from "./contact";
@@ -10,7 +10,7 @@ import { sendConfirmationMessage } from "./message";
 import { upsertKanbanCard } from "./kanban";
 import { reserveNotification, updateNotificationLog } from "./notification-log";
 import { publishVerifyDelivery } from "./qstash";
-import type { TemplateInput } from "./template";
+import { buildIntakeLink, type TemplateInput } from "./template";
 import type { WhatsappNotificationRow } from "./types";
 
 async function runKanbanStep(
@@ -84,7 +84,7 @@ export async function orchestrateConfirmation(bookingId: string): Promise<void> 
         patientId: ctx.patientId,
         recipient: variants.primary,
         type: "booking_confirmation",
-        templateName: NEXTALK_TEMPLATE_NAME,
+        templateName: getConfirmationTemplateName(),
         payload: { mode, dispatchMode, reason: "not_in_team_only_list" },
       });
       if (isNew) {
@@ -98,7 +98,7 @@ export async function orchestrateConfirmation(bookingId: string): Promise<void> 
       patientId: ctx.patientId,
       recipient: variants.primary,
       type: "booking_confirmation",
-      templateName: NEXTALK_TEMPLATE_NAME,
+      templateName: getConfirmationTemplateName(),
       payload: { mode, dispatchMode },
     });
 
@@ -196,6 +196,7 @@ export async function orchestrateConfirmation(bookingId: string): Promise<void> 
       doctorName: ctx.doctorName,
       meetLink: ctx.meetLink!,
       meetCode,
+      intakeLink: ctx.intakeRequired && ctx.intakeToken ? buildIntakeLink(ctx.intakeToken) : undefined,
     };
 
     let messageSentOk = false;

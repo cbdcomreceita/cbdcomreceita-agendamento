@@ -14,6 +14,8 @@ export interface BookingContext {
   timeH: string;
   meetLink: string | null;
   amountCents: number;
+  intakeRequired: boolean;
+  intakeToken: string | null;
 }
 
 export async function loadBookingContext(bookingId: string): Promise<BookingContext | null> {
@@ -63,6 +65,8 @@ export async function loadBookingContext(bookingId: string): Promise<BookingCont
     timeH: formatTimeH(booking.scheduled_at),
     meetLink: booking.meet_link ?? null,
     amountCents: payments[0]?.amount_cents ?? 4990,
+    intakeRequired: booking.intake_required === true,
+    intakeToken: (booking.intake_token as string | null) ?? null,
   };
 }
 
