@@ -28,18 +28,35 @@ describe("normalizePhoneToVariants", () => {
     expect(v).toEqual({ primary: "+5511999998888", fallback: "+551199998888" });
   });
 
-  it("accepts a phone already carrying +55, stripping it then re-adding via digits", () => {
-    // +55 contributes 2 extra digits, pushing an 11-digit mobile to 13 — invalid.
-    const v = normalizePhoneToVariants("+5511999998888");
-    expect(v).toBeNull();
-  });
-
   it("rejects too-short input", () => {
     expect(normalizePhoneToVariants("123456789")).toBeNull();
   });
 
   it("rejects too-long input", () => {
     expect(normalizePhoneToVariants("119999988877")).toBeNull();
+  });
+
+  it("E.164 +55 modern mobile — same dual-variant logic as the legacy 11-digit shape", () => {
+    const v = normalizePhoneToVariants("+5511999998888");
+    expect(v).toEqual({ primary: "+5511999998888", fallback: "+551199998888" });
+  });
+
+  it("E.164 non-Brazilian (Portugal) — single variant, used as-is, no 9-insertion", () => {
+    const v = normalizePhoneToVariants("+351912345678");
+    expect(v).toEqual({ primary: "+351912345678" });
+  });
+
+  it("E.164 non-Brazilian (US) — single variant, used as-is", () => {
+    const v = normalizePhoneToVariants("+12025551234");
+    expect(v).toEqual({ primary: "+12025551234" });
+  });
+
+  it("rejects a malformed E.164 (no digits after +)", () => {
+    expect(normalizePhoneToVariants("+")).toBeNull();
+  });
+
+  it("rejects E.164 starting with +0", () => {
+    expect(normalizePhoneToVariants("+0123456789")).toBeNull();
   });
 });
 

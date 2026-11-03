@@ -111,12 +111,14 @@ export type KanbanAction = "created" | "moved" | "unchanged" | "new_card_after_l
 
 export type NotificationStatus = "queued" | "sent" | "delivered" | "failed" | "skipped";
 
+export type WhatsappNotificationType = "booking_confirmation" | "payment_pending";
+
 export interface WhatsappNotificationRow {
   id: string;
   booking_id: string;
   patient_id: string | null;
   channel: "whatsapp";
-  type: "booking_confirmation";
+  type: WhatsappNotificationType;
   status: NotificationStatus;
   recipient: string;
   template_name: string | null;

@@ -4,6 +4,7 @@ import {
   NEXTALK_OFFER_ID,
   NEXTALK_TARGET_STAGE,
   stagePosition,
+  type FunnelStage,
 } from "./config";
 import { nextalkGet, nextalkPatch, nextalkPostCreate } from "./nextalk-client";
 import type { KanbanAction, NextalkKanbanItem, NextalkKanbanListResponse, NextalkOffer } from "./types";
@@ -15,6 +16,10 @@ export interface KanbanContext {
   doctorName: string;
   conversationDisplayId: number;
   amountPaid: number; // reais, e.g. 49.9 — coupon-aware, already the amount actually charged
+  /** Defaults to NEXTALK_TARGET_STAGE (consulta_agendada, the post-payment flow). */
+  targetStage?: FunnelStage;
+  /** Defaults to the post-payment "Consulta confirmada..." wording. */
+  description?: string;
 }
 
 export interface KanbanResult {
@@ -38,14 +43,15 @@ function buildOffer(amountPaid: number): NextalkOffer {
 }
 
 function buildDescription(ctx: KanbanContext): string {
-  return `Consulta confirmada para ${ctx.dateBR} às ${ctx.timeH} com ${ctx.doctorName} (site)`;
+  return ctx.description ?? `Consulta confirmada para ${ctx.dateBR} às ${ctx.timeH} com ${ctx.doctorName} (site)`;
 }
 
 async function createCard(ctx: KanbanContext): Promise<KanbanResult> {
+  const stage = ctx.targetStage ?? NEXTALK_TARGET_STAGE;
   const created = await nextalkPostCreate<NextalkKanbanItem>("/kanban_items", {
     kanban_item: {
       funnel_id: NEXTALK_FUNNEL_ID,
-      funnel_stage: NEXTALK_TARGET_STAGE,
+      funnel_stage: stage,
       position: 1,
       item_details: {
         title: ctx.patientFullName,
@@ -67,6 +73,7 @@ async function createCard(ctx: KanbanContext): Promise<KanbanResult> {
  * there (never blindly overwrite the existing offers array).
  */
 async function addOfferAndMove(cardId: number, ctx: KanbanContext): Promise<void> {
+  const stage = ctx.targetStage ?? NEXTALK_TARGET_STAGE;
   const current = await nextalkGet<NextalkKanbanItem>(`/kanban_items/${cardId}`);
   const hasOffer = current.item_details.offers.some((o) => o.id === NEXTALK_OFFER_ID);
   const offers = hasOffer ? current.item_details.offers : [...current.item_details.offers, buildOffer(ctx.amountPaid)];
@@ -81,18 +88,19 @@ async function addOfferAndMove(cardId: number, ctx: KanbanContext): Promise<void
   });
 
   await nextalkPostCreate(`/kanban_items/${cardId}/move_to_stage`, {
-    funnel_stage: NEXTALK_TARGET_STAGE,
+    funnel_stage: stage,
     funnel_id: NEXTALK_FUNNEL_ID,
   });
 }
 
 /**
- * Passo 5 — positions the card in the funnel per the decision table:
- *  - no card                              → create in consulta_agendada
- *  - card at prospeccao/qualificacao/
- *    pagto_consulta (before our stage)    → add offer + move to consulta_agendada
- *  - card already at consulta_agendada    → leave untouched
- *  - card past consulta_agendada          → create a NEW card, leave the old one alone
+ * Passo 5 — positions the card in the funnel per the decision table (target
+ * stage defaults to consulta_agendada, the post-payment flow; the PIX
+ * reminder passes pagto_consulta — "Agendamento pendente" — instead):
+ *  - no card                       → create at the target stage
+ *  - card before the target stage  → add offer + move to the target stage
+ *  - card already at target stage  → leave untouched
+ *  - card past the target stage    → create a NEW card, leave the old one alone
  *
  * Runs even if the message send failed, as long as a conversation exists —
  * callers should invoke this independently of message-send outcome.
@@ -108,7 +116,7 @@ export async function upsertKanbanCard(ctx: KanbanContext): Promise<KanbanResult
   }
 
   const currentPos = stagePosition(card.funnel_stage);
-  const targetPos = stagePosition(NEXTALK_TARGET_STAGE);
+  const targetPos = stagePosition(ctx.targetStage ?? NEXTALK_TARGET_STAGE);
 
   if (currentPos === targetPos) {
     return { action: "unchanged", cardId: card.id };

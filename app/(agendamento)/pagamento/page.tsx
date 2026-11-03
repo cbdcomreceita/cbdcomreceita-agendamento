@@ -2,17 +2,16 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import { formatDateLong } from "@/lib/utils/datetime";
 import { formatCentsToBRL } from "@/lib/utils/currency";
-import {
-  Clock, Copy, CheckCircle2, Loader2, RefreshCw, AlertTriangle, Mail,
-} from "lucide-react";
+import { CheckCircle2, Loader2, RefreshCw, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { FlowBreadcrumb } from "@/components/fluxo/flow-breadcrumb";
 import { DoctorSummary } from "@/components/fluxo/doctor-summary";
+import { PixPendingCard } from "@/components/fluxo/pix-pending-card";
+import { PixExpiredCard } from "@/components/fluxo/pix-expired-card";
 import { loadTriageData } from "@/lib/triagem/storage";
 import { loadBookingData, saveBookingData } from "@/lib/calcom/storage";
 import { loadPatientData } from "@/lib/validation/patient-storage";
@@ -23,7 +22,6 @@ import { confirmBooking } from "@/app/actions/confirm-booking";
 import { trackEvent } from "@/lib/analytics/track";
 import { getDoctorById } from "@/app/actions/get-doctors";
 import type { Doctor } from "@/lib/types/doctor";
-import { cn } from "@/lib/utils";
 
 type PaymentState =
   | "loading"
@@ -367,12 +365,6 @@ export default function PagamentoPage() {
     };
   }, [state, pixData, verifyExpiry]);
 
-  const copyCode = useCallback(async () => {
-    if (!pixData?.qrCode) return;
-    await navigator.clipboard.writeText(pixData.qrCode);
-    toast.success("Código PIX copiado!");
-  }, [pixData]);
-
   function handleRetry() {
     if (bookingId) {
       runGeneratePix(bookingId, loadTriageData().couponCode);
@@ -454,84 +446,14 @@ export default function PagamentoPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              data-track="payment_initiated"
             >
-              <h2 className="text-center text-lg font-semibold text-brand-forest-dark">
-                Pagamento via PIX
-              </h2>
-              <p className="mt-1 text-center text-sm text-brand-text-secondary">
-                Abra o app do seu banco, selecione pagamento via PIX e escaneie o QR Code ou copie o código abaixo
-              </p>
-
-              {/* QR Code */}
-              <div className="mx-auto mt-6 flex items-center justify-center">
-                {pixData.qrCodeBase64 ? (
-                  <div className="rounded-2xl border border-brand-sand/60 bg-white p-4">
-                    <Image
-                      src={`data:image/png;base64,${pixData.qrCodeBase64}`}
-                      alt="QR Code PIX"
-                      width={256}
-                      height={256}
-                      className="h-52 w-52 sm:h-64 sm:w-64"
-                    />
-                  </div>
-                ) : (
-                  <div className="flex h-52 w-52 items-center justify-center rounded-2xl border-2 border-dashed border-brand-sand bg-brand-cream/50 sm:h-64 sm:w-64">
-                    <p className="text-center text-xs text-brand-text-muted">
-                      QR Code indisponível.<br />Use o código abaixo.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Copy code */}
-              <div className="mt-6">
-                <div className="flex items-center gap-2 rounded-xl border border-brand-sand/60 bg-brand-cream/30 p-3">
-                  <code className="flex-1 truncate text-xs text-brand-text-secondary">
-                    {pixData.qrCode}
-                  </code>
-                  <Button
-                    onClick={copyCode}
-                    variant="outline"
-                    className="shrink-0 border-brand-forest/20 text-brand-forest"
-                  >
-                    <Copy className="mr-1.5 h-3.5 w-3.5" />
-                    Copiar
-                  </Button>
-                </div>
-              </div>
-
-              {/* Email notice */}
-              <div className="mt-6 flex items-start gap-3 rounded-2xl bg-brand-sand/40 p-5">
-                <Mail className="mt-0.5 h-5 w-5 shrink-0 text-brand-forest" />
-                <p className="text-lg leading-relaxed text-brand-text-secondary">
-                  Assim que identificarmos seu pagamento, a confirmação da consulta aparece aqui
-                  nesta tela. Também enviaremos os detalhes e o link de acesso pelo Google Meet
-                  para o e-mail cadastrado.
-                </p>
-              </div>
-
-              {/* Countdown */}
-              <div className="mt-6 flex items-center justify-center gap-2">
-                <Clock className={cn(
-                  "h-4 w-4 animate-pulse",
-                  countdown && parseInt(countdown) < 2 ? "text-brand-error" : "text-brand-forest-light"
-                )} />
-                <span className={cn(
-                  "text-sm font-medium",
-                  countdown && parseInt(countdown) < 2 ? "text-brand-error" : "text-brand-text-muted"
-                )}>
-                  Este pagamento expira em {countdown}
-                </span>
-              </div>
-
-              {/* Waiting indicator */}
-              <div className="mt-6 flex items-center justify-center gap-2 rounded-xl bg-brand-cream/50 p-3">
-                <div className="h-2 w-2 animate-pulse rounded-full bg-brand-warning" />
-                <span className="text-sm text-brand-text-secondary">
-                  Aguardando pagamento...
-                </span>
-              </div>
+              <PixPendingCard
+                qrCode={pixData.qrCode}
+                qrCodeBase64={pixData.qrCodeBase64}
+                amountCents={pixData.amountCents}
+                expiresAt={pixData.expiresAt}
+                countdown={countdown}
+              />
             </motion.div>
           )}
 
@@ -635,27 +557,7 @@ export default function PagamentoPage() {
 
           {/* Expired */}
           {state === "expired" && (
-            <motion.div
-              key="expired"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="flex flex-col items-center gap-4 py-8"
-            >
-              <AlertTriangle className="h-10 w-10 text-brand-warning" />
-              <h2 className="text-lg font-semibold text-brand-forest-dark">
-                Código PIX expirado
-              </h2>
-              <p className="text-sm text-brand-text-secondary">
-                O tempo para pagamento se esgotou.
-              </p>
-              <Button
-                onClick={() => bookingId && runGeneratePix(bookingId, loadTriageData().couponCode)}
-                className="bg-brand-forest text-brand-cream hover:bg-brand-forest-hover"
-              >
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Gerar novo código PIX
-              </Button>
-            </motion.div>
+            <PixExpiredCard onChooseNewTime={() => router.push("/agenda")} />
           )}
 
           {/* Expired, unverified: the countdown ran out but we couldn't

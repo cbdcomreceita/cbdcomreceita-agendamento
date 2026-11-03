@@ -1,7 +1,7 @@
 import { logError } from "@/lib/audit/log-error";
 import type { WhatsappAlertReason } from "@/lib/resend/send-whatsapp-alert";
 import { alertForBooking as alert, loadBookingContext, type BookingContext } from "./booking-context";
-import { getConfirmationMode, getDispatchMode, getTeamNumbers } from "./config";
+import { getConfirmationMode, getDispatchMode, getTeamNumbers, NEXTALK_TEMPLATE_NAME } from "./config";
 import { NextalkApiError } from "./nextalk-client";
 import { extractMeetCode, isValidMeetLink, normalizePhoneToVariants, type PhoneVariants } from "./phone";
 import { findOrCreateContact, ensureContactInbox } from "./contact";
@@ -83,6 +83,8 @@ export async function orchestrateConfirmation(bookingId: string): Promise<void> 
         bookingId,
         patientId: ctx.patientId,
         recipient: variants.primary,
+        type: "booking_confirmation",
+        templateName: NEXTALK_TEMPLATE_NAME,
         payload: { mode, dispatchMode, reason: "not_in_team_only_list" },
       });
       if (isNew) {
@@ -95,6 +97,8 @@ export async function orchestrateConfirmation(bookingId: string): Promise<void> 
       bookingId,
       patientId: ctx.patientId,
       recipient: variants.primary,
+      type: "booking_confirmation",
+      templateName: NEXTALK_TEMPLATE_NAME,
       payload: { mode, dispatchMode },
     });
 

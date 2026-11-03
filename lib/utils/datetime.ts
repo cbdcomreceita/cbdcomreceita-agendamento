@@ -50,3 +50,17 @@ export function formatTimeH(iso: string | Date): string {
 export function formatDateTimeBR(iso: string | Date): string {
   return formatInTimeZone(iso, TIMEZONE, "dd/MM/yyyy HH:mm");
 }
+
+/**
+ * ISO 8601 with explicit America/Sao_Paulo offset (e.g.
+ * "2026-11-02T15:30:00.000-03:00") — the format Mercado Pago's
+ * `date_of_expiration` expects.
+ */
+export function toMpExpirationIso(date: Date): string {
+  return formatInTimeZone(date, TIMEZONE, "yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
+}
+
+/** "02/11, segunda-feira" — pix_pendente WhatsApp template's {{3}}. */
+export function formatDateDDMMWeekday(iso: string | Date): string {
+  return formatInTimeZone(iso, TIMEZONE, "dd/MM, EEEE", { locale: ptBR });
+}

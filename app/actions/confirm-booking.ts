@@ -15,6 +15,7 @@ import {
   INLINE_DISPATCH_TIMEOUT_MS,
 } from "@/lib/whatsapp/config";
 import { sendWhatsappAlert } from "@/lib/resend/send-whatsapp-alert";
+import { sendPaymentAfterExpiryAlert } from "@/lib/resend/send-payment-after-expiry-alert";
 import { sendMetaConversionEvent } from "@/lib/analytics/meta-conversions-api";
 import type { Doctor } from "@/lib/types/doctor";
 import { formatDateLong, formatDateBR, formatTimeH } from "@/lib/utils/datetime";
@@ -161,15 +162,17 @@ export async function confirmBooking(
       email: string;
       phone: string;
       cpf: string;
-      rg: string;
-      birth_date: string;
-      address_street: string;
-      address_number: string;
+      // Null when the patient came through the LIGHT_FORM_ENABLED version
+      // of /dados — collected later in the prontuário (Entrega 2).
+      rg: string | null;
+      birth_date: string | null;
+      address_street: string | null;
+      address_number: string | null;
       address_complement: string | null;
-      address_district: string;
-      address_city: string;
-      address_state: string;
-      address_zipcode: string;
+      address_district: string | null;
+      address_city: string | null;
+      address_state: string | null;
+      address_zipcode: string | null;
       selected_symptoms: string[] | null;
       has_current_medication: boolean | null;
       current_medications: string | null;
@@ -189,12 +192,113 @@ export async function confirmBooking(
       return { success: false, error: "Paciente não encontrado" };
     }
 
-    // 5. Mark booking confirmed and payment approved
+    // 3b. Late approval after expiry: the funnel cron (app/api/cron/funnel)
+    // may have already marked this booking `expired` before Mercado Pago's
+    // webhook got around to reporting it approved. If some OTHER booking
+    // already holds a `confirmed` slot for the same doctor+scheduled_at in
+    // the meantime, blindly continuing here would double-book the doctor
+    // (step 6 below creates a brand-new Cal.com event unconditionally).
+    // Our own bookings table is the source of truth for which slots we've
+    // actually committed to Cal.com — checking Cal.com's live availability
+    // instead would be both less reliable (its slots list doesn't reflect
+    // bookings we haven't created yet) and racier.
+    //
+    // The payment is real regardless of the outcome below, so it is always
+    // recorded as approved. Only the automated confirmation (Cal.com event,
+    // patient email, WhatsApp) is withheld when there's a conflict — a
+    // human resolves it via the TEAM_EMAIL alert.
+    if (booking.status === "expired") {
+      const { data: conflicting } = await supabase
+        .from("bookings")
+        .select("id")
+        .eq("doctor_id", booking.doctor_id)
+        .eq("scheduled_at", booking.scheduled_at)
+        .eq("status", "confirmed")
+        .neq("id", bookingId)
+        .maybeSingle();
+
+      if (conflicting) {
+        if (payment) {
+          await supabase
+            .from("payments")
+            .update({ status: "approved", paid_at: new Date().toISOString() })
+            .eq("id", payment.id);
+        }
+        await supabase.from("audit_events").insert({
+          event_type: "payment_after_expiry",
+          entity_type: "booking",
+          entity_id: bookingId,
+          metadata: { source, conflictingBookingId: conflicting.id, paymentId: payment?.id ?? null },
+        });
+        await sendPaymentAfterExpiryAlert({
+          bookingId,
+          conflictingBookingId: conflicting.id,
+          paymentId: payment?.id ?? null,
+          patientName: patient.full_name,
+          patientEmail: patient.email,
+          patientPhone: patient.phone,
+          doctorName: doctor.name,
+          dateBR: formatDateBR(booking.scheduled_at),
+          timeH: formatTimeH(booking.scheduled_at),
+          amountFormatted: formatCentsToBRL(payment?.amount_cents ?? 4990),
+        });
+        return { success: false, error: "payment_after_expiry_slot_taken" };
+      }
+      // No conflict — the slot is still effectively free. Fall through to
+      // the normal confirm flow below exactly as if booking.status were
+      // still awaiting_payment.
+    }
+
+    // 5. Atomically claim the booking before any side effect runs.
+    //
+    // The step-2 idempotency check above reads `booking.status`, but reading
+    // and then writing are two separate round trips — nothing stopped two
+    // concurrent invocations (e.g. the client's polling tick and Mercado
+    // Pago's webhook, both racing in after the same approval) from each
+    // reading "not confirmed yet" and both proceeding. That's exactly what
+    // happened in production on 2026-11-02 (booking d27321b8-75ee-4bd7-ba3b-
+    // 6c0d27566d97): both ran Cal.com, patient/doctor/team e-mails and
+    // Sheets — one Cal.com attempt collided and failed, but e-mails and
+    // Sheets have no such collision and silently doubled.
+    //
+    // This UPDATE is the actual lock: Postgres serializes concurrent UPDATEs
+    // on the same row, so only the first to commit can still match
+    // `status IN (awaiting_payment, expired)` — by the time the second one's
+    // UPDATE runs, the row already reads 'confirmed' and the WHERE no longer
+    // matches, so `.select()` returns zero rows for it. No new intermediate
+    // status/migration needed: 'confirmed' already meant "the authoritative
+    // decision was made" in this codebase (side effects below were never
+    // required to finish for status to say 'confirmed'), so using it as the
+    // compare-and-swap target preserves that meaning exactly.
     const paidAt = new Date().toISOString();
-    await supabase
+    const { data: claimed } = await supabase
       .from("bookings")
       .update({ status: "confirmed" })
-      .eq("id", bookingId);
+      .eq("id", bookingId)
+      .in("status", ["awaiting_payment", "expired"])
+      .select("id")
+      .maybeSingle();
+
+    if (!claimed) {
+      // Lost the race — another concurrent call is doing (or just did) the
+      // real work. Re-read so a fast winner's meetLink is still returned.
+      const { data: current } = await supabase
+        .from("bookings")
+        .select("meet_link")
+        .eq("id", bookingId)
+        .maybeSingle();
+      await supabase.from("audit_events").insert({
+        event_type: "payment_confirm_idempotent_skip",
+        entity_type: "booking",
+        entity_id: bookingId,
+        metadata: { source, status: "lost_atomic_claim" },
+      });
+      return {
+        success: true,
+        alreadyProcessed: true,
+        meetLink: current?.meet_link ?? undefined,
+      };
+    }
 
     if (payment) {
       await supabase

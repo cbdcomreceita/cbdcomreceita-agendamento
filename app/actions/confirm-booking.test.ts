@@ -36,12 +36,27 @@ vi.mock("@/lib/mercadopago/client", () => ({ getMpPayment: vi.fn() }));
 vi.mock("@/lib/analytics/meta-conversions-api", () => ({
   sendMetaConversionEvent: vi.fn().mockResolvedValue(undefined),
 }));
+const sendPaymentAfterExpiryAlert = vi.fn();
+vi.mock("@/lib/resend/send-payment-after-expiry-alert", () => ({
+  sendPaymentAfterExpiryAlert: (...a: unknown[]) => sendPaymentAfterExpiryAlert(...a),
+}));
+
+// Three different call sites share .maybeSingle() in confirm-booking.ts:
+// the step-3b conflict check (only for status='expired'), the step-5
+// atomic claim, and the step-5 "lost race" meetLink re-fetch. Each test
+// queues the responses it needs, in call order; an empty queue defaults to
+// "claim succeeds / no conflict found" — the right default for the plain
+// (non-expired) tests, which only ever hit the claim call once.
+let maybeSingleQueue: Array<{ data: unknown; error: unknown }>;
 
 function makeSupabaseMock(bookingRow: unknown) {
   const chain = {
     select: vi.fn(() => chain),
     eq: vi.fn(() => chain),
+    neq: vi.fn(() => chain),
+    in: vi.fn(() => chain),
     single: vi.fn(async () => ({ data: bookingRow, error: null })),
+    maybeSingle: vi.fn(async () => maybeSingleQueue.shift() ?? { data: { id: "booking-1" }, error: null }),
     update: vi.fn(() => chain),
     insert: vi.fn(async () => ({ data: null, error: null })),
   };
@@ -107,10 +122,85 @@ beforeEach(() => {
   sendWhatsappAlert.mockReset();
   dispatchPostPaymentSideEffects.mockReset();
   logError.mockReset();
+  sendPaymentAfterExpiryAlert.mockReset();
   dispatchPostPaymentSideEffects.mockResolvedValue(undefined);
   getConfirmationMode.mockReturnValue("off");
   getDispatchMode.mockReturnValue("qstash");
   currentBookingRow = baseBookingRow();
+  maybeSingleQueue = [];
+});
+
+describe("confirmBooking — late approval after the funnel cron marked the booking expired", () => {
+  it("confirms normally when no other booking has already taken the slot", async () => {
+    currentBookingRow = baseBookingRow({ status: "expired" });
+    // 1st maybeSingle: conflict check -> none. 2nd: atomic claim -> succeeds.
+    maybeSingleQueue = [{ data: null, error: null }, { data: { id: "booking-1" }, error: null }];
+
+    const result = await confirmBooking({ bookingId: "booking-1", source: "webhook" });
+
+    expect(result.success).toBe(true);
+    expect(sendPaymentAfterExpiryAlert).not.toHaveBeenCalled();
+  });
+
+  it("refuses to auto-confirm, records the payment as approved, and alerts the team when the slot was already taken", async () => {
+    currentBookingRow = baseBookingRow({ status: "expired" });
+    maybeSingleQueue = [{ data: { id: "booking-2" }, error: null }];
+
+    const result = await confirmBooking({ bookingId: "booking-1", source: "webhook" });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("payment_after_expiry_slot_taken");
+    expect(sendPaymentAfterExpiryAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bookingId: "booking-1",
+        conflictingBookingId: "booking-2",
+        patientName: "Maria Silva",
+        doctorName: "Dra. Ana Costa",
+      })
+    );
+    // dispatchPostPaymentSideEffects (Cal.com, e-mails, Sheets) must never
+    // run for the conflicting path — the appointment was never confirmed.
+    expect(dispatchPostPaymentSideEffects).not.toHaveBeenCalled();
+  });
+});
+
+describe("confirmBooking — concurrent calls race for the same booking", () => {
+  it("only one of two simultaneous invocations runs side effects; the other reports alreadyProcessed", async () => {
+    // Reproduces the 2026-11-02 production incident: the client's polling
+    // tick and Mercado Pago's webhook both called confirmBooking for the
+    // same booking within ~1.5s of each other, both passed the (then
+    // read-only) idempotency check, and both ran Cal.com/e-mails/Sheets.
+    //
+    // The shared mock queue below stands in for Postgres's real guarantee:
+    // of two concurrent `UPDATE ... WHERE status IN (...) RETURNING id`
+    // statements on the same row, exactly one matches and returns a row —
+    // never both, regardless of which fired first. Order here is
+    // deliberately not asserted; only the count is.
+    maybeSingleQueue = [
+      { data: { id: "booking-1" }, error: null }, // first to reach the claim wins
+      { data: null, error: null }, // second finds it already 'confirmed'
+      { data: { meet_link: "https://meet.google.com/won-the-race" }, error: null }, // its meetLink re-fetch
+    ];
+
+    const [first, second] = await Promise.all([
+      confirmBooking({ bookingId: "booking-1", source: "polling" }),
+      confirmBooking({ bookingId: "booking-1", source: "webhook" }),
+    ]);
+
+    const results = [first, second];
+    const winners = results.filter((r) => !r.alreadyProcessed);
+    const losers = results.filter((r) => r.alreadyProcessed);
+
+    expect(winners).toHaveLength(1);
+    expect(losers).toHaveLength(1);
+    expect(winners[0].success).toBe(true);
+    expect(losers[0]).toMatchObject({ success: true, alreadyProcessed: true });
+    expect(losers[0].meetLink).toBe("https://meet.google.com/won-the-race");
+
+    // The one side effect that has no collision-detection of its own
+    // (Cal.com's own DB did the detecting there) — must run exactly once.
+    expect(dispatchPostPaymentSideEffects).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("confirmBooking — dispatchPostPaymentSideEffects failure isolation", () => {

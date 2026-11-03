@@ -31,7 +31,8 @@ export interface ConversationContext {
   dateBR: string;
   timeH: string;
   doctorName: string;
-  meetLink: string;
+  /** Absent for a conversation started before payment (e.g. the PIX reminder) — no meeting exists yet. */
+  meetLink?: string;
 }
 
 export interface ConversationResult {

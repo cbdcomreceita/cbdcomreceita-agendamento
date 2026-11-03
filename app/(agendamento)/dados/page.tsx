@@ -17,7 +17,15 @@ import { loadTriageData, saveTriageData } from "@/lib/triagem/storage";
 import type { TriageData } from "@/lib/triagem/schemas";
 import { loadBookingData } from "@/lib/calcom/storage";
 import { savePatientData, loadPatientData } from "@/lib/validation/patient-storage";
-import { patientSchema, UF_OPTIONS, type PatientFormData } from "@/lib/validation/patient";
+import {
+  patientSchemaFull,
+  patientSchemaLight,
+  patientPhoneE164,
+  UF_OPTIONS,
+  type PatientFormData,
+} from "@/lib/validation/patient";
+import { isLightFormEnabled } from "@/app/actions/feature-flags";
+import { COUNTRY_OPTIONS, DEFAULT_COUNTRY } from "@/lib/validation/phone";
 import { fetchCep } from "@/lib/utils/viacep";
 import { maskCpf, maskPhone, maskCep } from "@/lib/utils/masks";
 import { getDoctorById } from "@/app/actions/get-doctors";
@@ -82,6 +90,7 @@ export default function DadosPage() {
   const [submitting, setSubmitting] = useState(false);
   const [birthDateEditing, setBirthDateEditing] = useState(false);
   const [birthDateDisplay, setBirthDateDisplay] = useState("");
+  const [lightFormEnabled, setLightFormEnabled] = useState(false);
   const [couponAvailable, setCouponAvailable] = useState(false);
   const [couponInput, setCouponInput] = useState("");
   const [couponChecking, setCouponChecking] = useState(false);
@@ -135,9 +144,11 @@ export default function DadosPage() {
     formState: { errors: rhfErrors },
   } = useForm<PatientFormData>({
     defaultValues: {
+      phoneCountry: DEFAULT_COUNTRY,
       hasCurrentMedication: false,
       lgpdConsent: false as unknown as true,
       termsConsent: false as unknown as true,
+      whatsappConsent: false as unknown as true,
     },
   });
 
@@ -176,6 +187,7 @@ export default function DadosPage() {
       applyCoupon(triage.couponCode);
     }
     isCouponAvailable().then(setCouponAvailable);
+    isLightFormEnabled().then(setLightFormEnabled);
 
     // Pre-fill birth date from triage
     if (triage.birthDate) {
@@ -188,7 +200,7 @@ export default function DadosPage() {
     // Load saved patient data if any
     const saved = loadPatientData();
     if (saved) {
-      const fields = ["fullName", "email", "phone", "cpf", "rg", "cep", "street", "number", "complement", "district", "city", "state"] as const;
+      const fields = ["fullName", "email", "phoneCountry", "phone", "cpf", "rg", "cep", "street", "number", "complement", "district", "city", "state"] as const;
       for (const f of fields) {
         if (saved[f]) setValue(f, saved[f] as string);
       }
@@ -216,11 +228,14 @@ export default function DadosPage() {
   const hasMed = watch("hasCurrentMedication");
   const lgpdChecked = watch("lgpdConsent");
   const termsChecked = watch("termsConsent");
+  const whatsappConsentChecked = watch("whatsappConsent");
+  const phoneCountry = watch("phoneCountry") || DEFAULT_COUNTRY;
 
   async function onSubmit(data: PatientFormData) {
     setFieldErrors({});
 
-    const result = patientSchema.safeParse(data);
+    const activeSchema = lightFormEnabled ? patientSchemaLight : patientSchemaFull;
+    const result = activeSchema.safeParse(data);
     const errs: Record<string, string> = {};
     if (!result.success) {
       for (const issue of result.error.issues) {
@@ -243,7 +258,9 @@ export default function DadosPage() {
 
     setSubmitting(true);
     trackEvent({ name: "form_submitted", doctor: doctor?.name ?? "" });
-    savePatientData(result.data);
+    // Store the phone already in E.164 — everything downstream (NexTalk,
+    // confirm-booking, dispatch) expects that shape for new patients.
+    savePatientData({ ...result.data, phone: patientPhoneE164(result.data) });
     saveTriageData({ duration, priorCbdUse });
     router.push("/pagamento");
   }
@@ -257,8 +274,25 @@ export default function DadosPage() {
       <FlowBreadcrumb currentStep="dados" />
 
       <h1 className="text-2xl font-bold tracking-tight text-brand-forest-dark sm:text-3xl">
-        Seus dados
+        {lightFormEnabled ? "Vamos seguir com o agendamento" : "Seus dados"}
       </h1>
+      {lightFormEnabled && (
+        <>
+          <p className="mt-2 text-lg text-brand-text-secondary">
+            Precisamos de algumas informações para você receber os dados da sua consulta online.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5">
+            <span className="flex items-center gap-1.5 text-sm text-brand-text-muted">
+              <CheckCircle2 className="h-4 w-4 text-brand-forest" />
+              Médicos com CRM
+            </span>
+            <span className="flex items-center gap-1.5 text-sm text-brand-text-muted">
+              <CheckCircle2 className="h-4 w-4 text-brand-forest" />
+              Seus dados estão protegidos
+            </span>
+          </div>
+        </>
+      )}
 
       {/* Booking summary */}
       <div className="mt-4 space-y-3">
@@ -294,21 +328,40 @@ export default function DadosPage() {
                 <FieldError message={errors.email?.message} />
               </div>
               <div>
-                <Label htmlFor="phone" required>Telefone / WhatsApp</Label>
-                <input
-                  id="phone"
-                  type="tel"
-                  inputMode="numeric"
-                  {...register("phone", {
-                    onChange: (e) => { e.target.value = maskPhone(e.target.value); },
-                  })}
-                  placeholder="(84) 99999-9999"
-                  className={inputClass(!!errors.phone)}
-                />
+                <Label htmlFor="phone" required>Celular com WhatsApp</Label>
+                <div className="flex gap-2">
+                  <select
+                    id="phoneCountry"
+                    {...register("phoneCountry", {
+                      onChange: () => setValue("phone", ""),
+                    })}
+                    className={cn(inputClass(), "w-[6.5rem] shrink-0 px-2")}
+                  >
+                    {COUNTRY_OPTIONS.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        +{c.callingCode} {c.code}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    id="phone"
+                    type="tel"
+                    inputMode="numeric"
+                    {...register("phone", {
+                      onChange: (e) => {
+                        if (phoneCountry === DEFAULT_COUNTRY) {
+                          e.target.value = maskPhone(e.target.value);
+                        }
+                      },
+                    })}
+                    placeholder={phoneCountry === DEFAULT_COUNTRY ? "(84) 99999-9999" : "Número"}
+                    className={cn(inputClass(!!errors.phone), "flex-1")}
+                  />
+                </div>
                 <FieldError message={errors.phone?.message} />
               </div>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className={cn("grid gap-4", !lightFormEnabled && "sm:grid-cols-2")}>
               <div>
                 <Label htmlFor="cpf" required>CPF</Label>
                 <input
@@ -321,107 +374,120 @@ export default function DadosPage() {
                   className={inputClass(!!errors.cpf)}
                 />
                 <FieldError message={errors.cpf?.message} />
-              </div>
-              <div>
-                <Label htmlFor="rg" required>RG</Label>
-                <input id="rg" {...register("rg")} placeholder="Número do RG" className={inputClass(!!errors.rg)} />
-                <FieldError message={errors.rg?.message} />
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="birthDate" required>Data de nascimento</Label>
-              {birthDateDisplay && !birthDateEditing ? (
-                <div className="flex items-center gap-3">
-                  <span className="rounded-xl border-2 border-brand-sand/60 bg-brand-sand/20 px-4 py-3 text-sm font-medium text-brand-text">
-                    {birthDateDisplay}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setBirthDateEditing(true)}
-                    className="text-xs font-medium text-brand-forest underline underline-offset-2 hover:text-brand-forest-dark"
-                  >
-                    Alterar
-                  </button>
-                  <input type="hidden" {...register("birthDate")} />
-                </div>
-              ) : (
-                <input
-                  id="birthDate"
-                  type="date"
-                  {...register("birthDate")}
-                  className={cn(inputClass(!!errors.birthDate), "max-w-xs")}
-                />
-              )}
-              <FieldError message={errors.birthDate?.message} />
-            </div>
-          </div>
-        </div>
-
-        <div className="h-px bg-brand-sand/40" />
-
-        {/* Section 2: Address */}
-        <div>
-          <SectionTitle>Endereço</SectionTitle>
-          <div className="space-y-4">
-            <div className="max-w-xs">
-              <Label htmlFor="cep" required>CEP</Label>
-              <div className="relative">
-                <input
-                  id="cep"
-                  inputMode="numeric"
-                  {...register("cep", {
-                    onChange: (e) => { e.target.value = maskCep(e.target.value); },
-                    onBlur: handleCepBlur,
-                  })}
-                  placeholder="00000-000"
-                  className={inputClass(!!errors.cep)}
-                />
-                {cepLoading && (
-                  <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-brand-forest-light" />
+                {lightFormEnabled && (
+                  <p className="mt-1.5 text-xs text-brand-text-muted">
+                    Precisamos do seu CPF para gerar o seu agendamento.
+                  </p>
                 )}
               </div>
-              <FieldError message={errors.cep?.message} />
+              {!lightFormEnabled && (
+                <div>
+                  <Label htmlFor="rg" required>RG</Label>
+                  <input id="rg" {...register("rg")} placeholder="Número do RG" className={inputClass(!!errors.rg)} />
+                  <FieldError message={errors.rg?.message} />
+                </div>
+              )}
             </div>
-            <div>
-              <Label htmlFor="street" required>Rua</Label>
-              <input id="street" {...register("street")} placeholder="Rua, avenida..." className={inputClass(!!errors.street)} />
-              <FieldError message={errors.street?.message} />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-3">
+            {!lightFormEnabled && (
               <div>
-                <Label htmlFor="number" required>Número</Label>
-                <input id="number" {...register("number")} placeholder="Nº" className={inputClass(!!errors.number)} />
-                <FieldError message={errors.number?.message} />
+                <Label htmlFor="birthDate" required>Data de nascimento</Label>
+                {birthDateDisplay && !birthDateEditing ? (
+                  <div className="flex items-center gap-3">
+                    <span className="rounded-xl border-2 border-brand-sand/60 bg-brand-sand/20 px-4 py-3 text-sm font-medium text-brand-text">
+                      {birthDateDisplay}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setBirthDateEditing(true)}
+                      className="text-xs font-medium text-brand-forest underline underline-offset-2 hover:text-brand-forest-dark"
+                    >
+                      Alterar
+                    </button>
+                    <input type="hidden" {...register("birthDate")} />
+                  </div>
+                ) : (
+                  <input
+                    id="birthDate"
+                    type="date"
+                    {...register("birthDate")}
+                    className={cn(inputClass(!!errors.birthDate), "max-w-xs")}
+                  />
+                )}
+                <FieldError message={errors.birthDate?.message} />
               </div>
-              <div className="sm:col-span-2">
-                <Label htmlFor="complement">Complemento</Label>
-                <input id="complement" {...register("complement")} placeholder="Apto, sala..." className={inputClass()} />
-              </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div>
-                <Label htmlFor="district" required>Bairro</Label>
-                <input id="district" {...register("district")} placeholder="Bairro" className={inputClass(!!errors.district)} />
-                <FieldError message={errors.district?.message} />
-              </div>
-              <div>
-                <Label htmlFor="city" required>Cidade</Label>
-                <input id="city" {...register("city")} placeholder="Cidade" className={inputClass(!!errors.city)} />
-                <FieldError message={errors.city?.message} />
-              </div>
-              <div>
-                <Label htmlFor="state" required>Estado</Label>
-                <select id="state" {...register("state")} className={inputClass(!!errors.state)}>
-                  <option value="">UF</option>
-                  {UF_OPTIONS.map((uf) => (
-                    <option key={uf} value={uf}>{uf}</option>
-                  ))}
-                </select>
-                <FieldError message={errors.state?.message} />
-              </div>
-            </div>
+            )}
           </div>
         </div>
+
+        {!lightFormEnabled && (
+          <>
+            <div className="h-px bg-brand-sand/40" />
+
+            {/* Section 2: Address — moves to the prontuário (Entrega 2) under LIGHT_FORM_ENABLED */}
+            <div>
+              <SectionTitle>Endereço</SectionTitle>
+              <div className="space-y-4">
+                <div className="max-w-xs">
+                  <Label htmlFor="cep" required>CEP</Label>
+                  <div className="relative">
+                    <input
+                      id="cep"
+                      inputMode="numeric"
+                      {...register("cep", {
+                        onChange: (e) => { e.target.value = maskCep(e.target.value); },
+                        onBlur: handleCepBlur,
+                      })}
+                      placeholder="00000-000"
+                      className={inputClass(!!errors.cep)}
+                    />
+                    {cepLoading && (
+                      <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-brand-forest-light" />
+                    )}
+                  </div>
+                  <FieldError message={errors.cep?.message} />
+                </div>
+                <div>
+                  <Label htmlFor="street" required>Rua</Label>
+                  <input id="street" {...register("street")} placeholder="Rua, avenida..." className={inputClass(!!errors.street)} />
+                  <FieldError message={errors.street?.message} />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div>
+                    <Label htmlFor="number" required>Número</Label>
+                    <input id="number" {...register("number")} placeholder="Nº" className={inputClass(!!errors.number)} />
+                    <FieldError message={errors.number?.message} />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label htmlFor="complement">Complemento</Label>
+                    <input id="complement" {...register("complement")} placeholder="Apto, sala..." className={inputClass()} />
+                  </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div>
+                    <Label htmlFor="district" required>Bairro</Label>
+                    <input id="district" {...register("district")} placeholder="Bairro" className={inputClass(!!errors.district)} />
+                    <FieldError message={errors.district?.message} />
+                  </div>
+                  <div>
+                    <Label htmlFor="city" required>Cidade</Label>
+                    <input id="city" {...register("city")} placeholder="Cidade" className={inputClass(!!errors.city)} />
+                    <FieldError message={errors.city?.message} />
+                  </div>
+                  <div>
+                    <Label htmlFor="state" required>Estado</Label>
+                    <select id="state" {...register("state")} className={inputClass(!!errors.state)}>
+                      <option value="">UF</option>
+                      {UF_OPTIONS.map((uf) => (
+                        <option key={uf} value={uf}>{uf}</option>
+                      ))}
+                    </select>
+                    <FieldError message={errors.state?.message} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
 
         <div className="h-px bg-brand-sand/40" />
 
@@ -563,6 +629,23 @@ export default function DadosPage() {
               </div>
             </div>
             <FieldError message={errors.lgpdConsent?.message} />
+
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="whatsappConsent"
+                checked={whatsappConsentChecked}
+                onCheckedChange={(checked) => {
+                  setValue("whatsappConsent", checked === true ? true : false as unknown as true);
+                  if (checked) setValue("whatsappConsentAt", new Date().toISOString());
+                }}
+                className="mt-0.5"
+              />
+              <label htmlFor="whatsappConsent" className="text-sm text-brand-text">
+                Aceito receber mensagens no WhatsApp sobre o meu agendamento e a minha consulta.{" "}
+                <span className="text-brand-error/60">*</span>
+              </label>
+            </div>
+            <FieldError message={errors.whatsappConsent?.message} />
           </div>
         </div>
 
@@ -644,7 +727,7 @@ export default function DadosPage() {
         {/* Submit */}
         <Button
           type="submit"
-          disabled={submitting || !lgpdChecked || !termsChecked}
+          disabled={submitting || !lgpdChecked || !termsChecked || !whatsappConsentChecked}
           className="w-full bg-brand-forest text-brand-cream hover:bg-brand-forest-hover font-semibold py-6 text-base shadow-lg shadow-brand-forest/20 transition-all duration-500 disabled:opacity-50"
           data-track="form_completed"
         >
