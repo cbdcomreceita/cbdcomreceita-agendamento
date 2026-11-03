@@ -18,20 +18,51 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    return NextResponse.json({ error: "CRON_SECRET not set in this runtime" }, { status: 500 });
+  const url = new URL(req.url);
+  const action = url.searchParams.get("action") ?? "cron";
+
+  if (action === "cron") {
+    const cronSecret = process.env.CRON_SECRET;
+    if (!cronSecret) {
+      return NextResponse.json({ error: "CRON_SECRET not set in this runtime" }, { status: 500 });
+    }
+
+    const baseUrl = url.origin;
+    const results = [];
+    for (let i = 0; i < 3; i++) {
+      const res = await fetch(`${baseUrl}/api/cron/funnel`, {
+        headers: { Authorization: `Bearer ${cronSecret}` },
+      });
+      const body = await res.json();
+      results.push({ call: i + 1, status: res.status, body });
+    }
+
+    return NextResponse.json({ results });
   }
 
-  const baseUrl = new URL(req.url).origin;
-  const results = [];
-  for (let i = 0; i < 3; i++) {
-    const res = await fetch(`${baseUrl}/api/cron/funnel`, {
-      headers: { Authorization: `Bearer ${cronSecret}` },
-    });
-    const body = await res.json();
-    results.push({ call: i + 1, status: res.status, body });
+  if (action === "nextalk") {
+    const { NEXTALK_BASE_URL, getNextalkToken } = await import("@/lib/whatsapp/config");
+    const token = getNextalkToken();
+    if (!token) {
+      return NextResponse.json({ error: "NEXTALK_API_TOKEN not set in this runtime" }, { status: 500 });
+    }
+    const cardId = url.searchParams.get("cardId");
+    const conversationId = url.searchParams.get("conversationId");
+    const nextalkHeaders = { api_access_token: token, "Content-Type": "application/json" };
+
+    const out: Record<string, unknown> = {};
+    if (cardId) {
+      const res = await fetch(`${NEXTALK_BASE_URL}/kanban_items/${cardId}`, { headers: nextalkHeaders });
+      out.kanbanCard = await res.json();
+    }
+    if (conversationId) {
+      const res = await fetch(`${NEXTALK_BASE_URL}/conversations/${conversationId}/messages`, {
+        headers: nextalkHeaders,
+      });
+      out.messages = await res.json();
+    }
+    return NextResponse.json(out);
   }
 
-  return NextResponse.json({ results });
+  return NextResponse.json({ error: "unknown action" }, { status: 400 });
 }
