@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { loadTriageData } from "@/lib/triagem/storage";
+import { loadBookingData } from "@/lib/calcom/storage";
 
 // This page is no longer part of the main flow.
 // New flow: triagem → agenda (direct, after schedule step).
@@ -12,7 +13,10 @@ export default function ResultadoPage() {
 
   useEffect(() => {
     const data = loadTriageData();
-    if (data.matchedDoctorId) {
+    const booking = loadBookingData();
+    // Entrega 3 (AGENDA_3_NEXT_ENABLED) never sets matchedDoctorId — a
+    // booking with a doctorId already picked counts the same way.
+    if (data.matchedDoctorId || booking?.doctorId) {
       router.replace("/agenda");
     } else {
       router.replace("/triagem");

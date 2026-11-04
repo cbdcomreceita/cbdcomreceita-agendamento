@@ -161,12 +161,17 @@ export default function DadosPage() {
     const triage = loadTriageData();
     const booking = loadBookingData();
 
-    if (!triage.selectedSymptoms?.length || !booking || !triage.matchedDoctorId) {
+    // Entrega 3 (AGENDA_3_NEXT_ENABLED) never sets matchedDoctorId — there's
+    // no single pre-resolved doctor, just whichever block the patient
+    // picked. booking.doctorId (set by both agenda flows via saveBookingData)
+    // covers both cases.
+    const doctorId = triage.matchedDoctorId ?? booking?.doctorId;
+    if (!triage.selectedSymptoms?.length || !booking || !doctorId) {
       router.replace("/triagem");
       return;
     }
 
-    getDoctorById(triage.matchedDoctorId).then((matched) => {
+    getDoctorById(doctorId).then((matched) => {
       if (!matched) {
         router.replace("/triagem");
         return;

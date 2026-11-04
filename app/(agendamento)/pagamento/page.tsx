@@ -159,8 +159,11 @@ export default function PagamentoPage() {
       return;
     }
 
-    if (triage.matchedDoctorId) {
-      getDoctorById(triage.matchedDoctorId).then((matched) => setDoctor(matched));
+    // Entrega 3 (AGENDA_3_NEXT_ENABLED) never sets matchedDoctorId — fall
+    // back to booking.doctorId, set by both agenda flows (see dados/page.tsx).
+    const doctorId = triage.matchedDoctorId ?? booking.doctorId;
+    if (doctorId) {
+      getDoctorById(doctorId).then((matched) => setDoctor(matched));
     }
     setPatientName(patient.fullName);
     setBookingDateStr(formatDateLong(booking.scheduledAt));
