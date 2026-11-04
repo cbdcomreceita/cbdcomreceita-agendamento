@@ -46,12 +46,15 @@ export default function ConfirmacaoPage() {
     const booking = loadBookingData();
     const patient = loadPatientData();
 
-    if (!booking || !patient?.fullName || !triage.matchedDoctorId) {
+    // Entrega 3 (AGENDA_3_NEXT_ENABLED) never sets matchedDoctorId — fall
+    // back to booking.doctorId, set by both agenda flows (see dados/page.tsx).
+    const doctorId = triage.matchedDoctorId ?? booking?.doctorId;
+    if (!booking || !patient?.fullName || !doctorId) {
       router.replace("/triagem");
       return;
     }
 
-    getDoctorById(triage.matchedDoctorId).then((matched) => {
+    getDoctorById(doctorId).then((matched) => {
       if (!matched) {
         router.replace("/triagem");
         return;
