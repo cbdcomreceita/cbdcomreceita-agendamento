@@ -14,6 +14,8 @@ import {
 import { validateCoupon, computeAmountCents, couponErrorMessage } from "@/lib/coupon/validate";
 import { toMpExpirationIso } from "@/lib/utils/datetime";
 import { getPixExpirationMinutes } from "@/lib/pix/config";
+import { isAgenda3NextEnabled } from "@/app/actions/feature-flags";
+import { reserveCalcomSlot } from "@/lib/calcom/reservations";
 
 const BASE_PRICE_CENTS = Number(process.env.NEXT_PUBLIC_CONSULTATION_PRICE ?? "4990");
 
@@ -35,6 +37,8 @@ export interface GeneratePixResult {
   couponApplied?: string | null;
   /** Non-blocking: PIX is still generated at full price when this is set. */
   couponError?: string;
+  /** ISO — set only when AGENDA_3_NEXT_ENABLED actually reserved the slot on Cal.com. */
+  reservedUntil?: string;
   error?: string;
   retryAfter?: number;
 }
@@ -76,7 +80,7 @@ export async function generatePix(input: GeneratePixInput): Promise<GeneratePixR
   try {
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
-      .select("id, status, patients(full_name, email, cpf), doctors(name)")
+      .select("id, status, scheduled_at, patients(full_name, email, cpf), doctors(name, calcom_event_type_id)")
       .eq("id", bookingId)
       .maybeSingle();
 
@@ -96,7 +100,7 @@ export async function generatePix(input: GeneratePixInput): Promise<GeneratePixR
     }
 
     type PatientRow = { full_name: string; email: string; cpf: string };
-    type DoctorRow = { name: string };
+    type DoctorRow = { name: string; calcom_event_type_id: number | null };
     const patient = booking.patients as unknown as PatientRow | null;
     const doctor = booking.doctors as unknown as DoctorRow | null;
     if (!patient || !doctor) {
@@ -244,6 +248,41 @@ export async function generatePix(input: GeneratePixInput): Promise<GeneratePixR
       await supabase.from("bookings").update({ status: "awaiting_payment" }).eq("id", bookingId);
     }
 
+    // Entrega 3, item 4 — holds the slot on Cal.com's side for as long as
+    // this PIX is valid, so another visitor's GET /v2/slots doesn't offer
+    // it in the meantime. Entirely gated behind the flag: the `bookings`
+    // table only gets a calcom_reservation_uid column once migration 0016
+    // is applied, and AGENDA_3_NEXT_ENABLED is the single thing standing
+    // between "never calls this" and "always calls this" — see
+    // create-booking.ts's intake_required fix for why that matters. A
+    // reservation failure (including the DB write failing, e.g. before the
+    // migration runs) never blocks PIX generation — same best-effort
+    // posture as every other non-critical side effect in this flow.
+    let reservedUntil: string | undefined;
+    if (!isMock && doctor.calcom_event_type_id && (await isAgenda3NextEnabled())) {
+      const reservation = await reserveCalcomSlot({
+        eventTypeId: doctor.calcom_event_type_id,
+        slotStart: booking.scheduled_at,
+        reservationDurationMinutes: expirationMinutes,
+      });
+      if (reservation.success && reservation.reservationUid) {
+        reservedUntil = reservation.reservationUntil;
+        const { error: reservationUpdateError } = await supabase
+          .from("bookings")
+          .update({ calcom_reservation_uid: reservation.reservationUid })
+          .eq("id", bookingId);
+        if (reservationUpdateError) {
+          await logError({
+            scope: "calcom",
+            message: "generatePix: failed to persist calcom_reservation_uid",
+            metadata: { error: reservationUpdateError, bookingId },
+            entityType: "booking",
+            entityId: bookingId,
+          });
+        }
+      }
+    }
+
     await supabase.from("audit_events").insert({
       event_type: "pix_generated",
       entity_type: "booking",
@@ -269,6 +308,7 @@ export async function generatePix(input: GeneratePixInput): Promise<GeneratePixR
       amountCents,
       couponApplied: appliedCouponCode,
       couponError,
+      reservedUntil,
     };
   } catch (err) {
     await logError({

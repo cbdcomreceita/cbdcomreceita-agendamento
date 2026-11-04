@@ -53,16 +53,23 @@ async function setCachedSlots(eventTypeId: number, daysAhead: number, data: DayS
  * Response shape:
  *   { status: "success", data: { "YYYY-MM-DD": [{ start: ISO }, ...], ... } }
  *
- * Searches the next `daysAhead` days, returns only days with slots, max 3 days.
+ * Searches the next `daysAhead` days, returns only days with slots, capped
+ * to the nearest `maxDays` of them (default 3, matching the single-doctor
+ * picker this was originally built for — Entrega 3's multi-doctor "3 next
+ * agendas" engine needs to scan much further, so it passes a larger value).
  *
  * Cached in Upstash for 90s per (eventTypeId, daysAhead) — checked before
  * the rate limiter, so cache hits don't burn a visitor's request budget
  * and don't touch Cal.com at all. Fail-open on any Upstash error (same
  * pattern as rate limiting): treated as a miss, falls through to the API.
+ * The cache stores the FULL (untrimmed) result — maxDays is applied on
+ * every read, cache hit or miss, so two callers sharing (eventTypeId,
+ * daysAhead) with different maxDays never see each other's trimmed cache.
  */
 export async function getAvailableSlots(
   eventTypeId: number,
-  daysAhead = 30
+  daysAhead = 30,
+  maxDays = 3
 ): Promise<DaySlots[]> {
   const apiKey = process.env.CALCOM_API_KEY;
   if (!apiKey) {
@@ -71,7 +78,7 @@ export async function getAvailableSlots(
   }
 
   const cached = await getCachedSlots(eventTypeId, daysAhead);
-  if (cached) return cached;
+  if (cached) return cached.slice(0, maxDays);
 
   // Rate limit per IP — protects Cal.com quota and blocks scrapers. Only
   // reached on a cache miss. On rate-limited requests we audit and
@@ -143,9 +150,8 @@ export async function getAvailableSlots(
     }
 
     result.sort((a, b) => a.date.localeCompare(b.date));
-    const trimmed = result.slice(0, 3);
-    await setCachedSlots(eventTypeId, daysAhead, trimmed);
-    return trimmed;
+    await setCachedSlots(eventTypeId, daysAhead, result);
+    return result.slice(0, maxDays);
   } catch (err) {
     console.error("[Cal.com] Failed to fetch slots:", err);
     return [];
