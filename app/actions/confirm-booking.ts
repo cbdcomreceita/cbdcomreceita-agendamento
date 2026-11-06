@@ -16,6 +16,8 @@ import {
 } from "@/lib/whatsapp/config";
 import { sendWhatsappAlert } from "@/lib/resend/send-whatsapp-alert";
 import { sendPaymentAfterExpiryAlert } from "@/lib/resend/send-payment-after-expiry-alert";
+import { sendSlotConflictAlert } from "@/lib/resend/send-slot-conflict-alert";
+import { sendSlotConflictPatientNotice } from "@/lib/resend/send-slot-conflict-patient-notice";
 import { sendMetaConversionEvent } from "@/lib/analytics/meta-conversions-api";
 import type { Doctor } from "@/lib/types/doctor";
 import { formatDateLong, formatDateBR, formatTimeH } from "@/lib/utils/datetime";
@@ -331,6 +333,61 @@ export async function confirmBooking(
             meet_link: calResult.meetLink,
           })
           .eq("id", bookingId);
+      } else if (calResult.conflict) {
+        // Entrega 3, item 2h — the reservation taken at PIX generation
+        // normally prevents this (see generate-pix.ts's
+        // slot_conflict_before_payment branch), but a payment approved
+        // after that reservation already expired — or one generated while
+        // AGENDA_3_NEXT_ENABLED was off — can still lose this exact race.
+        // The payment is already marked approved above; it must never be
+        // silently lost, so this never falls through to the normal
+        // confirmation e-mails/WhatsApp/Sheets below (steps 7-8), which
+        // would wrongly claim a consultation that doesn't exist.
+        const { data: conflicting } = await supabase
+          .from("bookings")
+          .select("id")
+          .eq("doctor_id", booking.doctor_id)
+          .eq("scheduled_at", booking.scheduled_at)
+          .eq("status", "confirmed")
+          .neq("id", bookingId)
+          .maybeSingle();
+
+        await supabase
+          .from("bookings")
+          .update({ status: "payment_conflict" })
+          .eq("id", bookingId);
+
+        await supabase.from("audit_events").insert({
+          event_type: "slot_conflict_after_payment",
+          entity_type: "booking",
+          entity_id: bookingId,
+          metadata: { source, conflictingBookingId: conflicting?.id ?? null, paymentId: payment?.id ?? null },
+        });
+
+        const dateBR = formatDateBR(booking.scheduled_at);
+        const timeH = formatTimeH(booking.scheduled_at);
+        await sendSlotConflictAlert({
+          bookingId,
+          conflictingBookingId: conflicting?.id ?? null,
+          paymentId: payment?.id ?? null,
+          patientName: patient.full_name,
+          patientEmail: patient.email,
+          patientPhone: patient.phone,
+          doctorName: doctor.name,
+          dateBR,
+          timeH,
+          amountFormatted: formatCentsToBRL(payment?.amount_cents ?? 4990),
+        });
+        await sendSlotConflictPatientNotice({
+          bookingId,
+          patientName: patient.full_name,
+          patientEmail: patient.email,
+          doctorName: doctor.name,
+          dateBR,
+          timeH,
+        });
+
+        return { success: false, error: "slot_conflict_after_payment" };
       }
     }
 

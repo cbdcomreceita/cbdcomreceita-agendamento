@@ -10,6 +10,15 @@ export interface CalcomBookingResult {
   bookingUid?: string;
   meetLink?: string;
   error?: string;
+  /** True when Cal.com rejected the booking because the slot is no longer
+   * available — a 409 ConflictException ("User either already has booking
+   * at this time or is not available"). Confirmed live against the real
+   * API on 2026-11-06. Entrega 3, item 2h: the reservation taken at PIX
+   * generation normally prevents this, but a payment approved for a
+   * booking whose reservation already expired (or wasn't taken at all,
+   * e.g. AGENDA_3_NEXT_ENABLED was off when the PIX was generated) can
+   * still race here. */
+  conflict?: boolean;
 }
 
 interface BookingInput {
@@ -77,6 +86,13 @@ export async function createCalcomBooking(
     console.log("[Cal.com] Booking response body:", responseText.slice(0, 1500));
 
     if (!res.ok) {
+      let conflict = false;
+      try {
+        const parsed = JSON.parse(responseText) as { error?: { code?: string } };
+        conflict = res.status === 409 && parsed.error?.code === "ConflictException";
+      } catch {
+        // Non-JSON body — leave conflict false, treated as a generic failure.
+      }
       await logError({
         scope: "calcom",
         message: `Booking creation failed (${res.status})`,
@@ -84,10 +100,11 @@ export async function createCalcomBooking(
           status: res.status,
           responseBody: responseText.slice(0, 1500),
           requestBody,
+          conflict,
         },
         entityId: input.metadata?.bookingId,
       });
-      return { success: false, error: `Cal.com error ${res.status}: ${responseText}` };
+      return { success: false, error: `Cal.com error ${res.status}: ${responseText}`, conflict };
     }
 
     const data = JSON.parse(responseText);
