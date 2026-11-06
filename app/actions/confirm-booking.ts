@@ -20,6 +20,7 @@ import { sendMetaConversionEvent } from "@/lib/analytics/meta-conversions-api";
 import type { Doctor } from "@/lib/types/doctor";
 import { formatDateLong, formatDateBR, formatTimeH } from "@/lib/utils/datetime";
 import { formatCentsToBRL } from "@/lib/utils/currency";
+import { formatIntakeDeadline } from "@/lib/intake/deadline";
 
 export type ConfirmSource = "polling" | "webhook" | "cron";
 
@@ -345,6 +346,8 @@ export async function confirmBooking(
       duration: "25 minutos",
       meetLink,
       amountFormatted: formatCentsToBRL(amountCents),
+      intakeRequired: booking.intake_required === true,
+      intakeDeadline: booking.intake_required === true ? formatIntakeDeadline(booking.scheduled_at) : undefined,
     });
 
     // 8. Doctor intake + team intake + Google Sheets

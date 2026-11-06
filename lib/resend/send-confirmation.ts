@@ -13,6 +13,8 @@ interface SendConfirmationParams {
   duration: string;
   meetLink?: string;
   amountFormatted: string;
+  intakeRequired?: boolean;
+  intakeDeadline?: string;
 }
 
 export async function sendBookingConfirmation(
@@ -37,6 +39,8 @@ export async function sendBookingConfirmation(
         duration: params.duration,
         meetLink: params.meetLink,
         amountFormatted: params.amountFormatted,
+        intakeRequired: params.intakeRequired,
+        intakeDeadline: params.intakeDeadline,
       }),
     });
 

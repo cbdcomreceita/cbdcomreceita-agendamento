@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   checkWhatsappReadiness,
   getConfirmationMode,
-  getConfirmationTemplateName,
+  getConfirmationV2TemplateName,
   getIntakeReminderTemplateName,
   isIntakeReminderEnabled,
 } from "./config";
@@ -45,15 +45,15 @@ describe("getConfirmationMode", () => {
   });
 });
 
-describe("getConfirmationTemplateName", () => {
-  it("defaults to confirmacao_consulta when unset", () => {
+describe("getConfirmationV2TemplateName", () => {
+  it("defaults to confirmacao_consulta_v2 when unset", () => {
     vi.stubEnv("WHATSAPP_CONFIRMATION_TEMPLATE_NAME", "");
-    expect(getConfirmationTemplateName()).toBe("confirmacao_consulta");
+    expect(getConfirmationV2TemplateName()).toBe("confirmacao_consulta_v2");
   });
 
-  it("uses the env override when set (e.g. confirmacao_consulta_v2)", () => {
-    vi.stubEnv("WHATSAPP_CONFIRMATION_TEMPLATE_NAME", "confirmacao_consulta_v2");
-    expect(getConfirmationTemplateName()).toBe("confirmacao_consulta_v2");
+  it("uses the env override when set", () => {
+    vi.stubEnv("WHATSAPP_CONFIRMATION_TEMPLATE_NAME", "confirmacao_consulta_v3");
+    expect(getConfirmationV2TemplateName()).toBe("confirmacao_consulta_v3");
   });
 });
 

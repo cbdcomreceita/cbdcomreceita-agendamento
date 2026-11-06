@@ -5,10 +5,10 @@ import { useForm } from "react-hook-form";
 import { Loader2, CheckCircle2, AlertTriangle, MessageCircle, ArrowRight } from "lucide-react";
 import { getIntakeByToken } from "@/app/actions/get-intake-by-token";
 import { submitIntake } from "@/app/actions/submit-intake";
-import { intakeSchema, type IntakeFormData } from "@/lib/validation/intake";
+import { buildIntakeSchema, type IntakeFormData } from "@/lib/validation/intake";
 import { UF_OPTIONS } from "@/lib/validation/patient";
 import { fetchCep } from "@/lib/utils/viacep";
-import { maskCep } from "@/lib/utils/masks";
+import { maskCep, maskCpf } from "@/lib/utils/masks";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -44,6 +44,10 @@ export function ProntuarioClient({ token }: { token: string }) {
   const [patientName, setPatientName] = useState("");
   const [doctorName, setDoctorName] = useState("");
   const [scheduledAtFormatted, setScheduledAtFormatted] = useState("");
+  const [isMinor, setIsMinor] = useState(false);
+  const [responsibleFullName, setResponsibleFullName] = useState("");
+  const [responsibleCpf, setResponsibleCpf] = useState("");
+  const [isSelf, setIsSelf] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [cepLoading, setCepLoading] = useState(false);
@@ -79,9 +83,23 @@ export function ProntuarioClient({ token }: { token: string }) {
       setPatientName(result.patientName ?? "");
       setDoctorName(result.doctorName ?? "");
       setScheduledAtFormatted(result.scheduledAtFormatted ?? "");
+      setIsMinor(result.isMinor === true);
+      setResponsibleFullName(result.responsibleFullName ?? "");
+      setResponsibleCpf(result.responsibleCpf ?? "");
       setState("form");
     });
   }, [token]);
+
+  function handleIsSelfChange(checked: boolean) {
+    setIsSelf(checked);
+    if (checked) {
+      setValue("patientFullName", responsibleFullName, { shouldValidate: true });
+      setValue("patientCpf", responsibleCpf ? maskCpf(responsibleCpf) : "", { shouldValidate: true });
+    } else {
+      setValue("patientFullName", "", { shouldValidate: true });
+      setValue("patientCpf", "", { shouldValidate: true });
+    }
+  }
 
   const cepValue = watch("cep");
   const handleCepBlur = useCallback(async () => {
@@ -102,7 +120,7 @@ export function ProntuarioClient({ token }: { token: string }) {
     setFieldErrors({});
     setSubmitError("");
 
-    const result = intakeSchema.safeParse(data);
+    const result = buildIntakeSchema(isMinor).safeParse(data);
     if (!result.success) {
       const errs: Record<string, string> = {};
       for (const issue of result.error.issues) {
@@ -222,17 +240,65 @@ export function ProntuarioClient({ token }: { token: string }) {
   return (
     <div className={wrapperClass}>
       <h1 className="text-[22px] font-bold tracking-tight text-brand-forest-dark sm:text-[26px]">
-        Complete seu prontuário
+        Dados do paciente
       </h1>
       <p className="mt-2 text-[17px] text-brand-text-secondary">
-        Olá, {patientName.split(" ")[0]}. Para abrir seu prontuário com {doctorName}
-        {scheduledAtFormatted ? ` (${scheduledAtFormatted})` : ""} e emitir sua receita, se houver indicação durante a consulta, precisamos de mais alguns dados.
+        Olá, {patientName.split(" ")[0]}. Para abrir o prontuário da consulta com {doctorName}
+        {scheduledAtFormatted ? ` (${scheduledAtFormatted})` : ""} e emitir a receita, se houver indicação durante a consulta, precisamos dos dados de quem será atendido.
       </p>
+
+      <div className="mt-6 rounded-2xl border border-amber-300/60 bg-amber-50 p-5">
+        <p className="text-[17px] leading-relaxed text-amber-900">
+          Preencha com os dados do PACIENTE, ou seja, de quem será atendido na consulta. Se o paciente for menor de
+          idade, ele precisa participar da consulta acompanhado do responsável.
+        </p>
+      </div>
 
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="mt-8 space-y-6 rounded-2xl border border-brand-sand/60 bg-white p-6 shadow-sm sm:p-8"
+        className="mt-6 space-y-6 rounded-2xl border border-brand-sand/60 bg-white p-6 shadow-sm sm:p-8"
       >
+        {responsibleFullName && (
+          <label className="flex items-start gap-3 rounded-xl border border-brand-sand/60 bg-brand-sand/10 p-4">
+            <input
+              type="checkbox"
+              checked={isSelf}
+              onChange={(e) => handleIsSelfChange(e.target.checked)}
+              className="mt-0.5 h-5 w-5 accent-brand-forest"
+            />
+            <span className="text-[17px] font-medium text-brand-text">O paciente sou eu</span>
+          </label>
+        )}
+
+        <div>
+          <Label htmlFor="patientFullName" required>Nome completo do paciente</Label>
+          <input
+            id="patientFullName"
+            {...register("patientFullName")}
+            placeholder="Nome e sobrenome"
+            className={inputClass(!!errors.patientFullName)}
+          />
+          <FieldError message={errors.patientFullName?.message} />
+        </div>
+
+        <div>
+          <Label htmlFor="patientCpf" required={!isMinor}>
+            CPF do paciente{isMinor ? " (opcional para menores de idade)" : ""}
+          </Label>
+          <input
+            id="patientCpf"
+            inputMode="numeric"
+            {...register("patientCpf", {
+              onChange: (e) => { e.target.value = maskCpf(e.target.value); },
+            })}
+            placeholder="000.000.000-00"
+            className={inputClass(!!errors.patientCpf)}
+          />
+          <FieldError message={errors.patientCpf?.message} />
+        </div>
+
+        <div className="h-px bg-brand-sand/40" />
+
         <div>
           <Label htmlFor="rg" required>RG</Label>
           <input id="rg" {...register("rg")} placeholder="Número do RG" className={inputClass(!!errors.rg)} />

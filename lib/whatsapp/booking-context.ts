@@ -12,6 +12,8 @@ export interface BookingContext {
   doctorName: string;
   dateBR: string;
   timeH: string;
+  /** Raw ISO scheduled_at — needed for v2's weekday/deadline formatting, which dateBR/timeH alone can't produce. */
+  scheduledAtIso: string;
   meetLink: string | null;
   amountCents: number;
   intakeRequired: boolean;
@@ -63,6 +65,7 @@ export async function loadBookingContext(bookingId: string): Promise<BookingCont
     doctorName: doctor.name,
     dateBR: formatDateBR(booking.scheduled_at),
     timeH: formatTimeH(booking.scheduled_at),
+    scheduledAtIso: booking.scheduled_at as string,
     meetLink: booking.meet_link ?? null,
     amountCents: payments[0]?.amount_cents ?? 4990,
     intakeRequired: booking.intake_required === true,

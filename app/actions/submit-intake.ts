@@ -6,7 +6,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/audit/log-error";
 import { stripPaymentTokenPrefix } from "@/lib/utils/payment-token";
 import { rateLimiters, tryCheckRateLimit, getClientIp, maskIp } from "@/lib/rate-limit";
-import { intakeSchema, type IntakeFormData } from "@/lib/validation/intake";
+import { buildIntakeSchema, type IntakeFormData } from "@/lib/validation/intake";
 import { sendDoctorIntake, sendTeamIntake } from "@/lib/resend/send-intake";
 import { updateGoogleSheetRow } from "@/lib/google-sheets/update-row";
 import { calculateAge } from "@/lib/utils/age";
@@ -65,17 +65,6 @@ export async function submitIntake(input: SubmitIntakeInput): Promise<SubmitInta
     return { success: false, error: "rate_limit_exceeded", retryAfter: retryAfterSec };
   }
 
-  const parsed = intakeSchema.safeParse(input.data);
-  if (!parsed.success) {
-    const fieldErrors: Record<string, string> = {};
-    for (const issue of parsed.error.issues) {
-      const key = String(issue.path[0]);
-      if (!fieldErrors[key]) fieldErrors[key] = issue.message;
-    }
-    return { success: false, error: "Dados inválidos", fieldErrors };
-  }
-  const form = parsed.data;
-
   const { data: booking, error: bookingError } = await supabase
     .from("bookings")
     .select(
@@ -106,6 +95,20 @@ export async function submitIntake(input: SubmitIntakeInput): Promise<SubmitInta
     return { success: false, error: "Este link não está mais disponível" };
   }
 
+  type TriageJsonMinor = { isMinor?: boolean };
+  const isMinor = ((booking.triage_data ?? {}) as TriageJsonMinor).isMinor === true;
+
+  const parsed = buildIntakeSchema(isMinor).safeParse(input.data);
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      const key = String(issue.path[0]);
+      if (!fieldErrors[key]) fieldErrors[key] = issue.message;
+    }
+    return { success: false, error: "Dados inválidos", fieldErrors };
+  }
+  const form = parsed.data;
+
   type PatientRow = {
     id: string;
     full_name: string;
@@ -122,6 +125,9 @@ export async function submitIntake(input: SubmitIntakeInput): Promise<SubmitInta
   type DoctorRow = { name: string; email: string; crm: string; crm_uf: string };
   type PaymentRow = { amount_cents: number; status: string; paid_at: string | null; coupon_code: string | null };
 
+  // `patient` here is the booking's CONTACT/RESPONSÁVEL (patients is
+  // deduped by the responsible's CPF, see create-booking.ts) — never the
+  // PACIENTE's own identity, which lives on the booking itself (below).
   const patient = booking.patients as unknown as PatientRow | null;
   const doctor = booking.doctors as unknown as DoctorRow | null;
   const payments = (Array.isArray(booking.payments) ? booking.payments : booking.payments ? [booking.payments] : []) as PaymentRow[];
@@ -135,27 +141,31 @@ export async function submitIntake(input: SubmitIntakeInput): Promise<SubmitInta
     return { success: false, error: "Agendamento incompleto" };
   }
 
-  // 1. Fill in the fields the light form left out.
-  const { error: patientUpdateError } = await supabase
-    .from("patients")
+  // 1. Save the PACIENTE's own identity on the booking — never on the
+  // shared `patients` row, which belongs to the RESPONSÁVEL and must not
+  // be overwritten by a different person's data (migration 0017).
+  const { error: bookingPatientUpdateError } = await supabase
+    .from("bookings")
     .update({
-      rg: form.rg,
-      birth_date: form.birthDate,
-      address_street: form.street,
-      address_number: form.number,
-      address_complement: form.complement || null,
-      address_district: form.district,
-      address_city: form.city,
-      address_state: form.state,
-      address_zipcode: form.cep,
+      patient_full_name: form.patientFullName,
+      patient_cpf: form.patientCpf || null,
+      patient_rg: form.rg,
+      patient_birth_date: form.birthDate,
+      patient_address_street: form.street,
+      patient_address_number: form.number,
+      patient_address_complement: form.complement || null,
+      patient_address_district: form.district,
+      patient_address_city: form.city,
+      patient_address_state: form.state,
+      patient_address_zipcode: form.cep,
     })
-    .eq("id", booking.patient_id);
+    .eq("id", booking.id);
 
-  if (patientUpdateError) {
+  if (bookingPatientUpdateError) {
     await logError({
       scope: "create",
-      message: "submitIntake: patient update failed",
-      metadata: { error: patientUpdateError, bookingId: booking.id },
+      message: "submitIntake: booking patient-identity update failed",
+      metadata: { error: bookingPatientUpdateError, bookingId: booking.id },
     });
     return { success: false, error: "Erro ao salvar seus dados" };
   }
@@ -198,11 +208,13 @@ export async function submitIntake(input: SubmitIntakeInput): Promise<SubmitInta
       : `Tratamento anterior: ${tLabel}`;
   }
 
+  const patientCpfFmt = form.patientCpf ? maskCpf(form.patientCpf) : "Não informado (paciente menor de idade)";
+
   const doctorResult = await sendDoctorIntake({
     doctorName: doctor.name,
     doctorEmail: doctor.email,
-    patientName: patient.full_name,
-    patientCpf: maskCpf(patient.cpf),
+    patientName: form.patientFullName,
+    patientCpf: patientCpfFmt,
     patientAge: age,
     patientPhone: maskPhone(patient.phone),
     symptoms: symptomsJoined,
@@ -228,8 +240,8 @@ export async function submitIntake(input: SubmitIntakeInput): Promise<SubmitInta
     dateFormatted,
     timeFormatted,
     meetLink: booking.meet_link ?? undefined,
-    patientName: patient.full_name,
-    patientCpf: maskCpf(patient.cpf),
+    patientName: form.patientFullName,
+    patientCpf: patientCpfFmt,
     patientRg: form.rg,
     patientBirthDate: formatDateBR(birthAnchored),
     patientAge: age,
@@ -263,8 +275,13 @@ export async function submitIntake(input: SubmitIntakeInput): Promise<SubmitInta
     });
   }
 
+  // "Nome" e "CPF" (colunas do contato/responsável) já foram preenchidas
+  // no pagamento (dispatch.ts) e não são alteradas aqui — só "Paciente"
+  // muda, para o nome de quem efetivamente será atendido. O CPF do próprio
+  // paciente (quando houver) vai só no e-mail ao médico/equipe acima, não
+  // tem coluna própria na planilha hoje.
   const sheetResult = await updateGoogleSheetRow(booking.id, {
-    Nome: patient.full_name,
+    Paciente: form.patientFullName,
     RG: form.rg,
     "Data Nascimento": formatDateBR(birthAnchored),
     Endereco: [form.street, form.number, form.complement].filter(Boolean).join(", "),

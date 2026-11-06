@@ -192,7 +192,6 @@ export default function DadosPage() {
       applyCoupon(triage.couponCode);
     }
     isCouponAvailable().then(setCouponAvailable);
-    isLightFormEnabled().then(setLightFormEnabled);
 
     // Pre-fill birth date from triage
     if (triage.birthDate) {
@@ -211,7 +210,18 @@ export default function DadosPage() {
       }
     }
 
-    setLoaded(true);
+    // Only flip `loaded` once lightFormEnabled is actually known. Rendering
+    // with it still at its default (false) for even one tick mounts the
+    // full form's RG/endereço inputs — react-hook-form's shouldUnregister
+    // defaults to false, so those fields stay registered with "" after
+    // unmounting once the real flag arrives, silently failing the light
+    // schema's validation (an "optional" field still has to be a valid
+    // value or absent — "" is neither) with no visible error, since the
+    // inputs showing that error aren't even rendered under the light form.
+    isLightFormEnabled().then((enabled) => {
+      setLightFormEnabled(enabled);
+      setLoaded(true);
+    });
   }, [router, setValue, applyCoupon]);
 
   // CEP auto-fill
@@ -283,9 +293,12 @@ export default function DadosPage() {
       </h1>
       {lightFormEnabled && (
         <>
-          <p className="mt-2 text-lg text-brand-text-secondary">
-            Precisamos de algumas informações para você receber os dados da sua consulta online.
-          </p>
+          <div className="mt-4 rounded-2xl border border-brand-forest/20 bg-brand-forest/5 p-4 sm:p-5">
+            <p className="text-sm leading-relaxed text-brand-forest-dark sm:text-base">
+              Preencha com os SEUS dados, de quem está fazendo o agendamento. É com você que o nosso time vai entrar
+              em contato. Os dados do paciente serão pedidos depois do pagamento, para abrir o prontuário.
+            </p>
+          </div>
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5">
             <span className="flex items-center gap-1.5 text-sm text-brand-text-muted">
               <CheckCircle2 className="h-4 w-4 text-brand-forest" />
@@ -322,18 +335,18 @@ export default function DadosPage() {
           <SectionTitle>Dados pessoais</SectionTitle>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="fullName" required>Nome completo</Label>
+              <Label htmlFor="fullName" required>{lightFormEnabled ? "Seu nome completo" : "Nome completo"}</Label>
               <input id="fullName" {...register("fullName")} placeholder="Nome e sobrenome" className={inputClass(!!errors.fullName)} />
               <FieldError message={errors.fullName?.message} />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <Label htmlFor="email" required>E-mail</Label>
+                <Label htmlFor="email" required>{lightFormEnabled ? "Seu e-mail" : "E-mail"}</Label>
                 <input id="email" type="email" {...register("email")} placeholder="seu@email.com" className={inputClass(!!errors.email)} />
                 <FieldError message={errors.email?.message} />
               </div>
               <div>
-                <Label htmlFor="phone" required>Celular com WhatsApp</Label>
+                <Label htmlFor="phone" required>{lightFormEnabled ? "Seu celular com WhatsApp" : "Celular com WhatsApp"}</Label>
                 <div className="flex gap-2">
                   <select
                     id="phoneCountry"
@@ -368,7 +381,7 @@ export default function DadosPage() {
             </div>
             <div className={cn("grid gap-4", !lightFormEnabled && "sm:grid-cols-2")}>
               <div>
-                <Label htmlFor="cpf" required>CPF</Label>
+                <Label htmlFor="cpf" required>{lightFormEnabled ? "Seu CPF" : "CPF"}</Label>
                 <input
                   id="cpf"
                   inputMode="numeric"

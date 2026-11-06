@@ -16,10 +16,16 @@ export interface IntakeByTokenResult {
    * stops being usable at that point ("válido até o fim da consulta"). */
   expired?: boolean;
   bookingId?: string;
+  /** The booking's contact/responsible — NOT necessarily the patient. */
   patientName?: string;
   doctorName?: string;
   scheduledAt?: string;
   scheduledAtFormatted?: string;
+  /** From the triage — whether CPF is required ("O paciente sou eu" and CPF validation both depend on this). */
+  isMinor?: boolean;
+  /** The responsible's own name/CPF, to prefill "O paciente sou eu". */
+  responsibleFullName?: string;
+  responsibleCpf?: string;
 }
 
 /**
@@ -49,7 +55,7 @@ export async function getIntakeByToken(rawToken: string): Promise<IntakeByTokenR
   const { data, error } = await supabase
     .from("bookings")
     .select(
-      "id, scheduled_at, scheduled_end_at, intake_required, intake_completed_at, patients(full_name), doctors(name)"
+      "id, scheduled_at, scheduled_end_at, intake_required, intake_completed_at, triage_data, patients(full_name, cpf), doctors(name)"
     )
     .eq("intake_token", token)
     .eq("intake_required", true)
@@ -66,8 +72,9 @@ export async function getIntakeByToken(rawToken: string): Promise<IntakeByTokenR
 
   if (!data) return { found: false };
 
-  type PatientRow = { full_name: string } | null;
+  type PatientRow = { full_name: string; cpf: string } | null;
   type DoctorRow = { name: string } | null;
+  type TriageJson = { isMinor?: boolean };
   const patient = data.patients as unknown as PatientRow;
   const doctor = data.doctors as unknown as DoctorRow;
   if (!patient || !doctor) return { found: false };
@@ -83,6 +90,8 @@ export async function getIntakeByToken(rawToken: string): Promise<IntakeByTokenR
     return { found: true, expired: true, bookingId: data.id };
   }
 
+  const triageData = (data.triage_data ?? {}) as TriageJson;
+
   return {
     found: true,
     alreadyCompleted: false,
@@ -91,5 +100,8 @@ export async function getIntakeByToken(rawToken: string): Promise<IntakeByTokenR
     doctorName: doctor.name,
     scheduledAt: data.scheduled_at,
     scheduledAtFormatted: formatDateLong(data.scheduled_at),
+    isMinor: triageData.isMinor === true,
+    responsibleFullName: patient.full_name,
+    responsibleCpf: patient.cpf,
   };
 }

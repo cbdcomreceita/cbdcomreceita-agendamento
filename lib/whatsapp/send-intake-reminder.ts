@@ -15,6 +15,7 @@ export interface SendIntakeReminderInput {
   doctorName: string;
   dateLabel: string;
   timeH: string;
+  intakeDeadline: string;
   intakeToken: string;
 }
 
@@ -64,6 +65,7 @@ export async function sendIntakeReminder(
     doctorName: input.doctorName,
     dateLabel: input.dateLabel,
     timeH: input.timeH,
+    intakeDeadline: input.intakeDeadline,
     intakeToken: input.intakeToken,
   };
 

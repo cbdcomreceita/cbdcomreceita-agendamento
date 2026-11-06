@@ -8,8 +8,8 @@ import {
   formatWeekdayLong,
   formatDayMonthLong,
   formatTime,
-  formatDateBRShort,
 } from "@/lib/utils/datetime";
+import { formatIntakeDeadline } from "@/lib/intake/deadline";
 import {
   CheckCircle2, CalendarCheck, Video, Clock, User,
   ArrowRight, MessageCircle, CalendarPlus, FileText,
@@ -167,11 +167,9 @@ export default function ConfirmacaoPage() {
         {intake?.required && !intake.completedAt && intake.token && (
           <div className="mt-4 rounded-2xl border border-amber-300/60 bg-amber-50 p-5 sm:p-6">
             <p className="text-sm leading-relaxed text-amber-900 sm:text-base">
-              Falta só um passo: precisamos de mais alguns dados para abrir o seu prontuário e, se houver indicação,
-              emitir a sua receita durante a consulta. Preencha até{" "}
-              {formatDateBRShort(new Date(new Date(bookingData.scheduledAt).getTime() - 2 * 60 * 60 * 1000))} às{" "}
-              {formatTime(new Date(new Date(bookingData.scheduledAt).getTime() - 2 * 60 * 60 * 1000))} (2 horas antes
-              da consulta). Sem esses dados, a consulta poderá ser cancelada.
+              Falta só um passo: preencha os dados do PACIENTE para abrirmos o prontuário e, se houver indicação,
+              emitir a sua receita durante a consulta. O prazo é até {formatIntakeDeadline(bookingData.scheduledAt)}.
+              Sem esses dados, a consulta poderá ser cancelada.
             </p>
             <Link
               href={`/prontuario/${intake.token}`}
@@ -185,6 +183,23 @@ export default function ConfirmacaoPage() {
             </Link>
           </div>
         )}
+
+        {/* Antes da consulta / Importante — sempre, novos blocos (item 3d) */}
+        <div className="mt-4 rounded-2xl bg-brand-sand/40 p-5 sm:p-6">
+          <h3 className="text-sm font-semibold text-brand-forest-dark">Antes da consulta</h3>
+          <p className="mt-2 text-sm leading-relaxed text-brand-text-secondary">
+            No celular, instale o app Google Meet antes do horário. No computador, use Chrome, Edge, Firefox ou
+            Safari e permita o acesso à câmera e ao microfone quando o navegador pedir. Pode ser que a médica precise
+            liberar a sua entrada na sala. Entre alguns minutos antes para testar.
+          </p>
+        </div>
+        <div className="mt-4 rounded-2xl bg-brand-sand/40 p-5 sm:p-6">
+          <h3 className="text-sm font-semibold text-brand-forest-dark">Importante</h3>
+          <p className="mt-2 text-sm leading-relaxed text-brand-text-secondary">
+            O paciente precisa estar presente na consulta. Se for menor de idade, ele deve participar acompanhado do
+            responsável. Em caso de desistência ou ausência, não há reembolso.
+          </p>
+        </div>
 
         {/* Booking details */}
         <div className="mt-6 space-y-4 rounded-2xl border border-brand-sand/60 border-l-4 border-l-brand-forest bg-white p-6 shadow-sm sm:p-8">
