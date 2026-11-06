@@ -25,23 +25,9 @@ function doctor(overrides: Record<string, unknown> = {}) {
   };
 }
 
-let symptomMapRows: unknown[] = [];
-let symptomMapError: unknown = null;
 const getActiveDoctorsMock = vi.fn();
 vi.mock("@/app/actions/get-doctors", () => ({
   getActiveDoctors: (...a: unknown[]) => getActiveDoctorsMock(...a),
-}));
-
-function makeSupabaseMock() {
-  const chain = {
-    select: vi.fn(() => chain),
-    in: vi.fn(() => chain),
-    eq: vi.fn(async () => ({ data: symptomMapRows, error: symptomMapError })),
-  };
-  return { from: vi.fn(() => chain) };
-}
-vi.mock("@/lib/supabase/server", () => ({
-  createServiceClient: () => makeSupabaseMock(),
 }));
 
 const getAvailableSlotsMock = vi.fn();
@@ -52,8 +38,6 @@ vi.mock("@/lib/calcom/availability", () => ({
 const { getNextAgendaBlocks } = await import("./get-next-agenda-blocks");
 
 beforeEach(() => {
-  symptomMapRows = [];
-  symptomMapError = null;
   getActiveDoctorsMock.mockReset();
   getAvailableSlotsMock.mockReset();
 });
@@ -66,27 +50,13 @@ describe("getNextAgendaBlocks", () => {
     expect(getAvailableSlotsMock).not.toHaveBeenCalled();
   });
 
-  it("falls back to every active doctor when no symptom_doctor_map row matches", async () => {
-    getActiveDoctorsMock.mockResolvedValue([doctor()]);
+  it("every active doctor is a candidate regardless of symptom — only special rules narrow the pool", async () => {
+    getActiveDoctorsMock.mockResolvedValue([doctor({ id: "doc-1" }), doctor({ id: "doc-2" })]);
     getAvailableSlotsMock.mockResolvedValue([
       { date: "2026-11-09", slots: [{ time: "2026-11-09T11:00:00.000Z" }] }, // 08:00 BRT -> manha
     ]);
-    const result = await getNextAgendaBlocks([], ["sintoma-sem-mapa"], false);
-    expect(result.blocks).toHaveLength(1);
-    expect(result.blocks[0].doctor.id).toBe("doc-1");
-  });
-
-  it("uses only symptom-matched doctors when symptom_doctor_map has rows", async () => {
-    symptomMapRows = [
-      { priority: 1, symptoms: { slug: "ansiedade" }, doctors: doctor({ id: "doc-matched" }) },
-    ];
-    getAvailableSlotsMock.mockResolvedValue([
-      { date: "2026-11-09", slots: [{ time: "2026-11-09T11:00:00.000Z" }] },
-    ]);
     const result = await getNextAgendaBlocks([], ["ansiedade"], false);
-    expect(result.blocks).toHaveLength(1);
-    expect(result.blocks[0].doctor.id).toBe("doc-matched");
-    expect(getActiveDoctorsMock).not.toHaveBeenCalled();
+    expect(result.blocks.map((b) => b.doctor.id).sort()).toEqual(["doc-1", "doc-2"]);
   });
 
   it("excludes the autism-excluded doctor when 'autismo' is among the symptoms", async () => {
