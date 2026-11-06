@@ -11,6 +11,7 @@ import {
   redis,
 } from "@/lib/rate-limit";
 import { MIN_LEAD_HOURS } from "./config";
+import { TIMEZONE } from "@/lib/utils/datetime";
 
 export interface TimeSlot {
   time: string; // ISO string
@@ -112,6 +113,13 @@ export async function getAvailableSlots(
   url.searchParams.set("eventTypeId", String(eventTypeId));
   url.searchParams.set("start", start);
   url.searchParams.set("end", end);
+  // Without this, Cal.com buckets the response's date keys by UTC calendar
+  // day instead of the doctor's actual day — a Friday-night BRT slot
+  // (21h BRT = 00h UTC Saturday) was coming back keyed under "Saturday",
+  // so getNextAgendaBlocks' weekday-from-date-key filter silently dropped
+  // every evening slot that crosses midnight UTC. Confirmed live against
+  // the real Cal.com API (event 6217774) on 2026-11-06.
+  url.searchParams.set("timeZone", TIMEZONE);
 
   try {
     const res = await fetch(url.toString(), {

@@ -69,6 +69,18 @@ describe("getAvailableSlots — MIN_LEAD_HOURS filtering (item 2c: nada com meno
     expect(startParam).toBeGreaterThanOrEqual(minExpected);
   });
 
+  it("item 0: sends timeZone=America/Sao_Paulo so Cal.com buckets dates by BRT, not UTC", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ status: "success", data: {} }),
+    });
+
+    await getAvailableSlots(123, 30, 10);
+
+    const calledUrl = new URL(String(fetchMock.mock.calls[0][0]));
+    expect(calledUrl.searchParams.get("timeZone")).toBe("America/Sao_Paulo");
+  });
+
   it("drops a day entirely when every one of its slots falls inside the lead-time window", async () => {
     const tooSoon = new Date(Date.now() + 1 * 60 * 60 * 1000);
     fetchMock.mockResolvedValueOnce({

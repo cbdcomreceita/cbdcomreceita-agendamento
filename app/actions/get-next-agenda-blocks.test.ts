@@ -172,6 +172,49 @@ describe("getNextAgendaBlocks", () => {
     expect(result.blocks[1].doctor.id).toBe("doc-low-priority");
   });
 
+  it("item 0: a Friday-night BRT slot that crosses midnight UTC is still classified as Friday/noite", async () => {
+    // getAvailableSlots (now fixed to pass timeZone=America/Sao_Paulo) buckets
+    // this day under "2026-11-13" (Friday BRT) even though the slot's own
+    // ISO instant (21h BRT) is already "2026-11-14" in UTC.
+    getActiveDoctorsMock.mockResolvedValue([doctor({ id: "doc-brendon" })]);
+    getAvailableSlotsMock.mockResolvedValue([
+      { date: "2026-11-13", slots: [{ time: "2026-11-14T00:00:00.000Z" }] }, // Fri 21h BRT
+    ]);
+    const result = await getNextAgendaBlocks([{ weekday: 5, period: "noite" }], [], false);
+    expect(result.usedFallback).toBe(false);
+    expect(result.blocks).toHaveLength(1);
+    expect(result.blocks[0].period).toBe("noite");
+    expect(result.blocks[0].date).toBe("2026-11-13");
+  });
+
+  it("item 0: Dr. Brendon (sexta à noite) and Dra. Carolina (sexta de manhã) both appear when both days/periods are chosen", async () => {
+    getActiveDoctorsMock.mockResolvedValue([
+      doctor({ id: "doc-brendon", name: "Dr. Brendon", global_priority: 3, calcom_event_type_id: 6217774 }),
+      doctor({ id: AUTISM_DOCTOR_ID, name: "Dra. Carolina Lopes", global_priority: 1 }),
+    ]);
+    getAvailableSlotsMock.mockImplementation(async (eventTypeId: number) => {
+      if (eventTypeId === 6217774) {
+        // Dr. Brendon — Friday 20h BRT, which is already Saturday 23h UTC.
+        return [{ date: "2026-11-13", slots: [{ time: "2026-11-13T23:00:00.000Z" }] }];
+      }
+      return [{ date: "2026-11-13", slots: [{ time: "2026-11-13T12:00:00.000Z" }] }]; // Fri 09h BRT
+    });
+    const result = await getNextAgendaBlocks(
+      [
+        { weekday: 5, period: "manha" },
+        { weekday: 5, period: "noite" },
+      ],
+      [],
+      false
+    );
+    expect(result.usedFallback).toBe(false);
+    expect(result.blocks).toHaveLength(2);
+    const brendonBlock = result.blocks.find((b) => b.doctor.id === "doc-brendon");
+    const carolinaBlock = result.blocks.find((b) => b.doctor.id === AUTISM_DOCTOR_ID);
+    expect(brendonBlock?.period).toBe("noite");
+    expect(carolinaBlock?.period).toBe("manha");
+  });
+
   it("caps the result at 3 blocks, nearest first", async () => {
     getActiveDoctorsMock.mockResolvedValue([doctor()]);
     getAvailableSlotsMock.mockResolvedValue([
