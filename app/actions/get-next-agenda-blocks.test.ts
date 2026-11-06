@@ -156,6 +156,22 @@ describe("getNextAgendaBlocks", () => {
     expect(result.blocks).toHaveLength(1);
   });
 
+  it("item 2b: two doctors free on the same day+period appear as separate blocks, tie broken by global_priority", async () => {
+    getActiveDoctorsMock.mockResolvedValue([
+      doctor({ id: "doc-low-priority", global_priority: 5 }),
+      doctor({ id: "doc-high-priority", global_priority: 1 }),
+    ]);
+    // Same mocked return for every eventTypeId — both doctors free at the exact same day/period.
+    getAvailableSlotsMock.mockResolvedValue([
+      { date: "2026-11-09", slots: [{ time: "2026-11-09T11:00:00.000Z" }] },
+    ]);
+    const result = await getNextAgendaBlocks([], [], false);
+    expect(result.blocks).toHaveLength(2);
+    // Lower global_priority sorts first when blockStart ties.
+    expect(result.blocks[0].doctor.id).toBe("doc-high-priority");
+    expect(result.blocks[1].doctor.id).toBe("doc-low-priority");
+  });
+
   it("caps the result at 3 blocks, nearest first", async () => {
     getActiveDoctorsMock.mockResolvedValue([doctor()]);
     getAvailableSlotsMock.mockResolvedValue([
