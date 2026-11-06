@@ -192,7 +192,6 @@ export default function DadosPage() {
       applyCoupon(triage.couponCode);
     }
     isCouponAvailable().then(setCouponAvailable);
-    isLightFormEnabled().then(setLightFormEnabled);
 
     // Pre-fill birth date from triage
     if (triage.birthDate) {
@@ -211,7 +210,18 @@ export default function DadosPage() {
       }
     }
 
-    setLoaded(true);
+    // Only flip `loaded` once lightFormEnabled is actually known. Rendering
+    // with it still at its default (false) for even one tick mounts the
+    // full form's RG/endereço inputs — react-hook-form's shouldUnregister
+    // defaults to false, so those fields stay registered with "" after
+    // unmounting once the real flag arrives, silently failing the light
+    // schema's validation (an "optional" field still has to be a valid
+    // value or absent — "" is neither) with no visible error, since the
+    // inputs showing that error aren't even rendered under the light form.
+    isLightFormEnabled().then((enabled) => {
+      setLightFormEnabled(enabled);
+      setLoaded(true);
+    });
   }, [router, setValue, applyCoupon]);
 
   // CEP auto-fill
