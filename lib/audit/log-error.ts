@@ -7,6 +7,7 @@ export type ErrorScope =
   | "confirm"
   | "coupon"
   | "create"
+  | "cron"
   | "dispatch"
   | "resend"
   | "sheets"

@@ -9,16 +9,12 @@ import { isAgenda3NextEnabled } from "@/app/actions/feature-flags";
 import { releaseCalcomSlot } from "@/lib/calcom/reservations";
 import { formatDateBR, formatDateDDMMWeekday, formatTimeH, formatTodayTomorrowLabel } from "@/lib/utils/datetime";
 import { formatIntakeDeadline } from "@/lib/intake/deadline";
+import { isCronAuthorized } from "@/lib/cron/auth";
+import { recordHeartbeat } from "@/lib/cron/health";
 
 const REMINDER_DELAY_MS = 10 * 60 * 1000;
 const INTAKE_REMINDER_WINDOW_MS = 12 * 60 * 60 * 1000; // 12h antes
 const INTAKE_ALERT_WINDOW_MS = 2 * 60 * 60 * 1000; // 2h antes
-
-function isAuthorized(req: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return false;
-  return req.headers.get("authorization") === `Bearer ${secret}`;
-}
 
 function isPixReminderEnabled(): boolean {
   return process.env.WHATSAPP_PIX_REMINDER_ENABLED?.trim().toLowerCase() === "true";
@@ -430,11 +426,15 @@ async function sendIntakeNotifications(
 }
 
 export async function GET(req: NextRequest) {
-  if (!isAuthorized(req)) {
+  if (!isCronAuthorized(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const supabase = createServiceClient();
+
+  // Unconditional, before any of the tick's actual work — this is the
+  // signal /api/cron/health watches for. See lib/cron/health.ts.
+  await recordHeartbeat(supabase);
 
   const expiry = await expireOverduePix(supabase);
   const reminders = await sendPixReminders(supabase);
