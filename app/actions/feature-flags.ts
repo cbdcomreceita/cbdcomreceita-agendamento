@@ -19,3 +19,13 @@ export async function isLightFormEnabled(): Promise<boolean> {
 export async function isAgenda3NextEnabled(): Promise<boolean> {
   return process.env.AGENDA_3_NEXT_ENABLED?.trim().toLowerCase() === "true";
 }
+
+/**
+ * Gates only the e-mail side-effect of /api/cron/health (the health check
+ * itself and its 200/503 response always run — this flag just controls
+ * whether an unhealthy result also fires a team e-mail). Default false so
+ * merging this doesn't start paging anyone until explicitly turned on.
+ */
+export async function isCronHealthAlertEnabled(): Promise<boolean> {
+  return process.env.CRON_HEALTH_ALERT_ENABLED?.trim().toLowerCase() === "true";
+}
