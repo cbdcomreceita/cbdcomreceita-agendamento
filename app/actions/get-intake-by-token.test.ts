@@ -22,7 +22,8 @@ function bookingRow(overrides: Record<string, unknown> = {}) {
     scheduled_end_at: null,
     intake_required: true,
     intake_completed_at: null,
-    patients: { full_name: "Lais Teste" },
+    triage_data: { isMinor: false },
+    patients: { full_name: "Lais Teste", cpf: "41145285805" },
     doctors: { name: "Dra. Carolina Lopes" },
     ...overrides,
   };
@@ -53,6 +54,15 @@ describe("getIntakeByToken", () => {
     expect(result.found).toBe(true);
     expect(result.alreadyCompleted).toBe(false);
     expect(result.patientName).toBe("Lais Teste");
+    expect(result.isMinor).toBe(false);
+    expect(result.responsibleFullName).toBe("Lais Teste");
+    expect(result.responsibleCpf).toBe("41145285805");
+  });
+
+  it("surfaces isMinor:true from the booking's triage data", async () => {
+    currentRow = bookingRow({ triage_data: { isMinor: true } });
+    const result = await getIntakeByToken(TOKEN);
+    expect(result.isMinor).toBe(true);
   });
 
   it("resolves a {{1}}-prefixed token", async () => {

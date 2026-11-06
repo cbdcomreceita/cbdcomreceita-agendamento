@@ -1,4 +1,4 @@
-import { getConfirmationTemplateName } from "./config";
+import { NEXTALK_TEMPLATE_NAME } from "./config";
 
 export interface TemplateInput {
   patientFullName: string;
@@ -7,17 +7,6 @@ export interface TemplateInput {
   doctorName: string; // "Dra. Thiany Lange" — already includes the honorific
   meetLink: string; // full https://meet.google.com/xxx-xxxx-xxx
   meetCode: string; // just "xxx-xxxx-xxx"
-  /**
-   * Set only when the booking requires the prontuário (Entrega 2) and a
-   * token exists. A second URL button is only safe to add once
-   * confirmacao_consulta_v2 — with that second button already registered
-   * on Meta's side — is the active template (see getConfirmationTemplateName).
-   * The exact approved copy for v2 wasn't available at implementation time
-   * (Parte 0 do relatório), so this assumes a second url-type button,
-   * mirroring the existing Meet-link button — confirm against the real
-   * template before enabling WHATSAPP_CONFIRMATION_TEMPLATE_NAME=confirmacao_consulta_v2.
-   */
-  intakeLink?: string;
 }
 
 /** First name only, for the template's {{1}} — matches the tone of the approved copy. */
@@ -31,12 +20,14 @@ export function buildIntakeLink(intakeToken: string): string {
   return `${baseUrl}/prontuario/${intakeToken}`;
 }
 
+/**
+ * confirmacao_consulta — only ever used for bookings where
+ * intake_required=false. Untouched since before the prontuário work:
+ * fixed name, 5 body vars, 1 button (Meet code).
+ */
 export function buildTemplateParams(input: TemplateInput) {
-  const buttons: { type: "url"; parameter: string }[] = [{ type: "url", parameter: input.meetCode }];
-  if (input.intakeLink) buttons.push({ type: "url", parameter: input.intakeLink });
-
   return {
-    name: getConfirmationTemplateName(),
+    name: NEXTALK_TEMPLATE_NAME,
     category: "UTILITY" as const,
     language: "pt_BR" as const,
     processed_params: {
@@ -47,7 +38,7 @@ export function buildTemplateParams(input: TemplateInput) {
         "4": input.doctorName,
         "5": input.meetLink,
       },
-      buttons,
+      buttons: [{ type: "url" as const, parameter: input.meetCode }],
     },
   };
 }

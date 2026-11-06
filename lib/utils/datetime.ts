@@ -74,3 +74,24 @@ export function formatWeekdayLong(iso: string | Date): string {
 export function formatDayMonthLong(iso: string | Date): string {
   return formatInTimeZone(iso, TIMEZONE, "d 'de' MMMM", { locale: ptBR });
 }
+
+/** "quarta-feira, 05/11" — confirmacao_consulta_v2's {{2}}. */
+export function formatWeekdayDateShort(iso: string | Date): string {
+  return formatInTimeZone(iso, TIMEZONE, "EEEE, dd/MM", { locale: ptBR });
+}
+
+/**
+ * "hoje" when `iso` falls on the same America/Sao_Paulo calendar day as
+ * now, "amanhã, dd/MM" when it's the next day, else "dd/MM" — used by
+ * lembrete_prontuario_12h's {{3}}, which only ever fires inside a 12h
+ * window before the consultation, so "today"/"tomorrow" is never ambiguous
+ * in practice; the dd/MM fallback exists only for a clock/window edge case.
+ */
+export function formatTodayTomorrowLabel(iso: string | Date, now: Date = new Date()): string {
+  const target = formatInTimeZone(iso, TIMEZONE, "yyyy-MM-dd");
+  const today = formatInTimeZone(now, TIMEZONE, "yyyy-MM-dd");
+  const tomorrow = formatInTimeZone(new Date(now.getTime() + 24 * 60 * 60 * 1000), TIMEZONE, "yyyy-MM-dd");
+  if (target === today) return "hoje";
+  if (target === tomorrow) return `amanhã, ${formatDateBRShort(iso)}`;
+  return formatDateBRShort(iso);
+}

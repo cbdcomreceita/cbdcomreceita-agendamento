@@ -10,6 +10,10 @@ interface BookingConfirmationProps {
   duration: string;
   meetLink?: string;
   amountFormatted: string;
+  /** True when the prontuário (Entrega 2) is still pending for this booking. */
+  intakeRequired?: boolean;
+  /** "dd/MM às HHhmm" — only meaningful when intakeRequired is true. */
+  intakeDeadline?: string;
 }
 
 export function BookingConfirmationEmail({
@@ -20,6 +24,8 @@ export function BookingConfirmationEmail({
   duration,
   meetLink,
   amountFormatted,
+  intakeRequired,
+  intakeDeadline,
 }: BookingConfirmationProps) {
   return (
     <Html lang="pt-BR">
@@ -89,6 +95,17 @@ export function BookingConfirmationEmail({
               </Text>
             </Section>
 
+            {intakeRequired && intakeDeadline && (
+              <Section style={pendingIntakeStyle}>
+                <Text style={pendingIntakeTitle}>Falta só um passo</Text>
+                <Text style={pendingIntakeBody}>
+                  Preencha os dados do PACIENTE para abrirmos o prontuário e, se houver indicação, emitir a receita
+                  durante a consulta. O prazo é até {intakeDeadline}. Sem esses dados, a consulta poderá ser
+                  cancelada.
+                </Text>
+              </Section>
+            )}
+
             <Hr style={hrStyle} />
 
             {/* Rules */}
@@ -99,6 +116,22 @@ export function BookingConfirmationEmail({
             <Text style={ruleStyle}>
               • Para remarcar com antecedência, entre em contato pelo WhatsApp
               (84) 99704-8210
+            </Text>
+
+            <Hr style={hrStyle} />
+
+            {/* Antes da consulta / Importante — novos blocos (item 3d) */}
+            <Text style={rulesTitle}>Antes da consulta</Text>
+            <Text style={ruleStyle}>
+              No celular, instale o app Google Meet antes do horário. No computador, use Chrome, Edge, Firefox ou
+              Safari e permita o acesso à câmera e ao microfone quando o navegador pedir. Pode ser que a médica
+              precise liberar a sua entrada na sala. Entre alguns minutos antes para testar.
+            </Text>
+
+            <Text style={{ ...rulesTitle, marginTop: "16px" }}>Importante</Text>
+            <Text style={ruleStyle}>
+              O paciente precisa estar presente na consulta. Se for menor de idade, ele deve participar acompanhado
+              do responsável. Em caso de desistência ou ausência, não há reembolso.
             </Text>
           </Section>
 
@@ -243,6 +276,31 @@ const policyBody = {
 const hrStyle = {
   borderColor: "#e5e0d4",
   margin: "24px 0",
+};
+
+const pendingIntakeStyle = {
+  backgroundColor: "#fdf3dd",
+  borderLeft: "3px solid #c9951f",
+  borderRadius: "0 10px 10px 0",
+  padding: "16px 20px",
+  margin: "24px 0 0 0",
+};
+
+const pendingIntakeTitle = {
+  color: "#7a5a12",
+  fontSize: "13px",
+  fontWeight: "700" as const,
+  textTransform: "uppercase" as const,
+  letterSpacing: "0.06em",
+  fontFamily: "'Source Sans 3', system-ui, sans-serif",
+  margin: "0 0 8px 0",
+};
+
+const pendingIntakeBody = {
+  color: "#5c4a1f",
+  fontSize: "13px",
+  lineHeight: "1.6",
+  margin: "0",
 };
 
 const rulesTitle = {

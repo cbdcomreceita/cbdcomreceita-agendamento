@@ -25,15 +25,16 @@ export const NEXTALK_OFFER_DESCRIPTION = "Consulta Padrão";
 export const NEXTALK_TEMPLATE_NAME = "confirmacao_consulta";
 
 /**
- * Entrega 2 (prontuário): `confirmacao_consulta_v2` adds a second URL
- * button for the prontuário link, submitted directly in the Meta WhatsApp
- * Manager — not created by this codebase (see Parte 0 do relatório: o
- * texto aprovado não estava disponível para a submissão automática).
- * Defaults to the current, already-APPROVED template so behavior is
- * unchanged until this is explicitly pointed at v2 post-approval.
+ * Which template a given booking's confirmation uses is decided by
+ * intake_required, not by this env var alone: intake_required=false always
+ * uses the hardcoded NEXTALK_TEMPLATE_NAME ("confirmacao_consulta"),
+ * unchanged by anything here. intake_required=true uses this function's
+ * result — the real confirmacao_consulta_v2 structure (6 body vars, 2
+ * buttons), created on Meta and in review as of 2026-11-06. Configurable so
+ * the name can be pointed at the final approved template without a deploy.
  */
-export function getConfirmationTemplateName(): string {
-  return process.env.WHATSAPP_CONFIRMATION_TEMPLATE_NAME?.trim() || NEXTALK_TEMPLATE_NAME;
+export function getConfirmationV2TemplateName(): string {
+  return process.env.WHATSAPP_CONFIRMATION_TEMPLATE_NAME?.trim() || "confirmacao_consulta_v2";
 }
 
 /**

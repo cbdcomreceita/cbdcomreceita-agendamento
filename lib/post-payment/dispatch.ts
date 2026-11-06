@@ -220,7 +220,12 @@ export async function dispatchPostPaymentSideEffects(
     });
   }
 
-  // 3. Google Sheets row
+  // 3. Google Sheets row. "Nome" and "CPF" are always the contact/
+  // responsible (who made the booking — this is who `patient` represents
+  // under the light form) and never change at intake time. "Paciente" is
+  // who's actually attending: same person as "Nome" for the old flow,
+  // "Pendente" here when intake_required until /prontuario/[token] is
+  // submitted (app/actions/submit-intake.ts updates just that column).
   const sheetResult = await appendToGoogleSheet({
     Tipo: "Agendamento confirmado",
     "Booking ID": bookingId,
@@ -229,7 +234,7 @@ export async function dispatchPostPaymentSideEffects(
     Horario: timeFormatted,
     Medico: doctor.name,
     CRM: crmFull,
-    Paciente: patient.full_name,
+    Paciente: intakeRequired ? "Pendente" : patient.full_name,
     CPF: cpfFmt,
     RG: rgFmt,
     "Data Nascimento": birthBR,

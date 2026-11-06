@@ -40,8 +40,8 @@ export function PatientIntakeDoctorEmail(props: PatientIntakeDoctorProps) {
             </Text>
 
             <Section style={cardStyle}>
-              <Row label="Nome" value={props.patientName} />
-              <Row label="CPF" value={props.patientCpf} />
+              <Row label={props.intakePending ? "Contato (responsável pelo agendamento)" : "Nome"} value={props.patientName} />
+              {!props.intakePending && <Row label="CPF" value={props.patientCpf} />}
               <Row label="Idade" value={props.patientAge !== null ? `${props.patientAge} anos` : "Pendente"} />
               <Row label="Sintomas" value={props.symptoms} />
               <Row label="Medicamentos em uso" value={props.currentMedications} />
@@ -53,9 +53,10 @@ export function PatientIntakeDoctorEmail(props: PatientIntakeDoctorProps) {
 
             {props.intakePending && (
               <Text style={pendingStyle}>
-                A ficha clínica completa (RG e endereço) ainda não foi preenchida
-                pelo paciente. Assim que chegar, você recebe um novo e-mail com
-                os dados completos.
+                A ficha do paciente (nome, CPF, RG e endereço) ainda não foi
+                preenchida. O nome e telefone acima são de quem fez o
+                agendamento, não necessariamente do paciente. Assim que a ficha
+                chegar, você recebe um novo e-mail com os dados completos.
               </Text>
             )}
 

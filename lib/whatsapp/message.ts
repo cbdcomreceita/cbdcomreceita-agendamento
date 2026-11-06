@@ -6,6 +6,8 @@ import type { PixReminderTemplateInput } from "./pix-reminder-template";
 import { buildPixReminderContent, buildPixReminderTemplateParams } from "./pix-reminder-template";
 import type { IntakeReminderTemplateInput } from "./intake-reminder-template";
 import { buildIntakeReminderContent, buildIntakeReminderTemplateParams } from "./intake-reminder-template";
+import type { ConfirmationV2TemplateInput } from "./confirmation-v2-template";
+import { buildConfirmationV2Content, buildConfirmationV2TemplateParams } from "./confirmation-v2-template";
 
 export interface SendMessageResult {
   id: number;
@@ -34,6 +36,25 @@ export async function sendConfirmationMessage(
     template_params: buildTemplateParams(input),
   });
   const context = "POST /conversations/{id}/messages";
+  const obj = unwrapNextalkObject(raw, "id", context);
+  const id = readNumericField(obj, "id", context, raw);
+  const status = typeof obj.status === "string" ? obj.status : "sent";
+  const external_error = typeof obj.external_error === "string" ? obj.external_error : null;
+  return { id, status, external_error };
+}
+
+/** Same shape as sendConfirmationMessage, for confirmacao_consulta_v2 (intake_required=true) instead. */
+export async function sendConfirmationV2Message(
+  conversationDisplayId: number,
+  input: ConfirmationV2TemplateInput
+): Promise<SendMessageResult> {
+  const raw = await nextalkPostCreate<unknown>(`/conversations/${conversationDisplayId}/messages`, {
+    content: buildConfirmationV2Content(input),
+    message_type: "outgoing",
+    private: false,
+    template_params: buildConfirmationV2TemplateParams(input),
+  });
+  const context = "POST /conversations/{id}/messages (confirmacao_consulta_v2)";
   const obj = unwrapNextalkObject(raw, "id", context);
   const id = readNumericField(obj, "id", context, raw);
   const status = typeof obj.status === "string" ? obj.status : "sent";

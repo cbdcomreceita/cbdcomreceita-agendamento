@@ -43,25 +43,14 @@ describe("buildTemplateParams", () => {
     });
   });
 
-  it("sets the button parameter to just the Meet code, not the full link", () => {
+  it("sets the single button's parameter to just the Meet code, not the full link", () => {
     const params = buildTemplateParams(input);
     expect(params.processed_params.buttons).toEqual([{ type: "url", parameter: "abc-defg-hij" }]);
   });
 
-  it("adds a second url button with the intake link when intakeLink is set", () => {
-    const params = buildTemplateParams({
-      ...input,
-      intakeLink: "https://www.cbdcomreceita.com.br/prontuario/tok123",
-    });
-    expect(params.processed_params.buttons).toEqual([
-      { type: "url", parameter: "abc-defg-hij" },
-      { type: "url", parameter: "https://www.cbdcomreceita.com.br/prontuario/tok123" },
-    ]);
-  });
-
-  it("omits the second button when intakeLink is absent", () => {
-    const params = buildTemplateParams(input);
-    expect(params.processed_params.buttons).toHaveLength(1);
+  it("always uses the hardcoded confirmacao_consulta name, ignoring WHATSAPP_CONFIRMATION_TEMPLATE_NAME", () => {
+    vi.stubEnv("WHATSAPP_CONFIRMATION_TEMPLATE_NAME", "confirmacao_consulta_v2");
+    expect(buildTemplateParams(input).name).toBe("confirmacao_consulta");
   });
 });
 

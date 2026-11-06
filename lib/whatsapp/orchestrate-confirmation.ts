@@ -1,16 +1,19 @@
 import { logError } from "@/lib/audit/log-error";
 import type { WhatsappAlertReason } from "@/lib/resend/send-whatsapp-alert";
+import { formatWeekdayDateShort } from "@/lib/utils/datetime";
+import { formatIntakeDeadline } from "@/lib/intake/deadline";
 import { alertForBooking as alert, loadBookingContext, type BookingContext } from "./booking-context";
-import { getConfirmationMode, getConfirmationTemplateName, getDispatchMode, getTeamNumbers } from "./config";
+import { getConfirmationMode, getConfirmationV2TemplateName, getDispatchMode, getTeamNumbers, NEXTALK_TEMPLATE_NAME } from "./config";
 import { NextalkApiError } from "./nextalk-client";
 import { extractMeetCode, isValidMeetLink, normalizePhoneToVariants, type PhoneVariants } from "./phone";
 import { findOrCreateContact, ensureContactInbox } from "./contact";
 import { findOrCreateConversation } from "./conversation";
-import { sendConfirmationMessage } from "./message";
+import { sendConfirmationMessage, sendConfirmationV2Message } from "./message";
 import { upsertKanbanCard } from "./kanban";
 import { reserveNotification, updateNotificationLog } from "./notification-log";
 import { publishVerifyDelivery } from "./qstash";
-import { buildIntakeLink, type TemplateInput } from "./template";
+import type { TemplateInput } from "./template";
+import type { ConfirmationV2TemplateInput } from "./confirmation-v2-template";
 import type { WhatsappNotificationRow } from "./types";
 
 async function runKanbanStep(
@@ -77,6 +80,10 @@ export async function orchestrateConfirmation(bookingId: string): Promise<void> 
     }
 
     const dispatchMode = getDispatchMode();
+    // Which template this booking uses is decided by intake_required, not
+    // by a global flag — see getConfirmationV2TemplateName's doc comment.
+    const usesV2 = ctx.intakeRequired && !!ctx.intakeToken;
+    const templateNameForLog = usesV2 ? getConfirmationV2TemplateName() : NEXTALK_TEMPLATE_NAME;
 
     if (mode === "team_only" && !getTeamNumbers().has(variants.primary)) {
       const { row, isNew } = await reserveNotification({
@@ -84,7 +91,7 @@ export async function orchestrateConfirmation(bookingId: string): Promise<void> 
         patientId: ctx.patientId,
         recipient: variants.primary,
         type: "booking_confirmation",
-        templateName: getConfirmationTemplateName(),
+        templateName: templateNameForLog,
         payload: { mode, dispatchMode, reason: "not_in_team_only_list" },
       });
       if (isNew) {
@@ -98,7 +105,7 @@ export async function orchestrateConfirmation(bookingId: string): Promise<void> 
       patientId: ctx.patientId,
       recipient: variants.primary,
       type: "booking_confirmation",
-      templateName: getConfirmationTemplateName(),
+      templateName: templateNameForLog,
       payload: { mode, dispatchMode },
     });
 
@@ -189,19 +196,27 @@ export async function orchestrateConfirmation(bookingId: string): Promise<void> 
       return;
     }
 
-    const templateInput: TemplateInput = {
-      patientFullName: ctx.patientFullName,
-      dateBR: ctx.dateBR,
-      timeH: ctx.timeH,
-      doctorName: ctx.doctorName,
-      meetLink: ctx.meetLink!,
-      meetCode,
-      intakeLink: ctx.intakeRequired && ctx.intakeToken ? buildIntakeLink(ctx.intakeToken) : undefined,
-    };
-
     let messageSentOk = false;
     try {
-      const message = await sendConfirmationMessage(conversationDisplayId, templateInput);
+      const message = usesV2
+        ? await sendConfirmationV2Message(conversationDisplayId, {
+            patientFullName: ctx.patientFullName,
+            weekdayDateShort: formatWeekdayDateShort(ctx.scheduledAtIso),
+            timeH: ctx.timeH,
+            doctorName: ctx.doctorName,
+            intakeDeadline: formatIntakeDeadline(ctx.scheduledAtIso),
+            meetLink: ctx.meetLink!,
+            intakeToken: ctx.intakeToken!,
+            meetCode,
+          } satisfies ConfirmationV2TemplateInput)
+        : await sendConfirmationMessage(conversationDisplayId, {
+            patientFullName: ctx.patientFullName,
+            dateBR: ctx.dateBR,
+            timeH: ctx.timeH,
+            doctorName: ctx.doctorName,
+            meetLink: ctx.meetLink!,
+            meetCode,
+          } satisfies TemplateInput);
       const failed = message.status === "failed";
       await updateNotificationLog(row.id, {
         nextalk_message_id: String(message.id),

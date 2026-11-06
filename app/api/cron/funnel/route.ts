@@ -7,7 +7,8 @@ import { sendIntakePendingAlert } from "@/lib/resend/send-intake-pending-alert";
 import { isIntakeReminderEnabled } from "@/lib/whatsapp/config";
 import { isAgenda3NextEnabled } from "@/app/actions/feature-flags";
 import { releaseCalcomSlot } from "@/lib/calcom/reservations";
-import { formatDateBR, formatDateDDMMWeekday, formatTimeH } from "@/lib/utils/datetime";
+import { formatDateBR, formatDateDDMMWeekday, formatTimeH, formatTodayTomorrowLabel } from "@/lib/utils/datetime";
+import { formatIntakeDeadline } from "@/lib/intake/deadline";
 
 const REMINDER_DELAY_MS = 10 * 60 * 1000;
 const INTAKE_REMINDER_WINDOW_MS = 12 * 60 * 60 * 1000; // 12h antes
@@ -345,9 +346,10 @@ async function sendIntakeNotifications(
     const patient = booking.patients;
     if (!doctor || !patient || !booking.intake_token) continue;
 
-    const dateLabel = formatDateDDMMWeekday(booking.scheduled_at);
+    const dateLabel = formatTodayTomorrowLabel(booking.scheduled_at);
     const timeH = formatTimeH(booking.scheduled_at);
     const dateBR = formatDateBR(booking.scheduled_at);
+    const intakeDeadline = formatIntakeDeadline(booking.scheduled_at);
 
     if (!reminderEnabled) {
       remindersSkippedFlagOff++;
@@ -360,6 +362,7 @@ async function sendIntakeNotifications(
         doctorName: doctor.name,
         dateLabel,
         timeH,
+        intakeDeadline,
         intakeToken: booking.intake_token,
       });
       if (result.status === "sent") {
