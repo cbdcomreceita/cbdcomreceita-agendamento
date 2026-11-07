@@ -11,6 +11,7 @@ import {
   redis,
 } from "@/lib/rate-limit";
 import { MIN_LEAD_HOURS } from "./config";
+import { TIMEZONE } from "@/lib/utils/datetime";
 
 export interface TimeSlot {
   time: string; // ISO string
@@ -112,6 +113,17 @@ export async function getAvailableSlots(
   url.searchParams.set("eventTypeId", String(eventTypeId));
   url.searchParams.set("start", start);
   url.searchParams.set("end", end);
+  // Without this, Cal.com buckets the response's date keys by UTC calendar
+  // day instead of America/Sao_Paulo — a Friday-night BRT slot (21h BRT =
+  // 00h UTC Saturday) was coming back keyed under "Saturday", silently
+  // misclassifying its weekday/date everywhere that key is used. Confirmed
+  // live against the real Cal.com API (event 6217774) on 2026-11-06, and
+  // live in Production's current single-doctor flow (slot-picker.tsx) on
+  // 2026-11-07 — Monday-night slots showed grouped under "Terça-Feira".
+  // Only changes which date key a slot is bucketed/labeled under; the
+  // slot's own ISO instant (`slot.time`), which both reservation and
+  // booking creation actually use, is untouched.
+  url.searchParams.set("timeZone", TIMEZONE);
 
   try {
     const res = await fetch(url.toString(), {
