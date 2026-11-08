@@ -41,12 +41,18 @@ describe("getAvailableSlots — America/Sao_Paulo is the single timezone used to
   });
 
   it("passes the date key straight through unmodified — only Cal.com's own bucketing (via timeZone) decides it", async () => {
+    // Well beyond MIN_LEAD_HOURS (24h) so it survives the lead-time filter
+    // regardless of when the test runs.
+    const future = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000);
+    const dateKey = future.toISOString().slice(0, 10);
+    const startIso = future.toISOString();
+
     fetchMock.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
         status: "success",
         data: {
-          "2026-11-09": [{ start: "2026-11-09T23:00:00.000Z" }], // Mon 20h BRT
+          [dateKey]: [{ start: startIso }],
         },
       }),
     });
@@ -54,7 +60,7 @@ describe("getAvailableSlots — America/Sao_Paulo is the single timezone used to
     const result = await getAvailableSlots(123, 30, 10);
 
     expect(result).toHaveLength(1);
-    expect(result[0].date).toBe("2026-11-09");
-    expect(result[0].slots[0].time).toBe("2026-11-09T23:00:00.000Z");
+    expect(result[0].date).toBe(dateKey);
+    expect(result[0].slots[0].time).toBe(startIso);
   });
 });
