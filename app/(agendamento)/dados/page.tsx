@@ -4,17 +4,14 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { formatDateBR, formatDateLong } from "@/lib/utils/datetime";
-import { Loader2, ArrowRight, Clock, Leaf, Ticket, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2, ArrowRight, Ticket, CheckCircle2, XCircle } from "lucide-react";
 import { trackEvent } from "@/lib/analytics/track";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { TermsModal, PrivacyModal } from "@/components/fluxo/consent-modal";
 import { FlowBreadcrumb } from "@/components/fluxo/flow-breadcrumb";
 import { DoctorSummary } from "@/components/fluxo/doctor-summary";
-import { SelectableCard } from "@/components/fluxo/selectable-card";
 import { loadTriageData, saveTriageData } from "@/lib/triagem/storage";
-import type { TriageData } from "@/lib/triagem/schemas";
 import { loadBookingData } from "@/lib/calcom/storage";
 import { savePatientData, loadPatientData } from "@/lib/validation/patient-storage";
 import {
@@ -32,22 +29,7 @@ import { getDoctorById } from "@/app/actions/get-doctors";
 import { isCouponAvailable, validateCouponAction, type CouponCheckResult } from "@/app/actions/coupon";
 import { formatCentsToBRL } from "@/lib/utils/currency";
 import type { Doctor } from "@/lib/types/doctor";
-import { sintomas } from "@/data/sintomas";
 import { cn } from "@/lib/utils";
-
-const DURATION_OPTIONS: { value: NonNullable<TriageData["duration"]>; label: string }[] = [
-  { value: "less_1m", label: "Menos de 1 mês" },
-  { value: "1_6m", label: "1 a 6 meses" },
-  { value: "6_12m", label: "6 a 12 meses" },
-  { value: "more_1y", label: "Mais de 1 ano" },
-];
-
-const CBD_OPTIONS: { value: NonNullable<TriageData["priorCbdUse"]>; label: string }[] = [
-  { value: "never", label: "Nunca" },
-  { value: "with_prescription", label: "Sim, com prescrição médica" },
-  { value: "self", label: "Sim, por conta própria" },
-  { value: "prefer_not_say", label: "Prefiro não dizer" },
-];
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
@@ -82,9 +64,6 @@ export default function DadosPage() {
   const router = useRouter();
   const [doctor, setDoctor] = useState<Doctor | null>(null);
   const [bookingDate, setBookingDate] = useState<string | null>(null);
-  const [selectedSymptomLabels, setSelectedSymptomLabels] = useState<string[]>([]);
-  const [duration, setDuration] = useState<TriageData["duration"]>();
-  const [priorCbdUse, setPriorCbdUse] = useState<TriageData["priorCbdUse"]>();
   const [cepLoading, setCepLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -145,7 +124,6 @@ export default function DadosPage() {
   } = useForm<PatientFormData>({
     defaultValues: {
       phoneCountry: DEFAULT_COUNTRY,
-      hasCurrentMedication: false,
       lgpdConsent: false as unknown as true,
       termsConsent: false as unknown as true,
       whatsappConsent: false as unknown as true,
@@ -180,13 +158,6 @@ export default function DadosPage() {
     });
     setBookingDate(booking.scheduledAt);
 
-    const labels = sintomas
-      .filter((s) => triage.selectedSymptoms!.includes(s.slug) && !s.isEmergency)
-      .map((s) => s.label);
-    setSelectedSymptomLabels(labels);
-
-    if (triage.duration) setDuration(triage.duration);
-    if (triage.priorCbdUse) setPriorCbdUse(triage.priorCbdUse);
     if (triage.couponCode) {
       setCouponInput(triage.couponCode);
       applyCoupon(triage.couponCode);
@@ -240,7 +211,6 @@ export default function DadosPage() {
     }
   }, [cepValue, setValue]);
 
-  const hasMed = watch("hasCurrentMedication");
   const lgpdChecked = watch("lgpdConsent");
   const termsChecked = watch("termsConsent");
   const whatsappConsentChecked = watch("whatsappConsent");
@@ -258,9 +228,6 @@ export default function DadosPage() {
         if (!errs[key]) errs[key] = issue.message;
       }
     }
-    if (!duration) errs.duration = "Selecione há quanto tempo você convive com isso";
-    if (!priorCbdUse) errs.priorCbdUse = "Selecione uma opção";
-
     if (!result.success || Object.keys(errs).length > 0) {
       setFieldErrors(errs);
 
@@ -276,7 +243,6 @@ export default function DadosPage() {
     // Store the phone already in E.164 — everything downstream (NexTalk,
     // confirm-booking, dispatch) expects that shape for new patients.
     savePatientData({ ...result.data, phone: patientPhoneE164(result.data) });
-    saveTriageData({ duration, priorCbdUse });
     router.push("/pagamento");
   }
 
@@ -509,104 +475,7 @@ export default function DadosPage() {
 
         <div className="h-px bg-brand-sand/40" />
 
-        {/* Section 3: Clinical */}
-        <div>
-          <SectionTitle>Informações clínicas</SectionTitle>
-          <div className="space-y-4">
-            <div>
-              <p className="mb-2 text-sm font-medium text-brand-text">Sintomas selecionados</p>
-              <div className="flex flex-wrap gap-1.5">
-                {selectedSymptomLabels.map((label) => (
-                  <Badge key={label} variant="secondary" className="bg-brand-forest/8 text-brand-forest text-xs">
-                    {label}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-            <div id="duration">
-              <p className="mb-2 text-sm font-medium text-brand-text">
-                Há quanto tempo você convive com isso? <span className="text-brand-error/60">*</span>
-              </p>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {DURATION_OPTIONS.map((opt) => (
-                  <SelectableCard
-                    key={opt.value}
-                    label={opt.label}
-                    selected={duration === opt.value}
-                    onClick={() => {
-                      setDuration(opt.value);
-                      saveTriageData({ duration: opt.value });
-                    }}
-                    icon={<Clock className="h-4 w-4 text-brand-forest" />}
-                    role="radio"
-                  />
-                ))}
-              </div>
-              <FieldError message={fieldErrors.duration} />
-            </div>
-            <div>
-              <p className="mb-2 text-sm font-medium text-brand-text">
-                Já toma algum medicamento para esses sintomas? <span className="text-brand-error/60">*</span>
-              </p>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 text-sm text-brand-text">
-                  <input
-                    type="radio"
-                    name="hasMed"
-                    checked={hasMed === true}
-                    onChange={() => setValue("hasCurrentMedication", true)}
-                    className="accent-brand-forest"
-                  />
-                  Sim
-                </label>
-                <label className="flex items-center gap-2 text-sm text-brand-text">
-                  <input
-                    type="radio"
-                    name="hasMed"
-                    checked={hasMed === false}
-                    onChange={() => {
-                      setValue("hasCurrentMedication", false);
-                      setValue("currentMedications", "");
-                    }}
-                    className="accent-brand-forest"
-                  />
-                  Não
-                </label>
-              </div>
-              {hasMed === true && (
-                <div className="mt-3">
-                  <Label htmlFor="currentMedications" required>Qual medicamento?</Label>
-                  <input id="currentMedications" {...register("currentMedications")} placeholder="Nome do medicamento" className={inputClass()} />
-                </div>
-              )}
-            </div>
-            <div id="priorCbdUse">
-              <p className="mb-2 text-sm font-medium text-brand-text">
-                Você já usou CBD antes? <span className="text-brand-error/60">*</span>
-              </p>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {CBD_OPTIONS.map((opt) => (
-                  <SelectableCard
-                    key={opt.value}
-                    label={opt.label}
-                    selected={priorCbdUse === opt.value}
-                    onClick={() => {
-                      setPriorCbdUse(opt.value);
-                      saveTriageData({ priorCbdUse: opt.value });
-                    }}
-                    icon={<Leaf className="h-4 w-4 text-brand-forest" />}
-                    role="radio"
-                  />
-                ))}
-              </div>
-              <FieldError message={fieldErrors.priorCbdUse} />
-            </div>
-          </div>
-        </div>
-
-        <div className="h-px bg-brand-sand/40" />
-
-        {/* Section 4: Consent */}
+        {/* Section 3: Consent */}
         <div>
           <SectionTitle>Consentimento</SectionTitle>
           <div className="space-y-4">

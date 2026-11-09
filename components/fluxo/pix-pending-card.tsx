@@ -4,7 +4,6 @@ import Image from "next/image";
 import { Clock, Copy, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { formatDateBR, formatTime } from "@/lib/utils/datetime";
 import { formatCentsToBRL } from "@/lib/utils/currency";
 import { cn } from "@/lib/utils";
 
@@ -12,14 +11,11 @@ export interface PixPendingCardProps {
   qrCode: string;
   qrCodeBase64: string;
   amountCents: number;
-  expiresAt: string;
   countdown: string;
-  /** Entrega 3 — set only when the slot was actually reserved on Cal.com (AGENDA_3_NEXT_ENABLED). */
-  reservedUntil?: string;
 }
 
 /** Shared PIX-awaiting visuals — used by /pagamento (right after generating) and /pagamento/[token] (reopened via WhatsApp link). Approved copy, do not reword without checking with the team. */
-export function PixPendingCard({ qrCode, qrCodeBase64, amountCents, expiresAt, countdown, reservedUntil }: PixPendingCardProps) {
+export function PixPendingCard({ qrCode, qrCodeBase64, amountCents, countdown }: PixPendingCardProps) {
   async function copyCode() {
     await navigator.clipboard.writeText(qrCode);
     toast.success("Código PIX copiado!");
@@ -30,17 +26,9 @@ export function PixPendingCard({ qrCode, qrCodeBase64, amountCents, expiresAt, c
       <h2 className="text-center text-lg font-semibold text-brand-forest-dark">
         Seu PIX de {formatCentsToBRL(amountCents)} está pronto
       </h2>
-      <p className="mt-1 text-center text-lg text-brand-text-secondary">
-        Ele vale até {formatDateBR(expiresAt)} às {formatTime(expiresAt)} (horário de Brasília).
-      </p>
       <p className="mt-1 text-center text-lg font-medium text-brand-text">
         A consulta só é confirmada após o pagamento.
       </p>
-      {reservedUntil && (
-        <p className="mt-1 text-center text-lg text-brand-forest">
-          Seu horário está reservado até {formatTime(reservedUntil)}.
-        </p>
-      )}
 
       <div className="mx-auto mt-6 flex items-center justify-center">
         {qrCodeBase64 ? (
@@ -82,8 +70,8 @@ export function PixPendingCard({ qrCode, qrCodeBase64, amountCents, expiresAt, c
         <Mail className="mt-0.5 h-5 w-5 shrink-0 text-brand-forest" />
         <p className="text-lg leading-relaxed text-brand-text-secondary">
           Assim que identificarmos seu pagamento, a confirmação da consulta aparece aqui
-          nesta tela. Também enviaremos os detalhes e o link de acesso pelo Google Meet
-          para o e-mail cadastrado.
+          nesta tela. Também enviaremos os detalhes e o link de acesso do Google Meet
+          para o e-mail e WhatsApp cadastrados.
         </p>
       </div>
 

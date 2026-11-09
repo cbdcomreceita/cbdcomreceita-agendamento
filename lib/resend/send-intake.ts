@@ -15,6 +15,7 @@ export interface DoctorIntakeParams {
   patientAge: number | null;
   patientPhone: string;
   symptoms: string;
+  duration: string;
   currentMedications: string;
   priorCbdUse: string;
   dateFormatted: string;
@@ -45,6 +46,7 @@ export async function sendDoctorIntake(
         patientAge: params.patientAge,
         patientPhone: params.patientPhone,
         symptoms: params.symptoms,
+        duration: params.duration,
         currentMedications: params.currentMedications,
         priorCbdUse: params.priorCbdUse,
         dateFormatted: params.dateFormatted,

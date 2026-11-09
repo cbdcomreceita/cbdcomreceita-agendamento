@@ -249,7 +249,6 @@ export default function PagamentoTokenPage() {
                 qrCode={data.qrCode}
                 qrCodeBase64={data.qrCodeBase64}
                 amountCents={data.amountCents}
-                expiresAt={data.expiresAt}
                 countdown={countdown}
               />
             </motion.div>

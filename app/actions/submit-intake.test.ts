@@ -210,3 +210,62 @@ describe("submitIntake", () => {
     expect(result.success).toBe(false);
   });
 });
+
+describe("submitIntake — clinical questions (moved here from /dados)", () => {
+  it("merges symptoms/duration/medicamentos/CBD into the booking's triage_data, preserving existing keys", async () => {
+    currentRow = bookingRow({ triage_data: { duration: "less_1m", priorTreatment: "therapy", isMinor: false } });
+    const data = {
+      ...VALID_DATA,
+      symptoms: ["ansiedade", "insonia"],
+      duration: "1_6m" as const,
+      hasCurrentMedication: true,
+      currentMedications: "Sertralina 50mg",
+      priorCbdUse: "self" as const,
+      priorCbdProduct: "Óleo full spectrum",
+    };
+
+    const result = await submitIntake({ token: "tok123", data });
+
+    expect(result.success).toBe(true);
+    expect(bookingUpdateSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        triage_data: expect.objectContaining({
+          priorTreatment: "therapy", // preserved from the pre-payment triage, not overwritten
+          symptoms: ["ansiedade", "insonia"],
+          duration: "1_6m",
+          hasCurrentMedication: true,
+          currentMedications: "Sertralina 50mg",
+          priorCbdUse: "self",
+          priorCbdProduct: "Óleo full spectrum",
+        }),
+      })
+    );
+    expect(sendDoctorIntake).toHaveBeenCalledWith(
+      expect.objectContaining({
+        symptoms: "Ansiedade, Insônia",
+        duration: "Entre 1 e 6 meses",
+        currentMedications: "Sertralina 50mg",
+        priorCbdUse: "Sim, por conta própria — Óleo full spectrum",
+      })
+    );
+    expect(updateGoogleSheetRow).toHaveBeenCalledWith(
+      "booking-1",
+      expect.objectContaining({
+        Sintomas: "Ansiedade, Insônia",
+        "Ha quanto tempo": "Entre 1 e 6 meses",
+        Medicamentos: "Sertralina 50mg",
+        "Ja usou CBD": "Sim, por conta própria — Óleo full spectrum",
+      })
+    );
+  });
+
+  it("defaults symptoms to what /triagem already had selected when the form doesn't send any", async () => {
+    currentRow = bookingRow(); // patients.selected_symptoms: ["ansiedade"]
+    const result = await submitIntake({ token: "tok123", data: VALID_DATA });
+
+    expect(result.success).toBe(true);
+    expect(sendDoctorIntake).toHaveBeenCalledWith(
+      expect.objectContaining({ symptoms: "Ansiedade", duration: "Não informado", currentMedications: "Nenhum informado" })
+    );
+  });
+});

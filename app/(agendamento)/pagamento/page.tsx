@@ -462,9 +462,7 @@ export default function PagamentoPage() {
                 qrCode={pixData.qrCode}
                 qrCodeBase64={pixData.qrCodeBase64}
                 amountCents={pixData.amountCents}
-                expiresAt={pixData.expiresAt}
                 countdown={countdown}
-                reservedUntil={pixData.reservedUntil}
               />
             </motion.div>
           )}
