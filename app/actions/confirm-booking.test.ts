@@ -31,7 +31,10 @@ vi.mock("@/lib/audit/log-error", () => ({ logError: (...a: unknown[]) => logErro
 vi.mock("@/lib/resend/send-confirmation", () => ({
   sendBookingConfirmation: vi.fn().mockResolvedValue({ success: true }),
 }));
-vi.mock("@/lib/calcom/bookings", () => ({ createCalcomBooking: vi.fn() }));
+const createCalcomBookingMock = vi.fn();
+vi.mock("@/lib/calcom/bookings", () => ({
+  createCalcomBooking: (...a: unknown[]) => createCalcomBookingMock(...a),
+}));
 vi.mock("@/lib/mercadopago/client", () => ({ getMpPayment: vi.fn() }));
 vi.mock("@/lib/analytics/meta-conversions-api", () => ({
   sendMetaConversionEvent: vi.fn().mockResolvedValue(undefined),
@@ -39,6 +42,14 @@ vi.mock("@/lib/analytics/meta-conversions-api", () => ({
 const sendPaymentAfterExpiryAlert = vi.fn();
 vi.mock("@/lib/resend/send-payment-after-expiry-alert", () => ({
   sendPaymentAfterExpiryAlert: (...a: unknown[]) => sendPaymentAfterExpiryAlert(...a),
+}));
+const sendSlotConflictAlert = vi.fn();
+vi.mock("@/lib/resend/send-slot-conflict-alert", () => ({
+  sendSlotConflictAlert: (...a: unknown[]) => sendSlotConflictAlert(...a),
+}));
+const sendSlotConflictPatientNotice = vi.fn();
+vi.mock("@/lib/resend/send-slot-conflict-patient-notice", () => ({
+  sendSlotConflictPatientNotice: (...a: unknown[]) => sendSlotConflictPatientNotice(...a),
 }));
 
 // Three different call sites share .maybeSingle() in confirm-booking.ts:
@@ -123,6 +134,9 @@ beforeEach(() => {
   dispatchPostPaymentSideEffects.mockReset();
   logError.mockReset();
   sendPaymentAfterExpiryAlert.mockReset();
+  sendSlotConflictAlert.mockReset();
+  sendSlotConflictPatientNotice.mockReset();
+  createCalcomBookingMock.mockReset();
   dispatchPostPaymentSideEffects.mockResolvedValue(undefined);
   getConfirmationMode.mockReturnValue("off");
   getDispatchMode.mockReturnValue("qstash");
@@ -200,6 +214,80 @@ describe("confirmBooking — concurrent calls race for the same booking", () => 
     // The one side effect that has no collision-detection of its own
     // (Cal.com's own DB did the detecting there) — must run exactly once.
     expect(dispatchPostPaymentSideEffects).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("confirmBooking — Entrega 3, item 2h: Cal.com booking conflict after payment", () => {
+  it("d) duas confirmações simultâneas do mesmo horário: só uma cria a consulta, a outra cai no fluxo de conflito", async () => {
+    currentBookingRow = baseBookingRow({
+      doctors: {
+        id: "doctor-1",
+        name: "Dra. Ana Costa",
+        email: "ana@example.com",
+        crm: "12345",
+        crm_uf: "SP",
+        calcom_event_type_id: 6217774,
+      },
+    });
+    // 1st maybeSingle: step-5 atomic claim -> succeeds (this call "wins" the
+    // DB-level race). 2nd: the conflicting-booking lookup inside the new
+    // conflict branch -> finds the booking that already confirmed Cal.com's
+    // side of the race.
+    maybeSingleQueue = [
+      { data: { id: "booking-1" }, error: null },
+      { data: { id: "booking-2" }, error: null },
+    ];
+    createCalcomBookingMock.mockResolvedValue({
+      success: false,
+      error: "Cal.com error 409: already booked",
+      conflict: true,
+    });
+
+    const result = await confirmBooking({ bookingId: "booking-1", source: "webhook" });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("slot_conflict_after_payment");
+    expect(sendSlotConflictAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bookingId: "booking-1",
+        conflictingBookingId: "booking-2",
+        patientName: "Maria Silva",
+        doctorName: "Dra. Ana Costa",
+      })
+    );
+    expect(sendSlotConflictPatientNotice).toHaveBeenCalledWith(
+      expect.objectContaining({ bookingId: "booking-1", patientName: "Maria Silva" })
+    );
+    // Payment was already approved before the Cal.com call — never lost.
+    expect(sendPaymentAfterExpiryAlert).not.toHaveBeenCalled();
+    // Never claims a consultation that doesn't exist.
+    expect(dispatchPostPaymentSideEffects).not.toHaveBeenCalled();
+  });
+
+  it("confirms normally when Cal.com succeeds (no conflict)", async () => {
+    currentBookingRow = baseBookingRow({
+      doctors: {
+        id: "doctor-1",
+        name: "Dra. Ana Costa",
+        email: "ana@example.com",
+        crm: "12345",
+        crm_uf: "SP",
+        calcom_event_type_id: 6217774,
+      },
+    });
+    createCalcomBookingMock.mockResolvedValue({
+      success: true,
+      bookingId: 1,
+      bookingUid: "uid-1",
+      meetLink: "https://meet.google.com/real-link",
+    });
+
+    const result = await confirmBooking({ bookingId: "booking-1", source: "webhook" });
+
+    expect(result.success).toBe(true);
+    expect(result.meetLink).toBe("https://meet.google.com/real-link");
+    expect(sendSlotConflictAlert).not.toHaveBeenCalled();
+    expect(sendSlotConflictPatientNotice).not.toHaveBeenCalled();
   });
 });
 

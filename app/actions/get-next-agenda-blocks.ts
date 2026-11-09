@@ -1,6 +1,5 @@
 "use server";
 
-import { createServiceClient } from "@/lib/supabase/server";
 import { getActiveDoctors } from "@/app/actions/get-doctors";
 import { getAvailableSlots } from "@/lib/calcom/availability";
 import { classifyPeriod } from "@/lib/calcom/config";
@@ -28,42 +27,6 @@ export interface NextAgendaBlocksResult {
   /** True when nothing matched the triage's chosen periods, so these are
    * the nearest blocks in ANY period instead (Entrega 3, item 2). */
   usedFallback: boolean;
-}
-
-/**
- * Doctors eligible by symptom (symptom_doctor_map) — NOT the same matching
- * as Entrega 1's resolveDoctorForSchedule, which matches by doctor_availability
- * (weekday/period) instead. Entrega 3 asks explicitly for symptom-based
- * candidacy; falls back to every active doctor when none of the selected
- * symptoms have an explicit mapping row, so an unmapped symptom never
- * empties the candidate pool.
- */
-async function getSymptomMatchedDoctors(symptoms: string[]): Promise<Doctor[]> {
-  if (symptoms.length === 0) return getActiveDoctors();
-
-  const supabase = createServiceClient();
-  const DOCTOR_COLUMNS =
-    "id, name, crm, crm_uf, specialties, bio_short, photo_url, email, calcom_event_type_slug, calcom_event_type_id, global_priority, handles_minors, handles_elderly, is_active, medical_specialty";
-
-  const { data, error } = await supabase
-    .from("symptom_doctor_map")
-    .select(`priority, symptoms!inner(slug), doctors!inner(${DOCTOR_COLUMNS})`)
-    .in("symptoms.slug", symptoms)
-    .eq("doctors.is_active", true);
-
-  if (error || !data || data.length === 0) {
-    return getActiveDoctors();
-  }
-
-  const seen = new Set<string>();
-  const doctors: Doctor[] = [];
-  for (const row of data) {
-    const doctor = row.doctors as unknown as Doctor;
-    if (seen.has(doctor.id)) continue;
-    seen.add(doctor.id);
-    doctors.push(doctor);
-  }
-  return doctors;
 }
 
 function applySpecialRules(doctors: Doctor[], symptoms: string[], isMinor: boolean): Doctor[] {
@@ -120,15 +83,21 @@ async function buildAllBlocks(candidates: Doctor[]): Promise<AgendaBlock[]> {
 /**
  * Entrega 3 — "Esses são os melhores médicos para você": the 3 nearest
  * (médico, dia, período) blocks matching the triage's chosen days/periods,
- * among symptom-eligible doctors (special rules applied). Falls back to
- * the 3 nearest blocks in ANY period when none match (item 2).
+ * among every active doctor (every doctor treats every symptom, per
+ * product rule — the only exceptions are the special rules below: Dra.
+ * Carolina excluded from "autismo", and doctors who don't handle minors
+ * excluded when the patient is a minor). `symptoms` is kept as a param
+ * only so those special rules can read it; it no longer drives candidacy
+ * directly (symptom_doctor_map was Entrega 1's old single-doctor routing
+ * concept and doesn't apply here). Falls back to the 3 nearest blocks in
+ * ANY period when none match (item 2).
  */
 export async function getNextAgendaBlocks(
   chosenSlots: ScheduleSlot[],
   symptoms: string[] = [],
   isMinor = false
 ): Promise<NextAgendaBlocksResult> {
-  const candidates = applySpecialRules(await getSymptomMatchedDoctors(symptoms), symptoms, isMinor);
+  const candidates = applySpecialRules(await getActiveDoctors(), symptoms, isMinor);
   if (candidates.length === 0) return { blocks: [], usedFallback: false };
 
   const allBlocks = await buildAllBlocks(candidates);

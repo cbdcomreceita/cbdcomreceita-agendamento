@@ -152,6 +152,7 @@ export async function dispatchPostPaymentSideEffects(
     patientAge: age,
     patientPhone: phoneFmt,
     symptoms: symptomsJoined,
+    duration: durationLabel,
     currentMedications: currentMedicationsLabel,
     priorCbdUse: priorCbdLabel,
     dateFormatted,

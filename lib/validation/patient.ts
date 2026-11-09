@@ -47,10 +47,6 @@ const patientBaseShape = z.object({
   city: z.string().min(2, "Cidade obrigatória"),
   state: z.enum(UF_OPTIONS, { message: "Estado inválido" }),
 
-  // Clinical
-  hasCurrentMedication: z.boolean(),
-  currentMedications: z.string().optional(),
-
   // Consent
   lgpdConsent: z.literal(true, { message: "Consentimento obrigatório" }),
   termsConsent: z.literal(true, { message: "Consentimento obrigatório" }),

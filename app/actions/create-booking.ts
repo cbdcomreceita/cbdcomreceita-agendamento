@@ -105,8 +105,12 @@ export async function createBooking(
       address_zipcode: cepClean,
       whatsapp_consent: patient.whatsappConsent === true,
       selected_symptoms: triage.selectedSymptoms || [],
-      has_current_medication: patient.hasCurrentMedication || false,
-      current_medications: patient.currentMedications || null,
+      // Clinical questions (medication/CBD) moved to /prontuario — collected
+      // and stored on the booking's triage_data post-payment instead, see
+      // app/actions/submit-intake.ts. These two patients columns are no
+      // longer written here.
+      has_current_medication: false,
+      current_medications: null,
       prior_cbd_use: triage.priorCbdUse || null,
       lgpd_consent_at: patient.lgpdConsentAt || new Date().toISOString(),
       terms_consent_at: patient.termsConsentAt || new Date().toISOString(),

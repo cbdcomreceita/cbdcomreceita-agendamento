@@ -46,6 +46,40 @@ describe("intakeSchema", () => {
   });
 });
 
+describe("intakeSchema — clinical questions (moved here from /dados), all optional", () => {
+  it("accepts the form with no clinical fields at all", () => {
+    expect(intakeSchema.safeParse(VALID).success).toBe(true);
+  });
+
+  it("accepts every clinical field filled in", () => {
+    const result = intakeSchema.safeParse({
+      ...VALID,
+      symptoms: ["ansiedade", "insonia"],
+      duration: "1_6m",
+      hasCurrentMedication: true,
+      currentMedications: "Sertralina 50mg",
+      priorCbdUse: "self",
+      priorCbdProduct: "Óleo full spectrum",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts hasCurrentMedication=true without currentMedications (never blocks submission)", () => {
+    const result = intakeSchema.safeParse({ ...VALID, hasCurrentMedication: true });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts an empty symptoms array", () => {
+    const result = intakeSchema.safeParse({ ...VALID, symptoms: [] });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects an invalid duration value", () => {
+    const result = intakeSchema.safeParse({ ...VALID, duration: "invalid" });
+    expect(result.success).toBe(false);
+  });
+});
+
 describe("buildIntakeSchema — CPF required for an adult patient", () => {
   const adultSchema = buildIntakeSchema(false);
 

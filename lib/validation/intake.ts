@@ -31,6 +31,15 @@ export const intakeBaseSchema = z.object({
   district: z.string().min(2, "Bairro obrigatório"),
   city: z.string().min(2, "Cidade obrigatória"),
   state: z.enum(UF_OPTIONS, { message: "Estado inválido" }),
+
+  // Clinical — moved here from /dados, which only asks contato/identidade
+  // do responsável now. All optional: never block submission.
+  symptoms: z.array(z.string()).optional(),
+  duration: z.enum(["less_1m", "1_6m", "6_12m", "more_1y"]).optional(),
+  hasCurrentMedication: z.boolean().optional(),
+  currentMedications: z.string().optional(),
+  priorCbdUse: z.enum(["never", "with_prescription", "self", "prefer_not_say"]).optional(),
+  priorCbdProduct: z.string().optional(),
 });
 
 /** isMinor decides whether patientCpf is required — always validated against the real CPF algorithm when present, minor or not. */

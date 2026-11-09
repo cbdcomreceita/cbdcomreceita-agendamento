@@ -22,6 +22,13 @@ export interface ReserveSlotResult {
   /** ISO 8601 — when the hold releases itself if never explicitly deleted. */
   reservationUntil?: string;
   error?: string;
+  /** True when Cal.com rejected the reservation because the slot is really
+   * gone (already reserved by someone else, or already booked) — a 422
+   * UnprocessableEntityException. Confirmed live against the real API on
+   * 2026-11-06 for both cases ("already reserved" and "already booked").
+   * Distinguishes "this slot is taken" (block checkout) from a transient/
+   * infra failure (proceed best-effort, same as before). */
+  conflict?: boolean;
 }
 
 /**
@@ -55,12 +62,19 @@ export async function reserveCalcomSlot(input: ReserveSlotInput): Promise<Reserv
 
     const text = await res.text();
     if (!res.ok) {
+      let conflict = false;
+      try {
+        const parsed = JSON.parse(text) as { error?: { code?: string } };
+        conflict = res.status === 422 && parsed.error?.code === "UnprocessableEntityException";
+      } catch {
+        // Non-JSON body — leave conflict false, treated as an infra failure.
+      }
       await logError({
         scope: "calcom",
         message: `Slot reservation failed (${res.status})`,
-        metadata: { status: res.status, body: text.slice(0, 1000), input },
+        metadata: { status: res.status, body: text.slice(0, 1000), input, conflict },
       });
-      return { success: false, error: `Cal.com error ${res.status}: ${text}` };
+      return { success: false, error: `Cal.com error ${res.status}: ${text}`, conflict };
     }
 
     const json = JSON.parse(text) as { data?: { reservationUid?: string; reservationUntil?: string } };

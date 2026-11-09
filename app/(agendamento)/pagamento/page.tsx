@@ -32,6 +32,7 @@ type PaymentState =
   | "verifying_expiry"
   | "expired"
   | "expired_unverified"
+  | "slot_conflict"
   | "error";
 
 interface PixData {
@@ -93,6 +94,10 @@ export default function PagamentoPage() {
         result.amountCents === undefined
       ) {
         console.error("[Pagamento] generatePix failed:", result.error);
+        if (result.error === "slot_conflict") {
+          setState("slot_conflict");
+          return;
+        }
         if (result.error === "rate_limit_exceeded") {
           const minutes = Math.max(1, Math.ceil((result.retryAfter ?? 600) / 60));
           toast.error(
@@ -457,9 +462,7 @@ export default function PagamentoPage() {
                 qrCode={pixData.qrCode}
                 qrCodeBase64={pixData.qrCodeBase64}
                 amountCents={pixData.amountCents}
-                expiresAt={pixData.expiresAt}
                 countdown={countdown}
-                reservedUntil={pixData.reservedUntil}
               />
             </motion.div>
           )}
@@ -602,6 +605,31 @@ export default function PagamentoPage() {
                   Gerar novo código PIX
                 </Button>
               </div>
+            </motion.div>
+          )}
+
+          {/* Slot conflict: someone else reserved/booked this exact time
+              between the agenda pick and the PIX attempt. Distinct from the
+              generic "error" state — never offers a blind retry on the
+              same slot, only a way back to pick a different one. Triage
+              data stays in localStorage, so /agenda picks it right back up. */}
+          {state === "slot_conflict" && (
+            <motion.div
+              key="slot_conflict"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex flex-col items-center gap-4 py-8"
+            >
+              <AlertTriangle className="h-10 w-10 text-brand-warning" />
+              <h2 className="text-lg font-semibold text-brand-forest-dark">
+                Esse horário acabou de ser reservado. Escolha outro horário.
+              </h2>
+              <Button
+                onClick={() => router.push("/agenda")}
+                className="bg-brand-forest text-brand-cream hover:bg-brand-forest-hover"
+              >
+                Escolher outro horário
+              </Button>
             </motion.div>
           )}
 

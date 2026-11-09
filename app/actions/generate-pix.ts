@@ -254,10 +254,21 @@ export async function generatePix(input: GeneratePixInput): Promise<GeneratePixR
     // table only gets a calcom_reservation_uid column once migration 0016
     // is applied, and AGENDA_3_NEXT_ENABLED is the single thing standing
     // between "never calls this" and "always calls this" — see
-    // create-booking.ts's intake_required fix for why that matters. A
-    // reservation failure (including the DB write failing, e.g. before the
-    // migration runs) never blocks PIX generation — same best-effort
-    // posture as every other non-critical side effect in this flow.
+    // create-booking.ts's intake_required fix for why that matters.
+    //
+    // reserveCalcomSlot's result is the authoritative, atomic answer to
+    // "is this slot still free" — confirmed live against the real API on
+    // 2026-11-06 that it rejects BOTH an already-reserved slot and an
+    // already-booked one with the same 422 UnprocessableEntityException. A
+    // separate "check availability right before reserving" call would be
+    // redundant with this (and worse: staler, since getAvailableSlots is
+    // cached for 90s) — so this one atomic call does double duty.
+    //
+    // Only a genuine conflict (`reservation.conflict`) blocks checkout.
+    // Any other reservation failure (Cal.com down, timeout, 5xx, the DB
+    // write failing) is non-blocking — same best-effort posture as every
+    // other non-critical side effect in this flow — but now it's audited
+    // so it's distinguishable from "nobody tried."
     let reservedUntil: string | undefined;
     if (!isMock && doctor.calcom_event_type_id && (await isAgenda3NextEnabled())) {
       const reservation = await reserveCalcomSlot({
@@ -265,6 +276,7 @@ export async function generatePix(input: GeneratePixInput): Promise<GeneratePixR
         slotStart: booking.scheduled_at,
         reservationDurationMinutes: expirationMinutes,
       });
+
       if (reservation.success && reservation.reservationUid) {
         reservedUntil = reservation.reservationUntil;
         const { error: reservationUpdateError } = await supabase
@@ -280,6 +292,25 @@ export async function generatePix(input: GeneratePixInput): Promise<GeneratePixR
             entityId: bookingId,
           });
         }
+      } else if (reservation.conflict) {
+        await supabase.from("audit_events").insert({
+          event_type: "slot_conflict_before_payment",
+          entity_type: "booking",
+          entity_id: bookingId,
+          metadata: {
+            paymentId: dbPayment.id,
+            doctorEventTypeId: doctor.calcom_event_type_id,
+            scheduledAt: booking.scheduled_at,
+          },
+        });
+        return { success: false, error: "slot_conflict" };
+      } else {
+        await supabase.from("audit_events").insert({
+          event_type: "slot_reservation_skipped_calcom_error",
+          entity_type: "booking",
+          entity_id: bookingId,
+          metadata: { paymentId: dbPayment.id, error: reservation.error },
+        });
       }
     }
 

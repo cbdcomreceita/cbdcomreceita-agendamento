@@ -69,6 +69,45 @@ describe("reserveCalcomSlot", () => {
     expect(result.success).toBe(false);
   });
 
+  it("item 2h: marks conflict:true on a real 422 UnprocessableEntityException (slot taken)", async () => {
+    // Exact shape confirmed live against the real Cal.com API on 2026-11-06,
+    // both for "already reserved by another user" and "already booked".
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 422,
+      text: async () =>
+        JSON.stringify({
+          status: "error",
+          error: {
+            code: "UnprocessableEntityException",
+            message: "This time slot is already reserved by another user. Please choose a different time.",
+          },
+        }),
+    });
+
+    const result = await reserveCalcomSlot({
+      eventTypeId: 1,
+      slotStart: "2026-11-11T16:00:00.000Z",
+      reservationDurationMinutes: 120,
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.conflict).toBe(true);
+  });
+
+  it("item 2h: does NOT mark conflict:true on an unrelated error (e.g. a 500)", async () => {
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 500, text: async () => "Internal Server Error" });
+
+    const result = await reserveCalcomSlot({
+      eventTypeId: 1,
+      slotStart: "2026-11-11T16:00:00.000Z",
+      reservationDurationMinutes: 120,
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.conflict).toBeFalsy();
+  });
+
   it("returns success:false (mock_mode) without calling fetch when CALCOM_API_KEY is unset", async () => {
     vi.resetModules();
     vi.stubEnv("CALCOM_API_KEY", "");

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useForm } from "react-hook-form";
-import { Loader2, CheckCircle2, AlertTriangle, MessageCircle, ArrowRight } from "lucide-react";
+import { Loader2, CheckCircle2, AlertTriangle, MessageCircle, ArrowRight, Clock, Leaf } from "lucide-react";
 import { getIntakeByToken } from "@/app/actions/get-intake-by-token";
 import { submitIntake } from "@/app/actions/submit-intake";
 import { buildIntakeSchema, type IntakeFormData } from "@/lib/validation/intake";
@@ -10,7 +10,25 @@ import { UF_OPTIONS } from "@/lib/validation/patient";
 import { fetchCep } from "@/lib/utils/viacep";
 import { maskCep, maskCpf } from "@/lib/utils/masks";
 import { Button } from "@/components/ui/button";
+import { SelectableCard } from "@/components/fluxo/selectable-card";
+import { sintomas } from "@/data/sintomas";
 import { cn } from "@/lib/utils";
+
+const DURATION_OPTIONS: { value: NonNullable<IntakeFormData["duration"]>; label: string }[] = [
+  { value: "less_1m", label: "Menos de 1 mês" },
+  { value: "1_6m", label: "1 a 6 meses" },
+  { value: "6_12m", label: "6 a 12 meses" },
+  { value: "more_1y", label: "Mais de 1 ano" },
+];
+
+const CBD_OPTIONS: { value: NonNullable<IntakeFormData["priorCbdUse"]>; label: string }[] = [
+  { value: "never", label: "Nunca" },
+  { value: "with_prescription", label: "Sim, com prescrição médica" },
+  { value: "self", label: "Sim, por conta própria" },
+  { value: "prefer_not_say", label: "Prefiro não dizer" },
+];
+
+const NON_EMERGENCY_SYMPTOMS = sintomas.filter((s) => !s.isEmergency);
 
 const SUPPORT_WHATSAPP = `https://wa.me/5584997048210?text=${encodeURIComponent(
   "Olá! Estou tentando preencher meus dados pelo link do prontuário e preciso de ajuda."
@@ -52,6 +70,9 @@ export function ProntuarioClient({ token }: { token: string }) {
   const [submitError, setSubmitError] = useState("");
   const [cepLoading, setCepLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [symptoms, setSymptoms] = useState<string[]>([]);
+  const [duration, setDuration] = useState<IntakeFormData["duration"]>();
+  const [priorCbdUse, setPriorCbdUse] = useState<IntakeFormData["priorCbdUse"]>();
 
   const {
     register,
@@ -86,6 +107,7 @@ export function ProntuarioClient({ token }: { token: string }) {
       setIsMinor(result.isMinor === true);
       setResponsibleFullName(result.responsibleFullName ?? "");
       setResponsibleCpf(result.responsibleCpf ?? "");
+      setSymptoms(result.preSelectedSymptoms ?? []);
       setState("form");
     });
   }, [token]);
@@ -116,11 +138,17 @@ export function ProntuarioClient({ token }: { token: string }) {
     }
   }, [cepValue, setValue]);
 
+  function toggleSymptom(slug: string) {
+    setSymptoms((prev) => (prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]));
+  }
+
+  const hasMed = watch("hasCurrentMedication");
+
   async function onSubmit(data: IntakeFormData) {
     setFieldErrors({});
     setSubmitError("");
 
-    const result = buildIntakeSchema(isMinor).safeParse(data);
+    const result = buildIntakeSchema(isMinor).safeParse({ ...data, symptoms, duration, priorCbdUse });
     if (!result.success) {
       const errs: Record<string, string> = {};
       for (const issue of result.error.issues) {
@@ -369,6 +397,102 @@ export function ProntuarioClient({ token }: { token: string }) {
               ))}
             </select>
             <FieldError message={errors.state?.message} />
+          </div>
+        </div>
+
+        <div className="h-px bg-brand-sand/40" />
+
+        <div className="space-y-6">
+          <p className="text-xs font-semibold uppercase tracking-widest text-brand-forest-light">
+            Informações clínicas (opcional)
+          </p>
+
+          <div>
+            <p className="mb-2 text-[17px] font-medium text-brand-text">Confirme os sintomas</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {NON_EMERGENCY_SYMPTOMS.map((s) => (
+                <SelectableCard
+                  key={s.slug}
+                  label={s.label}
+                  selected={symptoms.includes(s.slug)}
+                  onClick={() => toggleSymptom(s.slug)}
+                  role="checkbox"
+                />
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-2 text-[17px] font-medium text-brand-text">Há quanto tempo você convive com isso?</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {DURATION_OPTIONS.map((opt) => (
+                <SelectableCard
+                  key={opt.value}
+                  label={opt.label}
+                  selected={duration === opt.value}
+                  onClick={() => setDuration(opt.value)}
+                  icon={<Clock className="h-4 w-4 text-brand-forest" />}
+                  role="radio"
+                />
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-2 text-[17px] font-medium text-brand-text">Já toma algum medicamento para esses sintomas?</p>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 text-[17px] text-brand-text">
+                <input
+                  type="radio"
+                  name="hasMed"
+                  checked={hasMed === true}
+                  onChange={() => setValue("hasCurrentMedication", true)}
+                  className="accent-brand-forest"
+                />
+                Sim
+              </label>
+              <label className="flex items-center gap-2 text-[17px] text-brand-text">
+                <input
+                  type="radio"
+                  name="hasMed"
+                  checked={hasMed === false || hasMed === undefined}
+                  onChange={() => {
+                    setValue("hasCurrentMedication", false);
+                    setValue("currentMedications", "");
+                  }}
+                  className="accent-brand-forest"
+                />
+                Não
+              </label>
+            </div>
+            {hasMed === true && (
+              <div className="mt-3">
+                <Label htmlFor="currentMedications">Qual medicamento?</Label>
+                <input id="currentMedications" {...register("currentMedications")} placeholder="Nome do medicamento" className={inputClass()} />
+              </div>
+            )}
+          </div>
+
+          <div>
+            <p className="mb-2 text-[17px] font-medium text-brand-text">Você já usou CBD antes?</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {CBD_OPTIONS.map((opt) => (
+                <SelectableCard
+                  key={opt.value}
+                  label={opt.label}
+                  selected={priorCbdUse === opt.value}
+                  onClick={() => setPriorCbdUse(opt.value)}
+                  icon={<Leaf className="h-4 w-4 text-brand-forest" />}
+                  role="radio"
+                />
+              ))}
+            </div>
+            {(priorCbdUse === "with_prescription" || priorCbdUse === "self") && (
+              <div className="mt-3">
+                <Label htmlFor="priorCbdProduct">Qual?</Label>
+                <input id="priorCbdProduct" {...register("priorCbdProduct")} placeholder="Produto ou marca" className={inputClass()} />
+              </div>
+            )}
           </div>
         </div>
 

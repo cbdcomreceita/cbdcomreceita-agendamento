@@ -116,13 +116,16 @@ export async function getAvailableSlots(
   // Without this, Cal.com buckets the response's date keys by UTC calendar
   // day instead of America/Sao_Paulo — a Friday-night BRT slot (21h BRT =
   // 00h UTC Saturday) was coming back keyed under "Saturday", silently
-  // misclassifying its weekday/date everywhere that key is used. Confirmed
-  // live against the real Cal.com API (event 6217774) on 2026-11-06, and
-  // live in Production's current single-doctor flow (slot-picker.tsx) on
-  // 2026-11-07 — Monday-night slots showed grouped under "Terça-Feira".
-  // Only changes which date key a slot is bucketed/labeled under; the
-  // slot's own ISO instant (`slot.time`), which both reservation and
-  // booking creation actually use, is untouched.
+  // misclassifying its weekday/date everywhere that key is used. This hit
+  // both the single-doctor picker (slot-picker.tsx's day header) and the
+  // multi-doctor "3 next agendas" engine (get-next-agenda-blocks.ts's
+  // weekday-from-date-key filter, which silently dropped every evening
+  // block that crosses midnight UTC). Confirmed live against the real
+  // Cal.com API (event 6217774) on 2026-11-06, and live in Production's
+  // single-doctor flow on 2026-11-07 — Monday-night slots showed grouped
+  // under "Terça-Feira". Only changes which date key a slot is
+  // bucketed/labeled under; the slot's own ISO instant (`slot.time`),
+  // which both reservation and booking creation actually use, is untouched.
   url.searchParams.set("timeZone", TIMEZONE);
 
   try {

@@ -9,6 +9,7 @@ export interface PatientIntakeDoctorProps {
   patientAge: number | null;
   patientPhone: string;
   symptoms: string;
+  duration: string;
   currentMedications: string;
   priorCbdUse: string;
   dateFormatted: string;
@@ -44,6 +45,7 @@ export function PatientIntakeDoctorEmail(props: PatientIntakeDoctorProps) {
               {!props.intakePending && <Row label="CPF" value={props.patientCpf} />}
               <Row label="Idade" value={props.patientAge !== null ? `${props.patientAge} anos` : "Pendente"} />
               <Row label="Sintomas" value={props.symptoms} />
+              <Row label="Há quanto tempo" value={props.duration} />
               <Row label="Medicamentos em uso" value={props.currentMedications} />
               <Row label="Histórico CBD" value={props.priorCbdUse} />
               <Row label="Telefone" value={props.patientPhone} />

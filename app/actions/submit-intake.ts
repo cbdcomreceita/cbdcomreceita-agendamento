@@ -40,11 +40,11 @@ export interface SubmitIntakeResult {
 
 /**
  * Submits /prontuario/[token] — the counterpart to the light /dados form:
- * fills in RG, nascimento and endereço on the existing patient record,
+ * fills in RG, nascimento, endereço and the clinical questions (sintomas,
+ * tempo, medicamentos, uso de CBD — moved here from /dados, which only
+ * asks contato/identidade do responsável now) on the existing booking,
  * marks intake_completed_at, and re-sends the doctor's intake e-mail (now
- * complete) plus a Sheets row marked as an update. Never touches
- * triage/clinical fields — those were already collected and sent at
- * payment time (dispatchPostPaymentSideEffects).
+ * complete) plus a Sheets row marked as an update.
  */
 export async function submitIntake(input: SubmitIntakeInput): Promise<SubmitIntakeResult> {
   const token = stripPaymentTokenPrefix(input.token.trim());
@@ -116,9 +116,6 @@ export async function submitIntake(input: SubmitIntakeInput): Promise<SubmitInta
     phone: string;
     cpf: string;
     selected_symptoms: string[] | null;
-    has_current_medication: boolean | null;
-    current_medications: string | null;
-    prior_cbd_use: string | null;
     lgpd_consent_at: string;
     terms_consent_at: string;
   };
@@ -143,7 +140,12 @@ export async function submitIntake(input: SubmitIntakeInput): Promise<SubmitInta
 
   // 1. Save the PACIENTE's own identity on the booking — never on the
   // shared `patients` row, which belongs to the RESPONSÁVEL and must not
-  // be overwritten by a different person's data (migration 0017).
+  // be overwritten by a different person's data (migration 0017). Also
+  // merges the clinical questions (sintomas, tempo, medicamentos, uso de
+  // CBD) into triage_data — they moved here from /dados, which only asks
+  // contato/identidade do responsável now. No migration: triage_data is
+  // already a free-form JSONB column.
+  const existingTriageData = (booking.triage_data ?? {}) as Record<string, unknown>;
   const { error: bookingPatientUpdateError } = await supabase
     .from("bookings")
     .update({
@@ -158,6 +160,15 @@ export async function submitIntake(input: SubmitIntakeInput): Promise<SubmitInta
       patient_address_city: form.city,
       patient_address_state: form.state,
       patient_address_zipcode: form.cep,
+      triage_data: {
+        ...existingTriageData,
+        symptoms: form.symptoms ?? [],
+        duration: form.duration ?? null,
+        hasCurrentMedication: form.hasCurrentMedication ?? false,
+        currentMedications: form.currentMedications || null,
+        priorCbdUse: form.priorCbdUse ?? null,
+        priorCbdProduct: form.priorCbdProduct || null,
+      },
     })
     .eq("id", booking.id);
 
@@ -186,7 +197,7 @@ export async function submitIntake(input: SubmitIntakeInput): Promise<SubmitInta
   // 3. Second doctor e-mail (now complete) + team e-mail + Sheets update —
   // best-effort: the patient's data is already saved regardless of whether
   // these notifications succeed.
-  type TriageJson = { duration?: string | null; priorTreatment?: string | null; priorTreatmentDetails?: string | null };
+  type TriageJson = { priorTreatment?: string | null; priorTreatmentDetails?: string | null };
   const triageData = (booking.triage_data ?? {}) as TriageJson;
 
   const dateFormatted = formatDateLongNoTime(booking.scheduled_at);
@@ -195,11 +206,17 @@ export async function submitIntake(input: SubmitIntakeInput): Promise<SubmitInta
   const dateBRShort = formatDateBRShort(booking.scheduled_at);
   const birthAnchored = `${form.birthDate}T12:00:00`;
   const age = calculateAge(parseISO(birthAnchored));
-  const symptomsJoined = getSymptomLabels(patient.selected_symptoms ?? []).join(", ") || "—";
-  const durationLabel = triageData.duration ? DURATION_LABELS[triageData.duration] ?? triageData.duration : "Não informado";
-  const priorCbdLabel = patient.prior_cbd_use ? PRIOR_CBD_LABELS[patient.prior_cbd_use] ?? patient.prior_cbd_use : "Não informado";
+  // Clinical answers now come from the just-submitted prontuário form, not
+  // from the old /dados-time `patients` columns — confirmar sintomas
+  // defaults to whatever /triagem had picked (form.symptoms prefills from
+  // that), so leaving it untouched still shows the original selection.
+  const symptomsJoined = getSymptomLabels(form.symptoms ?? patient.selected_symptoms ?? []).join(", ") || "—";
+  const durationLabel = form.duration ? DURATION_LABELS[form.duration] ?? form.duration : "Não informado";
+  const priorCbdLabel = form.priorCbdUse
+    ? (PRIOR_CBD_LABELS[form.priorCbdUse] ?? form.priorCbdUse) + (form.priorCbdProduct ? ` — ${form.priorCbdProduct}` : "")
+    : "Não informado";
   const currentMedicationsLabel =
-    patient.has_current_medication && patient.current_medications ? patient.current_medications : "Nenhum informado";
+    form.hasCurrentMedication && form.currentMedications ? form.currentMedications : "Nenhum informado";
   let notes: string | undefined;
   if (triageData.priorTreatment) {
     const tLabel = PRIOR_TREATMENT_LABELS[triageData.priorTreatment] ?? triageData.priorTreatment;
@@ -218,6 +235,7 @@ export async function submitIntake(input: SubmitIntakeInput): Promise<SubmitInta
     patientAge: age,
     patientPhone: maskPhone(patient.phone),
     symptoms: symptomsJoined,
+    duration: durationLabel,
     currentMedications: currentMedicationsLabel,
     priorCbdUse: priorCbdLabel,
     dateFormatted,
@@ -292,6 +310,10 @@ export async function submitIntake(input: SubmitIntakeInput): Promise<SubmitInta
     "Data Agendamento": dateBR,
     Horario: timeFormatted,
     Medico: doctor.name,
+    Sintomas: symptomsJoined,
+    "Ha quanto tempo": durationLabel,
+    Medicamentos: currentMedicationsLabel,
+    "Ja usou CBD": priorCbdLabel,
   });
   if (!sheetResult.success) {
     await logError({

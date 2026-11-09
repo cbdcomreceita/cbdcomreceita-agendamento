@@ -26,6 +26,9 @@ export interface IntakeByTokenResult {
   /** The responsible's own name/CPF, to prefill "O paciente sou eu". */
   responsibleFullName?: string;
   responsibleCpf?: string;
+  /** Symptom slugs selected in /triagem (step 1) — prefills the "confirmar
+   * sintomas" checkboxes; the patient can add/remove before submitting. */
+  preSelectedSymptoms?: string[];
 }
 
 /**
@@ -55,7 +58,7 @@ export async function getIntakeByToken(rawToken: string): Promise<IntakeByTokenR
   const { data, error } = await supabase
     .from("bookings")
     .select(
-      "id, scheduled_at, scheduled_end_at, intake_required, intake_completed_at, triage_data, patients(full_name, cpf), doctors(name)"
+      "id, scheduled_at, scheduled_end_at, intake_required, intake_completed_at, triage_data, patients(full_name, cpf, selected_symptoms), doctors(name)"
     )
     .eq("intake_token", token)
     .eq("intake_required", true)
@@ -72,7 +75,7 @@ export async function getIntakeByToken(rawToken: string): Promise<IntakeByTokenR
 
   if (!data) return { found: false };
 
-  type PatientRow = { full_name: string; cpf: string } | null;
+  type PatientRow = { full_name: string; cpf: string; selected_symptoms: string[] | null } | null;
   type DoctorRow = { name: string } | null;
   type TriageJson = { isMinor?: boolean };
   const patient = data.patients as unknown as PatientRow;
@@ -103,5 +106,6 @@ export async function getIntakeByToken(rawToken: string): Promise<IntakeByTokenR
     isMinor: triageData.isMinor === true,
     responsibleFullName: patient.full_name,
     responsibleCpf: patient.cpf,
+    preSelectedSymptoms: patient.selected_symptoms ?? [],
   };
 }
